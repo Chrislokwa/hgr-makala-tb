@@ -1,0 +1,3 @@
+echo "server/venv/" >> .gitignore
+echo "server/__pycache__/" >> .gitignore
+echo "server/db.sqlite3" >> .gitignore

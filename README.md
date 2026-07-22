@@ -160,7 +160,7 @@ hgr-makala-tb/
    # Sur Linux/macOS :
    source venv/bin/activate
    # Sur Windows :
-   .env\Scriptsctivate
+   .\env\Scripts\ctivate
    ```
 
 3. **Installer les dépendances Python :**

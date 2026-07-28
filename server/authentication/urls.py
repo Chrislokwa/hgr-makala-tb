@@ -1,6 +1,10 @@
-from django.urls import path
+from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import UserProfileView
+from rest_framework.routers import DefaultRouter
+from .views import UserProfileView, UserViewSet
+
+router = DefaultRouter()
+router.register(r'users', UserViewSet, basename='user')
 
 urlpatterns = [
     # Route pour se connecter (renvoie access & refresh tokens)
@@ -11,4 +15,7 @@ urlpatterns = [
     
     # Route pour obtenir son propre profil
     path('me/', UserProfileView.as_view(), name='user_profile'),
+    
+    # Routes du routeur pour la gestion CRUD des utilisateurs
+    path('', include(router.urls)),
 ]

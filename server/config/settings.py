@@ -41,10 +41,13 @@ INSTALLED_APPS = [
     # Librairies tierces
     'rest_framework',
     'corsheaders',
+    'django_filters',
 
     # Applications locales
     'authentication',
     'patients',
+    'laboratoire',
+    'stats',
 ]
 
 MIDDLEWARE = [

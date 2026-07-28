@@ -57,10 +57,16 @@ class DossierTraitement(models.Model):
         null=True,
         related_name='dossiers_suivis'
     )
+    
+    # --- NOUVEAUX CHAMPS POUR L'ÉPIC 5 (Évaluation finale) ---
+    date_cloture = models.DateField(blank=True, null=True)
+    remarques_medecin = models.TextField(blank=True, null=True, help_text="Conclusion et évaluation finale du médecin")
+    issue_traitement = models.CharField(max_length=20, choices=STATUT_CHOICES, blank=True, null=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"TB: {self.numero_tb} - {self.patient.nom}"
+        return f"TB: {self.numero_tb} - {self.patient.nom} ({self.get_statut_display()})"
 
 
 class RendezVous(models.Model):
@@ -101,3 +107,51 @@ class SuiviTherapeutique(models.Model):
         return f"Suivi du {self.date_visite} - TB: {self.dossier.numero_tb}"
 
 
+class ExamenLaboratoire(models.Model):
+    TYPE_EXAMEN_CHOICES = (
+        ('GENEXPERT', 'GeneXpert / PCR'),
+        ('MICROSCOPIE', 'Microscopie / Bacilloscopie (BK)'),
+        ('CULTURE', 'Culture sur milieu solide/liquide'),
+        ('AUTRE', 'Autre examen de contrôle'),
+    )
+
+    STATUT_CHOICES = (
+        ('PRESCRIT', 'Prescrit / En attente'),
+        ('EN_COURS', 'En cours d\'analyse'),
+        ('REALISE', 'Réalisé / Résultats disponibles'),
+        ('ANNULE', 'Annulé'),
+    )
+
+    RESULTAT_CHOICES = (
+        ('POSITIF', 'Positif'),
+        ('NEGATIF', 'Négatif'),
+        ('INDETERMINE', 'Indéterminé / À refaire'),
+    )
+
+    dossier = models.ForeignKey(DossierTraitement, on_delete=models.CASCADE, related_name='examens')
+    type_examen = models.CharField(max_length=20, choices=TYPE_EXAMEN_CHOICES, default='GENEXPERT')
+    motif = models.CharField(max_length=255, help_text="Motif ou étape de contrôle (ex: M2, M5, Fin de traitement)")
+    
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='PRESCRIT')
+    resultat = models.CharField(max_length=20, choices=RESULTAT_CHOICES, blank=True, null=True)
+    details_resultat = models.TextField(blank=True, null=True, help_text="Rapport détaillé du laboratoire")
+    
+    prescrit_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='examens_prescrits'
+    )
+    realise_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='examens_realises'
+    )
+    
+    date_prescription = models.DateTimeField(auto_now_add=True)
+    date_analyse = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.get_type_examen_display()} - {self.dossier.numero_tb} ({self.get_statut_display()})"

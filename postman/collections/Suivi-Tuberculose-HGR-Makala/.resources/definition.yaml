@@ -1,0 +1,8 @@
+$kind: collection
+name: 'Suivi Tuberculose - HGR Makala'
+description: |-
+  Collection API pour le Système Informatisé de Suivi des Malades Tuberculeux.
+  HGR Makala - Kinshasa, RDC. Backend: Django REST Framework + JWT.
+variables:
+  - key: base_url
+    value: 'http://localhost:8000'

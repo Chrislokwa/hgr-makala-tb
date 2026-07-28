@@ -1,3 +1,16 @@
-echo "server/venv/" >> .gitignore
-echo "server/__pycache__/" >> .gitignore
-echo "server/db.sqlite3" >> .gitignore
+# Environnement virtuel
+venv/
+.venv/
+server/venv/
+
+# Cache Python
+__pycache__/
+*.py[cod]
+
+# Base de données SQLite
+db.sqlite3
+*.sqlite3
+
+# Variables d'environnement
+.env
+.env.*

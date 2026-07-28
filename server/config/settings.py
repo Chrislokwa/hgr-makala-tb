@@ -44,6 +44,7 @@ INSTALLED_APPS = [
 
     # Applications locales
     'authentication',
+    'patients',
 ]
 
 MIDDLEWARE = [

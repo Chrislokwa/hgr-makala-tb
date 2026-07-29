@@ -14,3 +14,7 @@ db.sqlite3
 # Variables d'environnement
 .env
 .env.*
+
+# Postman
+.postman/
+postman/

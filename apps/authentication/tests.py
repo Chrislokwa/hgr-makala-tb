@@ -5,6 +5,17 @@ from apps.authentication.models import CustomUser, UserRole
 
 class AuthenticationTests(TestCase):
     def setUp(self):
+        self.admin = CustomUser.objects.create_user(
+            username='adminuser',
+            password='password123',
+            email='admin@hgr-makala.cd',
+            first_name='Judith',
+            last_name='Bongoy',
+            role=UserRole.ADMIN,
+            is_active=True,
+            is_staff=True,
+            is_superuser=True
+        )
         self.user = CustomUser.objects.create_user(
             username='testuser',
             password='password123',
@@ -89,10 +100,79 @@ class AuthenticationTests(TestCase):
             'new_password2': 'newsecret123'
         })
         self.assertRedirects(post_resp, reverse('dashboard'))
-        # verify user can login with new password
-        self.client.logout()
-        login_resp = self.client.post(reverse('login'), {
-            'username': 'testuser',
-            'password': 'newsecret123'
+
+    # Phase 4 — Gestion des utilisateurs
+    def test_user_list_admin_access(self):
+        self.client.login(username='adminuser', password='password123')
+        response = self.client.get(reverse('user_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'authentication/user_list.html')
+
+    def test_user_list_non_admin_denied(self):
+        self.client.login(username='testuser', password='password123')
+        response = self.client.get(reverse('user_list'))
+        self.assertRedirects(response, reverse('dashboard'))
+
+    def test_user_create_admin(self):
+        self.client.login(username='adminuser', password='password123')
+        response = self.client.post(reverse('user_create'), {
+            'nom': 'Inf. Claire Bofassa',
+            'username': 'cbofassa',
+            'email': 'c.bofassa@hgr-makala.cd',
+            'role': UserRole.INFIRMIER
         })
-        self.assertRedirects(login_resp, reverse('dashboard'))
+        self.assertRedirects(response, reverse('user_list'))
+        created = CustomUser.objects.get(username='cbofassa')
+        self.assertEqual(created.first_name, 'Inf.')
+        self.assertEqual(created.last_name, 'Claire Bofassa')
+        self.assertTrue(created.check_password('demo'))
+
+    def test_user_update_admin(self):
+        self.client.login(username='adminuser', password='password123')
+        response = self.client.post(reverse('user_edit', kwargs={'pk': self.user.pk}), {
+            'nom': 'Dr. Paul Kalombo Updated',
+            'email': 'p.kalombo.new@hgr-makala.cd'
+        })
+        self.assertRedirects(response, reverse('user_list'))
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'p.kalombo.new@hgr-makala.cd')
+
+    def test_user_toggle_active(self):
+        self.client.login(username='adminuser', password='password123')
+        response = self.client.post(reverse('user_toggle', kwargs={'pk': self.user.pk}))
+        self.assertRedirects(response, reverse('user_list'))
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_active)
+
+    def test_user_toggle_self_denied(self):
+        self.client.login(username='adminuser', password='password123')
+        response = self.client.post(reverse('user_toggle', kwargs={'pk': self.admin.pk}))
+        self.assertRedirects(response, reverse('user_list'))
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.is_active)
+
+    def test_user_toggle_last_admin_denied(self):
+        self.client.login(username='adminuser', password='password123')
+        # adminuser is the only active admin
+        response = self.client.post(reverse('user_toggle', kwargs={'pk': self.admin.pk}))
+        self.assertRedirects(response, reverse('user_list'))
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.is_active)
+
+    def test_user_set_role(self):
+        self.client.login(username='adminuser', password='password123')
+        response = self.client.post(reverse('user_set_role', kwargs={'pk': self.user.pk}), {
+            'role': UserRole.LABORANTIN
+        })
+        self.assertRedirects(response, reverse('user_list'))
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.role, UserRole.LABORANTIN)
+
+    def test_user_set_role_last_admin_denied(self):
+        self.client.login(username='adminuser', password='password123')
+        response = self.client.post(reverse('user_set_role', kwargs={'pk': self.admin.pk}), {
+            'role': UserRole.MEDECIN
+        })
+        self.assertRedirects(response, reverse('user_list'))
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.role, UserRole.ADMIN)

@@ -8,7 +8,15 @@ from django.contrib.auth.views import (
     PasswordChangeView
 )
 from django.views.generic import RedirectView
-from .views import CustomLoginView, DashboardView
+from .views import (
+    CustomLoginView,
+    DashboardView,
+    UserListView,
+    UserCreateView,
+    UserUpdateView,
+    UserToggleView,
+    UserSetRoleView,
+)
 
 urlpatterns = [
     path('', RedirectView.as_view(pattern_name='login', permanent=False)),
@@ -34,9 +42,16 @@ urlpatterns = [
         template_name='authentication/password_reset_complete.html'
     ), name='password_reset_complete'),
 
-    # Phase 4.6 : Modification mot de passe (utilisateur connecté)
+    # Phase 4.6 : Modification mot de passe
     path('password-change/', PasswordChangeView.as_view(
         template_name='authentication/password_change.html',
         success_url=reverse_lazy('dashboard')
     ), name='password_change'),
+
+    # Phase 4 : Gestion des utilisateurs
+    path('users/', UserListView.as_view(), name='user_list'),
+    path('users/create/', UserCreateView.as_view(), name='user_create'),
+    path('users/<int:pk>/edit/', UserUpdateView.as_view(), name='user_edit'),
+    path('users/<int:pk>/toggle/', UserToggleView.as_view(), name='user_toggle'),
+    path('users/<int:pk>/role/', UserSetRoleView.as_view(), name='user_set_role'),
 ]

@@ -56,6 +56,14 @@ class AuthenticationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Identifiants incorrects.")
 
+    def test_login_empty_fields(self):
+        response = self.client.post(reverse('login'), {
+            'username': '',
+            'password': ''
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Veuillez renseigner votre adresse e-mail et votre mot de passe.")
+
     def test_login_inactive_user(self):
         response = self.client.post(reverse('login'), {
             'username': 'inactiveuser@hgr-makala.cd',

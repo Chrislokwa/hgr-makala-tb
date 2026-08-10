@@ -36,6 +36,12 @@ class CustomAuthenticationForm(NoClientValidationMixin, AuthenticationForm):
         username = self.cleaned_data.get('username')
         password = self.cleaned_data.get('password')
 
+        if not username or not password:
+            raise forms.ValidationError(
+                "Veuillez renseigner votre adresse e-mail et votre mot de passe.",
+                code='required',
+            )
+
         if username and password:
             user_obj = CustomUser.objects.filter(username__iexact=username).first()
             if user_obj and user_obj.check_password(password):

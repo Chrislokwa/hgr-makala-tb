@@ -23,9 +23,9 @@
                 <span class="su-tx"><strong>{{ request.user.titled_name }}</strong><span>{{ request.user.get_role_display() }}</span></span>
             </div>
             <a class="pwd-btn" href="{{ url('password_change') }}"><i class="key icon"></i>Modifier le mot de passe</a>
-            <form action="{{ url('logout') }}" method="post" style="margin:0;">
+            <form action="{{ url('logout') }}" method="post" id="logoutForm" style="margin:0;">
                 {{ csrf_input }}
-                <button type="submit" class="logout-btn"><i class="sign out alternate icon"></i>Se déconnecter</button>
+                <button type="button" id="logoutBtn" class="logout-btn"><i class="sign out alternate icon"></i>Se déconnecter</button>
             </form>
         </div>
     </aside>
@@ -77,6 +77,44 @@
                 sidebar.classList.remove('open');
                 scrim.classList.remove('show');
             });
+        }
+
+        // Déconnexion : modale de confirmation
+        const logoutForm = document.getElementById('logoutForm');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const overlay = document.getElementById('overlay');
+
+        function closeModal() {
+            const ov = document.getElementById('overlay');
+            if (!ov) return;
+            ov.classList.remove('open');
+            ov.innerHTML = '';
+        }
+
+        function confirmLogout() {
+            overlay.innerHTML =
+                '<div class="modal" role="dialog" aria-modal="true" aria-label="Se déconnecter">' +
+                '  <div class="modal-h">' +
+                '    <h2>Se déconnecter</h2>' +
+                '    <button type="button" class="icon-btn" data-close aria-label="Fermer"><i class="close icon"></i></button>' +
+                '  </div>' +
+                '  <div class="modal-b"><p style="margin:4px 0 0;font-size:14.5px;color:#3c4043;line-height:1.55">Voulez-vous vraiment vous déconnecter&nbsp;?</p></div>' +
+                '  <div class="modal-f">' +
+                '    <button type="button" class="ui basic button" data-close>Annuler</button>' +
+                '    <button type="button" class="ui negative button" id="cfok">Se déconnecter</button>' +
+                '  </div>' +
+                '</div>';
+            overlay.classList.add('open');
+            const ok = document.getElementById('cfok');
+            if (ok) ok.addEventListener('click', () => logoutForm.submit());
+        }
+
+        if (logoutBtn && logoutForm && overlay) {
+            logoutBtn.addEventListener('click', confirmLogout);
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay || e.target.closest('[data-close]')) closeModal();
+            });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
         }
     })();
 </script>

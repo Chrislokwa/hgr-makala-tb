@@ -25,7 +25,7 @@
         <form class="ui form" id="loginForm" method="post">
             {{ csrf_input }}
             <div class="field {% if form.username.errors %}error{% endif %}">
-                <label for="luser">Identifiant</label>
+                <label for="luser">Adresse e-mail</label>
                 {{ form.username }}
             </div>
             <div class="field {% if form.password.errors %}error{% endif %}">

@@ -17,20 +17,49 @@ class CustomUser(AbstractUser):
         default=UserRole.INFIRMIER,
         help_text="Rôle de l'utilisateur dans le système HGR Makala"
     )
+    post_nom = models.CharField(max_length=100, blank=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
+
+    ROLE_PREFIXES = {
+        UserRole.ADMIN: 'admin.',
+        UserRole.MEDECIN: 'Dr.',
+        UserRole.INFIRMIER: 'Inf.',
+        UserRole.LABORANTIN: 'Lab.',
+        UserRole.STATISTICIEN: 'Ags.',
+    }
+
+    @classmethod
+    def strip_name_prefix(cls, value):
+        if not value:
+            return value
+        value = value.strip()
+        for prefix in cls.ROLE_PREFIXES.values():
+            if value.lower().startswith(prefix.lower()):
+                return value[len(prefix):].strip()
+        return value
 
     @property
     def display_name(self):
-        full = f"{self.first_name} {self.last_name}".strip()
+        full = " ".join(
+            part for part in (self.first_name, self.last_name, self.post_nom) if part
+        ).strip()
         return full if full else self.username
 
     @property
+    def role_prefix(self):
+        return self.ROLE_PREFIXES.get(self.role, '')
+
+    @property
+    def titled_name(self):
+        full = self.display_name
+        if not full or full == self.username:
+            return self.username
+        prefix = self.role_prefix
+        return f"{prefix} {full}".strip() if prefix else full
+
+    @property
     def initials(self):
-        name = self.display_name
-        for prefix in ['Dr.', 'Inf.', 'Lab.']:
-            if name.startswith(prefix):
-                name = name[len(prefix):].strip()
-        parts = name.split()
+        parts = self.display_name.split()
         if len(parts) >= 2:
             return f"{parts[0][0]}{parts[1][0]}".upper()
         elif parts and parts[0]:

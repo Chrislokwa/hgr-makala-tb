@@ -17,31 +17,51 @@
 
         <div class="fsec">Identification</div>
 
-        <div class="field {% if form.nom.errors %}error{% endif %}">
-            <label for="id_nom">Nom complet *</label>
-            {{ form.nom }}
-            {% if form.nom.errors %}
-            <div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.nom.errors[0] }}</div>
+        <div class="two-col">
+            <div class="field {% if form.nom.errors %}error{% endif %}">
+                <label for="id_nom">Nom *</label>
+                {{ form.nom }}
+                {% if form.nom.errors %}
+                <div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.nom.errors[0] }}</div>
+                {% endif %}
+            </div>
+
+            <div class="field {% if form.post_nom.errors %}error{% endif %}">
+                <label for="id_post_nom">Post-nom</label>
+                {{ form.post_nom }}
+                {% if form.post_nom.errors %}
+                <div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.post_nom.errors[0] }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="field {% if form.prenom.errors %}error{% endif %}">
+            <label for="id_prenom">Prénom *</label>
+            {{ form.prenom }}
+            {% if form.prenom.errors %}
+            <div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.prenom.errors[0] }}</div>
             {% endif %}
         </div>
 
         <div class="two-col">
-            <div class="field {% if form.username.errors %}error{% endif %}">
-                <label for="id_username">Identifiant *</label>
-                {{ form.username }}
-                {% if form.username.errors %}
-                <div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.username.errors[0] }}</div>
-                {% endif %}
-            </div>
-
             <div class="field {% if form.email.errors %}error{% endif %}">
-                <label for="id_email">Adresse e-mail</label>
+                <label for="id_email">Adresse e-mail *</label>
                 {{ form.email }}
                 {% if form.email.errors %}
                 <div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.email.errors[0] }}</div>
                 {% endif %}
             </div>
+
+            <div class="field {% if form.phone.errors %}error{% endif %}">
+                <label for="id_phone">Téléphone</label>
+                {{ form.phone }}
+                {% if form.phone.errors %}
+                <div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.phone.errors[0] }}</div>
+                {% endif %}
+            </div>
         </div>
+
+        <div class="form-note">L’adresse e-mail servira d’identifiant de connexion.</div>
 
         <div class="fsec">Droits d’accès</div>
 

@@ -16,15 +16,15 @@
                     <div class="u-cell">
                         <span class="avatar sm" style="{{ u.avatar_style }}">{{ u.initials }}</span>
                         <span>
-                            <span class="un">{{ u.display_name }}</span><br>
-                            <span class="ue">{{ u.username }}</span>
+                            <span class="un">{{ u.titled_name }}</span><br>
+                            <span class="ue">{{ u.email }}{% if u.phone %} · {{ u.phone }}{% endif %}</span>
                         </span>
                     </div>
                 </td>
                 <td>
                     <form method="post" action="{{ url('user_set_role', pk=u.pk) }}" class="role-form" style="margin:0;">
                         {{ csrf_input }}
-                        <select class="role-sel" name="role" onchange="this.form.submit()" aria-label="Rôle de {{ u.display_name }}" {% if u.role == 'ADMIN' and u.is_active and active_admin_count <= 1 %}disabled{% endif %}>
+                        <select class="role-sel" name="role" onchange="this.form.submit()" aria-label="Rôle de {{ u.titled_name }}" {% if u.role == 'ADMIN' and u.is_active and active_admin_count <= 1 %}disabled{% endif %}>
                             {% for val, label in role_choices %}
                             <option value="{{ val }}" {% if val == u.role %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}

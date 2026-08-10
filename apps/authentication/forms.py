@@ -23,10 +23,10 @@ class NoClientValidationMixin(forms.Form):
 class CustomAuthenticationForm(NoClientValidationMixin, AuthenticationForm):
 
     username = forms.CharField(
-        label="Identifiant",
+        label="Adresse e-mail",
         widget=forms.TextInput(attrs={
             'id': 'luser',
-            'placeholder': 'ex. pkalombo',
+            'placeholder': 'prenom.nom@hgr-makala.cd',
             'autocomplete': 'username',
         })
     )
@@ -65,17 +65,26 @@ class CustomAuthenticationForm(NoClientValidationMixin, AuthenticationForm):
 
 class UserAdminCreateForm(NoClientValidationMixin, forms.ModelForm):
     nom = forms.CharField(
-        label="Nom complet",
-        widget=forms.TextInput(attrs={'placeholder': 'ex. Inf. Claire Bofassa'})
+        label="Nom",
+        widget=forms.TextInput(attrs={'placeholder': 'ex. Kalombo'})
     )
-    username = forms.CharField(
-        label="Identifiant",
-        widget=forms.TextInput(attrs={'placeholder': 'ex. cbofassa'})
+    post_nom = forms.CharField(
+        label="Post-nom",
+        required=False,
+        widget=forms.TextInput(attrs={'placeholder': 'ex. Kanyinda'})
+    )
+    prenom = forms.CharField(
+        label="Prénom",
+        widget=forms.TextInput(attrs={'placeholder': 'ex. Paul'})
     )
     email = forms.EmailField(
         label="Adresse e-mail",
-        required=False,
         widget=forms.TextInput(attrs={'placeholder': 'prenom.nom@hgr-makala.cd'})
+    )
+    phone = forms.CharField(
+        label="Téléphone",
+        required=False,
+        widget=forms.TextInput(attrs={'placeholder': '+243 8X XXX XXXX'})
     )
     role = forms.ChoiceField(
         label="Rôle",
@@ -85,13 +94,14 @@ class UserAdminCreateForm(NoClientValidationMixin, forms.ModelForm):
 
     class Meta:
         model = CustomUser
-        fields = ['username', 'email', 'role']
+        fields = ['email', 'role', 'post_nom', 'phone']
 
-    def clean_username(self):
-        username = self.cleaned_data.get('username', '').strip().lower()
-        if CustomUser.objects.filter(username__iexact=username).exists():
-            raise forms.ValidationError("Cet identifiant est déjà utilisé.")
-        return username
+    def clean(self):
+        cleaned = super().clean()
+        for name in ('nom', 'post_nom', 'prenom'):
+            if cleaned.get(name):
+                cleaned[name] = CustomUser.strip_name_prefix(cleaned[name])
+        return cleaned
 
     def clean_email(self):
         email = self.cleaned_data.get('email', '').strip().lower()
@@ -101,10 +111,11 @@ class UserAdminCreateForm(NoClientValidationMixin, forms.ModelForm):
 
     def save(self, commit=True):
         user = super().save(commit=False)
-        nom = self.cleaned_data.get('nom', '').strip()
-        parts = nom.split(' ', 1)
-        user.first_name = parts[0]
-        user.last_name = parts[1] if len(parts) > 1 else ''
+        user.username = self.cleaned_data['email'].strip().lower()
+        user.first_name = self.cleaned_data.get('prenom', '').strip()
+        user.post_nom = self.cleaned_data.get('post_nom', '').strip()
+        user.last_name = self.cleaned_data.get('nom', '').strip()
+        user.phone = self.cleaned_data.get('phone', '').strip() or None
         if commit:
             user.save()
         return user
@@ -112,23 +123,46 @@ class UserAdminCreateForm(NoClientValidationMixin, forms.ModelForm):
 
 class UserAdminUpdateForm(NoClientValidationMixin, forms.ModelForm):
     nom = forms.CharField(
-        label="Nom complet",
+        label="Nom",
+        widget=forms.TextInput()
+    )
+    post_nom = forms.CharField(
+        label="Post-nom",
+        required=False,
+        widget=forms.TextInput()
+    )
+    prenom = forms.CharField(
+        label="Prénom",
         widget=forms.TextInput()
     )
     email = forms.EmailField(
         label="Adresse e-mail",
+        widget=forms.TextInput()
+    )
+    phone = forms.CharField(
+        label="Téléphone",
         required=False,
         widget=forms.TextInput()
     )
 
     class Meta:
         model = CustomUser
-        fields = ['email']
+        fields = ['email', 'post_nom', 'phone']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
-            self.fields['nom'].initial = self.instance.display_name
+            self.fields['nom'].initial = self.instance.last_name
+            self.fields['post_nom'].initial = self.instance.post_nom
+            self.fields['prenom'].initial = self.instance.first_name
+            self.fields['phone'].initial = self.instance.phone
+
+    def clean(self):
+        cleaned = super().clean()
+        for name in ('nom', 'post_nom', 'prenom'):
+            if cleaned.get(name):
+                cleaned[name] = CustomUser.strip_name_prefix(cleaned[name])
+        return cleaned
 
     def clean_email(self):
         email = self.cleaned_data.get('email', '').strip().lower()
@@ -138,10 +172,11 @@ class UserAdminUpdateForm(NoClientValidationMixin, forms.ModelForm):
 
     def save(self, commit=True):
         user = super().save(commit=False)
-        nom = self.cleaned_data.get('nom', '').strip()
-        parts = nom.split(' ', 1)
-        user.first_name = parts[0]
-        user.last_name = parts[1] if len(parts) > 1 else ''
+        user.username = self.cleaned_data['email'].strip().lower()
+        user.first_name = self.cleaned_data.get('prenom', '').strip()
+        user.post_nom = self.cleaned_data.get('post_nom', '').strip()
+        user.last_name = self.cleaned_data.get('nom', '').strip()
+        user.phone = self.cleaned_data.get('phone', '').strip() or None
         if commit:
             user.save()
         return user

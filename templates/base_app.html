@@ -20,7 +20,7 @@
         <div class="side-user">
             <div class="su-row">
                 <span class="avatar sm" style="{{ request.user.avatar_style }}">{{ request.user.initials }}</span>
-                <span class="su-tx"><strong>{{ request.user.display_name }}</strong><span>{{ request.user.get_role_display() }}</span></span>
+                <span class="su-tx"><strong>{{ request.user.titled_name }}</strong><span>{{ request.user.get_role_display() }}</span></span>
             </div>
             <a class="pwd-btn" href="{{ url('password_change') }}"><i class="key icon"></i>Modifier le mot de passe</a>
             <form action="{{ url('logout') }}" method="post" style="margin:0;">

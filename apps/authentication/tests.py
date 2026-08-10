@@ -77,6 +77,18 @@ class AuthenticationTests(TestCase):
         response = self.client.post(reverse('logout'))
         self.assertRedirects(response, reverse('login'))
 
+    def test_logout_flushes_session(self):
+        self.client.login(username='testuser@hgr-makala.cd', password='password123')
+        self.client.post(reverse('logout'))
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_no_cache_headers(self):
+        self.client.login(username='testuser@hgr-makala.cd', password='password123')
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response['Cache-Control'], 'no-cache, no-store, must-revalidate')
+        self.assertEqual(response['Pragma'], 'no-cache')
+        self.assertEqual(response['Expires'], '0')
+
     def test_dashboard_requires_login(self):
         response = self.client.get(reverse('dashboard'))
         self.assertRedirects(response, f"{reverse('login')}?next={reverse('dashboard')}")

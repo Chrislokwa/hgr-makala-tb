@@ -11,11 +11,6 @@ from django.views.generic import RedirectView
 from .views import (
     CustomLoginView,
     DashboardView,
-    UserListView,
-    UserCreateView,
-    UserUpdateView,
-    UserToggleView,
-    UserSetRoleView,
 )
 from .forms import CustomPasswordResetForm, CustomSetPasswordForm, CustomPasswordChangeForm
 
@@ -51,11 +46,4 @@ urlpatterns = [
         success_url=reverse_lazy('dashboard'),
         form_class=CustomPasswordChangeForm,
     ), name='password_change'),
-
-    # Phase 4 : Gestion des utilisateurs
-    path('users/', UserListView.as_view(), name='user_list'),
-    path('users/create/', UserCreateView.as_view(), name='user_create'),
-    path('users/<int:pk>/edit/', UserUpdateView.as_view(), name='user_edit'),
-    path('users/<int:pk>/toggle/', UserToggleView.as_view(), name='user_toggle'),
-    path('users/<int:pk>/role/', UserSetRoleView.as_view(), name='user_set_role'),
 ]

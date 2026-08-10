@@ -1,7 +1,7 @@
 # pyrefly: ignore [missing-import]
 from django.core.management.base import BaseCommand
 # pyrefly: ignore [missing-import]
-from apps.authentication.models import CustomUser, UserRole
+from apps.users.models import CustomUser, UserRole
 
 class Command(BaseCommand):
     help = "Peuple la base de données avec les comptes de démonstration HGR Makala"

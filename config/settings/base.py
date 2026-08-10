@@ -42,6 +42,7 @@ INSTALLED_APPS = [
 
     # Applications locales
     'apps.authentication',
+    'apps.users',
     'apps.patients',
     'apps.laboratoire',
     'apps.stats',
@@ -140,7 +141,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
-AUTH_USER_MODEL = 'authentication.CustomUser'
+AUTH_USER_MODEL = 'users.CustomUser'
 
 # Auth & Redirects
 LOGIN_URL = 'login'

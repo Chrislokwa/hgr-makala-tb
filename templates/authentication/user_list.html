@@ -1,0 +1,115 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Utilisateurs — Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Utilisateurs</h1>
+        <p class="vsub">Comptes et droits d’accès au système</p>
+    </div>
+    <a href="{% url 'user_create' %}" class="ui primary button"><i class="plus icon"></i>Nouvel utilisateur</a>
+</div>
+
+<!-- Recherche -->
+<div class="toolbar">
+    <form method="get" action="{% url 'user_list' %}" class="search" style="width:100%;">
+        <i class="search icon"></i>
+        <input id="searchUser" type="text" name="q" value="{{ q }}" placeholder="Rechercher (nom, identifiant, e-mail)" aria-label="Recherche utilisateurs">
+    </form>
+</div>
+
+{% if users %}
+<div class="tbl-wrap">
+    <table class="tbl">
+        <thead>
+            <tr>
+                <th>Utilisateur</th>
+                <th>Rôle</th>
+                <th>Statut</th>
+                <th style="text-align:right">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr class="{% if not u.is_active %}off{% endif %}">
+                <td>
+                    <div class="u-cell">
+                        <span class="avatar sm" style="{{ u.avatar_style }}">{{ u.initials }}</span>
+                        <span>
+                            <span class="un">{{ u.display_name }}</span><br>
+                            <span class="ue">{{ u.username }}</span>
+                        </span>
+                    </div>
+                </td>
+                <td>
+                    <form method="post" action="{% url 'user_set_role' u.pk %}" class="role-form" style="margin:0;">
+                        {% csrf_token %}
+                        <select class="role-sel" name="role" onchange="this.form.submit()" aria-label="Rôle de {{ u.display_name }}" {% if u.role == 'ADMIN' and u.is_active and active_admin_count <= 1 %}disabled{% endif %}>
+                            {% for val, label in role_choices %}
+                            <option value="{{ val }}" {% if val == u.role %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </td>
+                <td>
+                    {% if u.is_active %}
+                    <span class="tag tg-hon">Actif</span>
+                    {% else %}
+                    <span class="tag tg-off">Désactivé</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="row-acts">
+                        <a href="{% url 'user_edit' u.pk %}" class="ui basic button btn-sm">Modifier</a>
+                        <form method="post" action="{% url 'user_toggle' u.pk %}" style="margin:0; display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="ui basic button btn-sm">
+                                {% if u.is_active %}Désactiver{% else %}Activer{% endif %}
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if is_paginated %}
+<div class="pager">
+    <span class="pg-info">{{ page_obj.start_index }} – {{ page_obj.end_index }} sur {{ page_obj.paginator.count }}</span>
+    <div class="pg-btns">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}" class="pg-btn" aria-label="Page précédente"><i class="chevron left icon"></i></a>
+        {% else %}
+        <button class="pg-btn" disabled aria-label="Page précédente"><i class="chevron left icon"></i></button>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <button class="pg-btn active">{{ num }}</button>
+            {% else %}
+            <a href="?page={{ num }}{% if q %}&q={{ q }}{% endif %}" class="pg-btn">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}" class="pg-btn" aria-label="Page suivante"><i class="chevron right icon"></i></a>
+        {% else %}
+        <button class="pg-btn" disabled aria-label="Page suivante"><i class="chevron right icon"></i></button>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty">
+    <i class="users icon"></i>
+    <div class="e-t">Aucun résultat{% if q %} pour « {{ q }} »{% endif %}</div>
+    <div class="e-s">Vérifiez le nom, l’identifiant ou l’e-mail.</div>
+</div>
+{% endif %}
+
+{% endblock %}

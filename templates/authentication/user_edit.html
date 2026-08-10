@@ -1,0 +1,53 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Modifier l’utilisateur — Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Modifier l’utilisateur</h1>
+        <p class="vsub">Mise à jour des informations de {{ object.display_name }}</p>
+    </div>
+</div>
+
+<div style="max-width:520px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:24px; margin-top:16px;">
+    <div class="robox">
+        <div class="ro-t">{{ object.display_name }}</div>
+        <div class="ro-s">Identifiant : {{ object.username }} · Rôle : {{ object.get_role_display }}</div>
+    </div>
+
+    <form class="ui form" method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="field {% if form.nom.errors %}error{% endif %}">
+            <label for="id_nom">Nom complet *</label>
+            {{ form.nom }}
+            {% if form.nom.errors %}
+            <div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.nom.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <div class="field {% if form.email.errors %}error{% endif %}">
+            <label for="id_email">Adresse e-mail</label>
+            {{ form.email }}
+            {% if form.email.errors %}
+            <div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.email.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        {% if form.non_field_errors %}
+        <div class="fbanner show" role="alert" style="margin-top:14px;">
+            {% for err in form.non_field_errors %}
+                <div>{{ err }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+            <a href="{% url 'user_list' %}" class="ui basic button">Annuler</a>
+            <button type="submit" class="ui primary button">Enregistrer</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,15 +1,33 @@
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, UserChangeForm
+from django.contrib.auth.forms import (
+    AuthenticationForm,
+    UserCreationForm,
+    UserChangeForm,
+    PasswordResetForm,
+    SetPasswordForm,
+    PasswordChangeForm,
+)
 from .models import CustomUser, UserRole
 
-class CustomAuthenticationForm(AuthenticationForm):
+class NoClientValidationMixin(forms.Form):
+    use_required_attribute = False
+    _html_restriction_attrs = ('maxlength', 'minlength', 'pattern', 'min', 'max', 'step')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            for attr in self._html_restriction_attrs:
+                field.widget.attrs.pop(attr, None)
+
+
+class CustomAuthenticationForm(NoClientValidationMixin, AuthenticationForm):
+
     username = forms.CharField(
         label="Identifiant",
         widget=forms.TextInput(attrs={
             'id': 'luser',
             'placeholder': 'ex. pkalombo',
             'autocomplete': 'username',
-            'required': True,
         })
     )
     password = forms.CharField(
@@ -18,7 +36,6 @@ class CustomAuthenticationForm(AuthenticationForm):
             'id': 'lpass',
             'placeholder': '••••••',
             'autocomplete': 'current-password',
-            'required': True,
         })
     )
 
@@ -46,24 +63,24 @@ class CustomAuthenticationForm(AuthenticationForm):
         return self.cleaned_data
 
 
-class UserAdminCreateForm(forms.ModelForm):
+class UserAdminCreateForm(NoClientValidationMixin, forms.ModelForm):
     nom = forms.CharField(
         label="Nom complet",
-        widget=forms.TextInput(attrs={'placeholder': 'ex. Inf. Claire Bofassa', 'required': True})
+        widget=forms.TextInput(attrs={'placeholder': 'ex. Inf. Claire Bofassa'})
     )
     username = forms.CharField(
         label="Identifiant",
-        widget=forms.TextInput(attrs={'placeholder': 'ex. cbofassa', 'required': True})
+        widget=forms.TextInput(attrs={'placeholder': 'ex. cbofassa'})
     )
     email = forms.EmailField(
         label="Adresse e-mail",
         required=False,
-        widget=forms.EmailInput(attrs={'placeholder': 'prenom.nom@hgr-makala.cd'})
+        widget=forms.TextInput(attrs={'placeholder': 'prenom.nom@hgr-makala.cd'})
     )
     role = forms.ChoiceField(
         label="Rôle",
         choices=UserRole.choices,
-        widget=forms.Select(attrs={'required': True})
+        widget=forms.Select()
     )
 
     class Meta:
@@ -93,15 +110,15 @@ class UserAdminCreateForm(forms.ModelForm):
         return user
 
 
-class UserAdminUpdateForm(forms.ModelForm):
+class UserAdminUpdateForm(NoClientValidationMixin, forms.ModelForm):
     nom = forms.CharField(
         label="Nom complet",
-        widget=forms.TextInput(attrs={'required': True})
+        widget=forms.TextInput()
     )
     email = forms.EmailField(
         label="Adresse e-mail",
         required=False,
-        widget=forms.EmailInput()
+        widget=forms.TextInput()
     )
 
     class Meta:
@@ -128,3 +145,19 @@ class UserAdminUpdateForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
+
+class CustomPasswordResetForm(NoClientValidationMixin, PasswordResetForm):
+    email = forms.EmailField(
+        label="Adresse e-mail",
+        max_length=254,
+        widget=forms.TextInput(attrs={"autocomplete": "email"}),
+    )
+
+
+class CustomSetPasswordForm(NoClientValidationMixin, SetPasswordForm):
+    pass
+
+
+class CustomPasswordChangeForm(NoClientValidationMixin, PasswordChangeForm):
+    pass

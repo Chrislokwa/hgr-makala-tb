@@ -55,6 +55,13 @@ class UserListView(AdminRequiredMixin, ListView):
             )
         return queryset
 
+    def get_template_names(self):
+        # Requête HTMX (recherche asynchrone) : on renvoie uniquement
+        # le fragment contenant les résultats, sans la page entière.
+        if self.request.headers.get('HX-Request') == 'true':
+            return ['authentication/user_list_results.html']
+        return ['authentication/user_list.html']
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['active_nav'] = 'users'

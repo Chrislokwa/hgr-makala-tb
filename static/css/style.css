@@ -406,7 +406,7 @@ i.icon {
     flex-wrap: wrap
 }
 
-.search {
+.search_ {
     flex: 1;
     min-width: 220px;
     max-width: 560px;
@@ -419,19 +419,19 @@ i.icon {
     padding: 10px 14px
 }
 
-.search:focus-within {
+.search_:focus-within {
     background: #fff;
     border-color: var(--line);
     box-shadow: 0 1px 4px rgba(60, 64, 67, .1)
 }
 
-.search i.icon {
+.search_ i.icon {
     color: var(--ink3);
     font-size: 15px;
     margin: 0
 }
 
-.search input {
+.search_ input {
     border: none;
     outline: none;
     background: transparent;
@@ -1011,5 +1011,45 @@ tr.off td {
 
     .two-col {
         grid-template-columns: 1fr
+    }
+}
+
+/* Indicateur de chargement HTMX (recherche asynchrone) */
+.hx-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 0;
+    color: var(--ink2, #5f6b76);
+    font-size: 13px
+}
+
+.hx-indicator[hidden] {
+    display: none
+}
+
+.hx-indicator::before {
+    content: "";
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0, 0, 0, .15);
+    border-top-color: var(--primary, #2f6b46);
+    border-radius: 50%;
+    animation: hx-spin .7s linear infinite;
+    opacity: 0
+}
+
+.hx-indicator.htmx-request {
+    display: flex
+}
+
+.hx-indicator.htmx-request::before {
+    opacity: 1
+}
+
+@keyframes hx-spin {
+    to {
+        transform: rotate(360deg)
     }
 }

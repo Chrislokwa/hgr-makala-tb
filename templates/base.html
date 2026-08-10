@@ -1,4 +1,3 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -14,12 +13,13 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.1.0/500.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.1.0/700.css">
 
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{{ static('css/style.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
     {% block content %}{% endblock %}
 
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

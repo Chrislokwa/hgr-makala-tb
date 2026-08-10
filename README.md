@@ -29,12 +29,14 @@ La version actuelle du projet couvre les modules suivants :
 
 ## Stack technique
 
-Le projet est actuellement implémenté comme une application Django monolithique avec templates HTML et logique métier organisée par modules.
+Le projet est actuellement implémenté comme une application Django monolithique avec logique métier organisée par modules.
 
 - Python 3.x
 - Django 6
+- Jinja2 (moteur de templates de l’application ; Django templates conservés uniquement pour l’interface d’administration)
+- HTMX (interactions dynamiques sans rechargement complet, ex. recherche de patients / utilisateurs)
+- Semantic UI
 - SQLite pour l’environnement de développement
-- Django templates
 - applications Django organisées par domaine : authentication, patients, laboratoire, stats
 
 ## Structure du dépôt
@@ -102,6 +104,8 @@ L’application sera alors accessible sur http://127.0.0.1:8000/.
 
 - Les routes API sont organisées sous les préfixes /api/.
 - L’interface d’administration Django est disponible via /admin/.
+- Le moteur de templates de l’application est **Jinja2** (configuration dans `config/settings/base.py`, environnement dans `config/jinja2.py`). Les helpers `url()` et `static()` y sont exposés à la place des balises `{% url %}` et `{% load static %}`.
+- La recherche des utilisateurs sur la page de gestion est **asynchrone** : elle passe par HTMX (`hx-get` sur le champ de recherche, fragment `authentication/user_list_results.html` renvoyé par la vue lorsqu’elle reçoit l’en-tête `HX-Request`).
 - Le projet est encore en évolution et peut être enrichi par de nouvelles fonctionnalités métier selon les besoins du service.
 
 ## Auteurs

@@ -39,7 +39,7 @@ class AuthenticationTests(TestCase):
     def test_login_page_renders(self):
         response = self.client.get(reverse('login'))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'authentication/login.html')
+        self.assertContains(response, 'id="loginForm"')
 
     def test_login_success(self):
         response = self.client.post(reverse('login'), {
@@ -54,7 +54,7 @@ class AuthenticationTests(TestCase):
             'password': 'wrongpassword'
         })
         self.assertEqual(response.status_code, 200)
-        self.assertFormError(response.context['form'], None, "Identifiants incorrects.")
+        self.assertContains(response, "Identifiants incorrects.")
 
     def test_login_inactive_user(self):
         response = self.client.post(reverse('login'), {
@@ -62,7 +62,7 @@ class AuthenticationTests(TestCase):
             'password': 'password123'
         })
         self.assertEqual(response.status_code, 200)
-        self.assertFormError(response.context['form'], None, "Ce compte a été désactivé. Contactez votre administrateur.")
+        self.assertContains(response, "Ce compte a été désactivé. Contactez votre administrateur.")
 
     def test_logout(self):
         self.client.login(username='testuser', password='password123')
@@ -77,7 +77,7 @@ class AuthenticationTests(TestCase):
     def test_password_reset_page_renders(self):
         response = self.client.get(reverse('password_reset'))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'authentication/password_reset.html')
+        self.assertContains(response, 'name="email"')
 
     def test_password_reset_submit(self):
         response = self.client.post(reverse('password_reset'), {
@@ -92,7 +92,7 @@ class AuthenticationTests(TestCase):
         self.client.login(username='testuser', password='password123')
         response = self.client.get(reverse('password_change'))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'authentication/password_change.html')
+        self.assertContains(response, 'name="old_password"')
 
         post_resp = self.client.post(reverse('password_change'), {
             'old_password': 'password123',
@@ -106,11 +106,39 @@ class AuthenticationTests(TestCase):
         self.client.login(username='adminuser', password='password123')
         response = self.client.get(reverse('user_list'))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'authentication/user_list.html')
+        self.assertContains(response, 'id="searchUser"')
 
     def test_user_list_non_admin_denied(self):
         self.client.login(username='testuser', password='password123')
         response = self.client.get(reverse('user_list'))
+        self.assertRedirects(response, reverse('dashboard'))
+
+    # Recherche asynchrone (HTMX)
+    def test_user_list_async_search_returns_fragment(self):
+        self.client.login(username='adminuser', password='password123')
+        response = self.client.get(reverse('user_list'), {
+            'q': 'testuser',
+        }, HTTP_HX_REQUEST='true')
+        self.assertEqual(response.status_code, 200)
+        # Fragment uniquement : la page entière n'est pas renvoyée.
+        self.assertNotContains(response, 'id="searchUser"')
+        # Le résultat filtré est présent.
+        self.assertContains(response, 'testuser')
+
+    def test_user_list_async_search_no_match(self):
+        self.client.login(username='adminuser', password='password123')
+        response = self.client.get(reverse('user_list'), {
+            'q': 'introuvable',
+        }, HTTP_HX_REQUEST='true')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Aucun résultat')
+
+    def test_user_list_async_search_denied_non_admin(self):
+        self.client.login(username='testuser', password='password123')
+        response = self.client.get(reverse('user_list'), {
+            'q': 'admin',
+        }, HTTP_HX_REQUEST='true')
+        # La permission reste vérifiée côté serveur, même pour HTMX.
         self.assertRedirects(response, reverse('dashboard'))
 
     def test_user_create_admin(self):

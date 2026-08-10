@@ -1,29 +1,25 @@
-from rest_framework import permissions
-from .models import UserRole
+from django.contrib.auth.mixins import UserPassesTestMixin
+from django.shortcuts import redirect
+from django.contrib import messages
 
-class IsAdmin(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.role == UserRole.ADMIN)
+class AdminRequiredMixin(UserPassesTestMixin):
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.role == 'ADMIN'
+    
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        messages.error(self.request, "Accès réservé aux administrateurs.")
+        return redirect('dashboard')
 
-class IsMedecin(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.role == UserRole.MEDECIN)
+class RoleRequiredMixin(UserPassesTestMixin):
+    allowed_roles = []
 
-class IsInfirmier(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.role == UserRole.INFIRMIER)
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.role in self.allowed_roles
 
-class IsLaborantin(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.role == UserRole.LABORANTIN)
-
-class IsStatisticien(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.role == UserRole.STATISTICIEN)
-
-class IsMedecinOrInfirmier(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return bool(
-            request.user and request.user.is_authenticated and 
-            request.user.role in [UserRole.MEDECIN, UserRole.INFIRMIER]
-        )
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        messages.error(self.request, "Accès non autorisé pour votre rôle.")
+        return redirect('dashboard')

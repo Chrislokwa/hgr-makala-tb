@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block title %}Connexion — Suivi TB · HGR Makala{% endblock %}
+
+{% block content %}
+<div class="login-wrap">
+    <div class="login-card">
+
+        <!-- Marque -->
+        <div class="login-brand">
+            <span class="brand-ic lg"><i class="stethoscope icon"></i></span>
+            <h1>Suivi TB</h1>
+            <p>Hôpital Général de Référence de Makala<br>Service de prise en charge des malades tuberculeux</p>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+            <div class="fbanner show {% if message.tags == 'success' %}ok{% endif %}" role="alert">
+                {{ message }}
+            </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Formulaire de connexion -->
+        <form class="ui form" id="loginForm" method="post">
+            {% csrf_token %}
+            <div class="field {% if form.username.errors %}error{% endif %}">
+                <label for="luser">Identifiant</label>
+                {{ form.username }}
+            </div>
+            <div class="field {% if form.password.errors %}error{% endif %}">
+                <label for="lpass">Mot de passe</label>
+                {{ form.password }}
+            </div>
+            <div class="login-extra">
+                <a class="linklike small" href="{% url 'password_reset' %}">Mot de passe oublié ?</a>
+            </div>
+
+            {% if form.non_field_errors %}
+            <div class="fbanner show" id="lerr" role="alert">
+                {% for err in form.non_field_errors %}
+                    <div>{{ err }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <button class="ui primary fluid button" type="submit" id="lbtn">Se connecter</button>
+        </form>
+
+        <!-- Comptes de démonstration -->
+        {% if demo_users %}
+        <div class="demo" id="demoList">
+            <p class="demo-t">Comptes de démonstration <span>· mot de passe : demo</span></p>
+            {% for u in demo_users %}
+            <button type="button" class="demo-item" data-fill="{{ u.username }}">
+                <b>{{ u.display_name }}</b><span>{{ u.get_role_display }}</span>
+            </button>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        const demo = document.getElementById('demoList');
+        if (demo) {
+            demo.addEventListener('click', e => {
+                const b = e.target.closest('[data-fill]');
+                if (b) {
+                    document.getElementById('luser').value = b.dataset.fill;
+                    document.getElementById('lpass').value = 'demo';
+                    document.getElementById('lbtn').focus();
+                }
+            });
+        }
+        const userInp = document.getElementById('luser');
+        if (userInp) userInp.focus();
+    })();
+</script>
+{% endblock %}

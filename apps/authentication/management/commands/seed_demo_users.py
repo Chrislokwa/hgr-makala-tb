@@ -1,4 +1,6 @@
+# pyrefly: ignore [missing-import]
 from django.core.management.base import BaseCommand
+# pyrefly: ignore [missing-import]
 from apps.authentication.models import CustomUser, UserRole
 
 class Command(BaseCommand):

@@ -1,4 +1,6 @@
+# pyrefly: ignore [missing-import]
 from django.contrib.auth.models import AbstractUser
+# pyrefly: ignore [missing-import]
 from django.db import models
 
 class UserRole(models.TextChoices):
@@ -36,7 +38,7 @@ class CustomUser(AbstractUser):
         return self.username[:2].upper()
 
     @property
-    def avatar_style(self):
+    def avatar_palette(self):
         palettes = [
             ('#dbe7f3', '#375a83'),
             ('#e3efe4', '#2f6b46'),
@@ -48,7 +50,19 @@ class CustomUser(AbstractUser):
         h = 0
         for char in self.display_name:
             h = (h * 31 + ord(char)) % 997
-        bg, text = palettes[h % len(palettes)]
+        return palettes[h % len(palettes)]
+
+    @property
+    def avatar_bg(self):
+        return self.avatar_palette[0]
+
+    @property
+    def avatar_text(self):
+        return self.avatar_palette[1]
+
+    @property
+    def avatar_style(self):
+        bg, text = self.avatar_palette
         return f"--av:{bg};--avt:{text}"
 
     def __str__(self):

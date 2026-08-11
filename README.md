@@ -55,7 +55,14 @@ Le projet est actuellement implémenté comme une application Django monolithiqu
 
 2. Créer et activer un environnement virtuel
    ```bash
-   python3 -m venv .venv
+   python -m venv .venv
+   ```
+   Activation — Windows (PowerShell) :
+   ```powershell
+   .venv\Scripts\activate
+   ```
+   Activation — Linux / macOS :
+   ```bash
    source .venv/bin/activate
    ```
 
@@ -69,12 +76,18 @@ Le projet est actuellement implémenté comme une application Django monolithiqu
    python manage.py migrate
    ```
 
-5. Créer un superutilisateur
+5. (Optionnel) Charger les comptes de démonstration
+   ```bash
+   python manage.py seed_demo_users
+   ```
+   Cette commande crée 10 comptes de démonstration avec le mot de passe par défaut `demo`, dont un compte administrateur (`j.bongoy@hgr-makala.cd`). Elle est idempotente : réexécutée, elle met à jour les comptes existants.
+
+6. Créer un superutilisateur
    ```bash
    python manage.py createsuperuser
    ```
 
-6. Lancer l’application
+7. Lancer l’application
    ```bash
    python manage.py runserver
    ```

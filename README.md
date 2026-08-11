@@ -36,7 +36,7 @@ Le projet est actuellement implémenté comme une application Django monolithiqu
 - Jinja2 (moteur de templates de l’application ; Django templates conservés uniquement pour l’interface d’administration)
 - HTMX (interactions dynamiques sans rechargement complet, ex. recherche de patients / utilisateurs)
 - Semantic UI
-- SQLite pour l’environnement de développement
+- PostgreSQL en base de données (configuration via le fichier `.env`)
 - applications Django organisées par domaine : authentication, patients, laboratoire, stats
 
 ## Prérequis
@@ -44,6 +44,7 @@ Le projet est actuellement implémenté comme une application Django monolithiqu
 - Python 3.10 ou plus
 - pip
 - un environnement virtuel recommandé
+- PostgreSQL (serveur local en cours d’exécution)
 
 ## Installation
 
@@ -71,23 +72,41 @@ Le projet est actuellement implémenté comme une application Django monolithiqu
    pip install -r requirements.txt
    ```
 
-4. Appliquer les migrations
+4. Créer le fichier `.env`
+   À la racine du projet, créer un fichier `.env` à partir du modèle ci-dessous :
+   ```dotenv
+   DB_NAME=hgr_makala_tb
+   DB_USER=postgres
+   DB_PASSWORD=<mot-de-passe>
+   DB_HOST=localhost
+   DB_PORT=5432
+   ```
+   Ce fichier est ignoré par git (il contient vos identifiants) et ne doit jamais être committé.
+
+5. Créer la base de données PostgreSQL
+   Avec un client `psql` et un utilisateur disposant des droits de création :
+   ```bash
+   psql -U postgres -c "CREATE DATABASE hgr_makala_tb;"
+   ```
+   Sous Windows, `psql` se trouve dans `C:\Program Files\PostgreSQL\<version>\bin\`.
+
+6. Appliquer les migrations
    ```bash
    python manage.py migrate
    ```
 
-5. (Optionnel) Charger les comptes de démonstration
+7. (Optionnel) Charger les comptes de démonstration
    ```bash
    python manage.py seed_demo_users
    ```
    Cette commande crée 10 comptes de démonstration avec le mot de passe par défaut `demo`, dont un compte administrateur (`j.bongoy@hgr-makala.cd`). Elle est idempotente : réexécutée, elle met à jour les comptes existants.
 
-6. Créer un superutilisateur
+8. Créer un superutilisateur
    ```bash
    python manage.py createsuperuser
    ```
 
-7. Lancer l’application
+9. Lancer l’application
    ```bash
    python manage.py runserver
    ```

@@ -1,0 +1,20 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Accueil — Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Bienvenue, {{ request.user.titled_name }}</h1>
+        <p class="vsub">Espace {{ request.user.get_role_display() }} — HGR Makala</p>
+    </div>
+</div>
+
+<div class="robox" style="margin-top:20px;">
+    <div class="ro-t">Session active</div>
+    <div class="ro-s">
+        Vous êtes connecté en tant que <strong>{{ request.user.titled_name }}</strong> (Rôle : <strong>{{ request.user.get_role_display() }}</strong>).
+    </div>
+</div>
+{% endblock %}

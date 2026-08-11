@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="app">
+    <div class="scrim" id="scrim"></div>
+
+    <!-- ======= Barre latérale (gabarit) ======= -->
+    <aside class="sidebar" id="sidebar">
+        <div class="brand">
+            <span class="brand-ic"><i class="stethoscope icon"></i></span>
+            <span class="brand-tx"><strong>Suivi TB</strong><span>HGR Makala</span></span>
+        </div>
+        <nav class="sidenav" aria-label="Navigation principale">
+            {% if request.user.role == 'ADMIN' %}
+            <a class="nitem {% if active_nav == 'users' %}active{% endif %}" href="{{ url('user_list') }}"><i class="users icon"></i>Utilisateurs</a>
+            {% else %}
+            <a class="nitem active" href="{{ url('dashboard') }}"><i class="home icon"></i>Accueil</a>
+            {% endif %}
+        </nav>
+        <div class="side-user">
+            <div class="su-row">
+                <span class="avatar sm" style="{{ request.user.avatar_style }}">{{ request.user.initials }}</span>
+                <span class="su-tx"><strong>{{ request.user.titled_name }}</strong><span>{{ request.user.get_role_display() }}</span></span>
+            </div>
+            <a class="pwd-btn" href="{{ url('password_change') }}"><i class="key icon"></i>Modifier le mot de passe</a>
+            <form action="{{ url('logout') }}" method="post" id="logoutForm" style="margin:0;">
+                {{ csrf_input }}
+                <button type="button" id="logoutBtn" class="logout-btn"><i class="sign out alternate icon"></i>Se déconnecter</button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- ============================== Contenu ================================ -->
+    <main class="main">
+        <div class="view">
+            {% block view_content %}{% endblock %}
+        </div>
+    </main>
+</div>
+
+<!-- Modale générique & Toast zone -->
+<div class="overlay" id="overlay"></div>
+<div class="toast-zone" id="toasts" aria-live="polite">
+    {% if messages %}
+        {% for message in messages %}
+        <div class="toast">
+            <i class="{% if message.tags == 'error' %}exclamation triangle{% else %}check{% endif %} icon"></i>
+            <span>{{ message }}</span>
+        </div>
+        {% endfor %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function() {
+        // Auto dismiss messages toasts
+        const toasts = document.querySelectorAll('.toast');
+        toasts.forEach(t => {
+            setTimeout(() => {
+                t.classList.add('out');
+                setTimeout(() => t.remove(), 220);
+            }, 3500);
+        });
+
+        // Mobile menu toggle
+        const btnMenu = document.getElementById('btnMenu');
+        const sidebar = document.getElementById('sidebar');
+        const scrim = document.getElementById('scrim');
+        if (btnMenu && sidebar && scrim) {
+            btnMenu.addEventListener('click', () => {
+                sidebar.classList.toggle('open');
+                scrim.classList.toggle('show');
+            });
+            scrim.addEventListener('click', () => {
+                sidebar.classList.remove('open');
+                scrim.classList.remove('show');
+            });
+        }
+
+        // Déconnexion : modale de confirmation
+        const logoutForm = document.getElementById('logoutForm');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const overlay = document.getElementById('overlay');
+
+        function closeModal() {
+            const ov = document.getElementById('overlay');
+            if (!ov) return;
+            ov.classList.remove('open');
+            ov.innerHTML = '';
+        }
+
+        function confirmLogout() {
+            overlay.innerHTML =
+                '<div class="modal" role="dialog" aria-modal="true" aria-label="Se déconnecter">' +
+                '  <div class="modal-h">' +
+                '    <h2>Se déconnecter</h2>' +
+                '    <button type="button" class="icon-btn" data-close aria-label="Fermer"><i class="close icon"></i></button>' +
+                '  </div>' +
+                '  <div class="modal-b"><p style="margin:4px 0 0;font-size:14.5px;color:#3c4043;line-height:1.55">Voulez-vous vraiment vous déconnecter&nbsp;?</p></div>' +
+                '  <div class="modal-f">' +
+                '    <button type="button" class="ui basic button" data-close>Annuler</button>' +
+                '    <button type="button" class="ui negative button" id="cfok">Se déconnecter</button>' +
+                '  </div>' +
+                '</div>';
+            overlay.classList.add('open');
+            const ok = document.getElementById('cfok');
+            if (ok) ok.addEventListener('click', () => logoutForm.submit());
+        }
+
+        if (logoutBtn && logoutForm && overlay) {
+            logoutBtn.addEventListener('click', confirmLogout);
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay || e.target.closest('[data-close]')) closeModal();
+            });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+        }
+    })();
+</script>
+{% block app_js %}{% endblock %}
+{% endblock %}

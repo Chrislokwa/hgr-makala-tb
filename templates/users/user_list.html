@@ -1,0 +1,34 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Utilisateurs — Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Utilisateurs</h1>
+        <p class="vsub">Comptes et droits d’accès au système</p>
+    </div>
+    <a href="{{ url('user_create') }}" class="ui primary button"><i class="plus icon"></i>Nouvel utilisateur</a>
+</div>
+
+<!-- Recherche asynchrone -->
+<div class="toolbar">
+    <form method="get" action="{{ url('user_list') }}" class="search_" style="width:100%;">
+        <i class="search icon"></i>
+        <input id="searchUser" type="text" name="q" value="{{ q }}"
+               hx-get="{{ url('user_list') }}"
+               hx-trigger="input changed delay:300ms"
+               hx-target="#userResults"
+               hx-swap="innerHTML"
+               hx-push-url="true"
+               hx-indicator="#userLoading"
+               placeholder="Rechercher (nom, post-nom, prénom, e-mail, téléphone)" aria-label="Recherche utilisateurs">
+    </form>
+</div>
+<div id="userLoading" class="hx-indicator" hidden></div>
+
+<div id="userResults">
+    {% include 'users/user_list_results.html' %}
+</div>
+{% endblock %}

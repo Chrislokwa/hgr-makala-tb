@@ -18,3 +18,12 @@ db.sqlite3
 # Postman
 .postman/
 postman/
+
+# Documentations
+*.pdf
+
+# Agents
+AGENT.md
+
+# Prototypes
+template.html

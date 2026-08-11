@@ -29,32 +29,15 @@ La version actuelle du projet couvre les modules suivants :
 
 ## Stack technique
 
-Le projet est actuellement implémenté comme une application Django monolithique avec templates HTML et logique métier organisée par modules.
+Le projet est actuellement implémenté comme une application Django monolithique avec logique métier organisée par modules.
 
 - Python 3.x
 - Django 6
+- Jinja2 (moteur de templates de l’application ; Django templates conservés uniquement pour l’interface d’administration)
+- HTMX (interactions dynamiques sans rechargement complet, ex. recherche de patients / utilisateurs)
+- Semantic UI
 - SQLite pour l’environnement de développement
-- Django templates
 - applications Django organisées par domaine : authentication, patients, laboratoire, stats
-
-## Structure du dépôt
-
-```bash
-.
-├── apps/
-│   ├── authentication/
-│   ├── laboratoire/
-│   ├── patients/
-│   └── stats/
-├── config/
-│   └── settings/
-├── templates/
-├── static/
-├── db.sqlite3
-├── manage.py
-├── requirements.txt
-└── README.md
-```
 
 ## Prérequis
 
@@ -72,7 +55,14 @@ Le projet est actuellement implémenté comme une application Django monolithiqu
 
 2. Créer et activer un environnement virtuel
    ```bash
-   python3 -m venv .venv
+   python -m venv .venv
+   ```
+   Activation — Windows (PowerShell) :
+   ```powershell
+   .venv\Scripts\activate
+   ```
+   Activation — Linux / macOS :
+   ```bash
    source .venv/bin/activate
    ```
 
@@ -86,23 +76,23 @@ Le projet est actuellement implémenté comme une application Django monolithiqu
    python manage.py migrate
    ```
 
-5. Créer un superutilisateur
+5. (Optionnel) Charger les comptes de démonstration
+   ```bash
+   python manage.py seed_demo_users
+   ```
+   Cette commande crée 10 comptes de démonstration avec le mot de passe par défaut `demo`, dont un compte administrateur (`j.bongoy@hgr-makala.cd`). Elle est idempotente : réexécutée, elle met à jour les comptes existants.
+
+6. Créer un superutilisateur
    ```bash
    python manage.py createsuperuser
    ```
 
-6. Lancer l’application
+7. Lancer l’application
    ```bash
    python manage.py runserver
    ```
 
 L’application sera alors accessible sur http://127.0.0.1:8000/.
-
-## Notes de développement
-
-- Les routes API sont organisées sous les préfixes /api/.
-- L’interface d’administration Django est disponible via /admin/.
-- Le projet est encore en évolution et peut être enrichi par de nouvelles fonctionnalités métier selon les besoins du service.
 
 ## Auteurs
 

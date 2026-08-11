@@ -1,3 +1,1 @@
-from django.contrib import admin
-
-# Register your models here.
+# L'enregistrement admin du modèle CustomUser est géré dans apps/users/admin.py.

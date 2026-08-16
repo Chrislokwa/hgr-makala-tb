@@ -48,9 +48,6 @@ INSTALLED_APPS = [
     # Applications locales
     'apps.authentication',
     'apps.users',
-    'apps.patients',
-    'apps.laboratoire',
-    'apps.stats',
 ]
 
 MIDDLEWARE = [

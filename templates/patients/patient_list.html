@@ -1,0 +1,56 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Patients — Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Patients</h1>
+        <p class="vsub">Dossiers provisoires et confirmés</p>
+    </div>
+    <a href="{{ url('patient_create') }}" class="ui primary button"><i class="plus icon"></i>Nouveau dossier</a>
+</div>
+
+<div class="pstats">
+    <div class="pstat"><span>Total dossiers</span><strong>{{ paginator.count }}</strong></div>
+    <div class="pstat"><span>Provisoires</span><strong>{{ patients_provisoires }}</strong></div>
+    <div class="pstat"><span>Confirmés</span><strong>{{ patients_confirmes }}</strong></div>
+</div>
+
+<div class="plist">
+    {% for patient in patients %}
+    <a class="prow" href="{{ url('patient_detail', pk=patient.pk) }}">
+        <span class="avatar lg" style="{{ patient.avatar_style }}">{{ patient.initiales }}</span>
+        <span class="prow-main">
+            <span class="prow-name">{{ patient.full_name }}</span>
+            <span class="prow-meta">{{ patient.ndp }} · {{ patient.get_sexe_display() }} · {{ patient.age }} ans{% if patient.district %} · {{ patient.district }}{% endif %}</span>
+        </span>
+        <span class="badge {% if patient.statut == 'NON_CONFIRME' %}neg{% elif patient.statut == 'CONFIRME' %}ok{% endif %}">{{ patient.get_statut_display() }}</span>
+        <i class="chevron right icon"></i>
+    </a>
+    {% else %}
+    <div class="empty">
+        <i class="user outline icon"></i>
+        <p>Aucun dossier patient pour le moment.</p>
+        <a href="{{ url('patient_create') }}" class="ui primary button"><i class="plus icon"></i>Créer le premier dossier</a>
+    </div>
+    {% endfor %}
+</div>
+
+{% if is_paginated %}
+<div class="pagination">
+    {% if page_obj.has_previous() %}
+    <a class="ui basic button" href="?page={{ page_obj.previous_page_number() }}"><i class="chevron left icon"></i>Précédent</a>
+    {% else %}
+    <span class="ui basic disabled button"><i class="chevron left icon"></i>Précédent</span>
+    {% endif %}
+    <span class="pg-info">Page {{ page_obj.number }} / {{ paginator.num_pages }}</span>
+    {% if page_obj.has_next() %}
+    <a class="ui basic button" href="?page={{ page_obj.next_page_number() }}">Suivant<i class="chevron right icon"></i></a>
+    {% else %}
+    <span class="ui basic disabled button">Suivant<i class="chevron right icon"></i></span>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

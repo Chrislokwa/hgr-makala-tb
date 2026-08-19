@@ -1,0 +1,106 @@
+{% extends 'base_app.html' %}
+
+{% block title %}{{ demande.numero_demande }} — Laboratoire · Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Consultation de la demande</h1>
+        <p class="vsub">{{ demande.numero_demande }}</p>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a href="{{ url('examen_list') }}" class="ui basic button"><i class="lab icon"></i>Examens</a>
+        <a href="{{ url('resultat_saisie', pk=demande.pk) }}" class="ui teal button"><i class="lab icon"></i>Saisir / modifier les résultats</a>
+    </div>
+</div>
+
+<!-- Zone 1 · Prescription (lecture seule) -->
+<div class="fcard">
+    <div class="fcard-h"><h2><i class="clipboard list icon"></i>Demande du médecin</h2></div>
+    <div class="ro-zone">
+        <span class="avatar lg" style="{{ demande.patient.avatar_style }}">{{ demande.patient.initiales }}</span>
+        <div class="ro-id">
+            <strong>{{ demande.patient.full_name }}</strong>
+            <span>{{ demande.patient.get_sexe_display() }} · {{ demande.patient.age }} ans · {{ demande.patient.ndp }}</span>
+            <span class="ro-ndp">Demande <strong>{{ demande.numero_demande }}</strong> prescrite le {{ demande.date_prescription|date_fr }} par {{ demande.medecin.titled_name }}</span>
+        </div>
+        <span class="badge {% if demande.statut == 'RESULTATS_DISPONIBLES' %}ok{% endif %}">{{ demande.get_statut_display() }}</span>
+    </div>
+
+    <div class="grid two" style="margin-top:14px">
+        <div class="robox">
+            <div class="ro-t">Examens demandés</div>
+            <div class="ro-s">{{ demande.types_libelles }}</div>
+        </div>
+        <div class="robox">
+            <div class="ro-t">Prélèvement</div>
+            <div class="ro-s">{{ demande.get_nature_echantillon_display() }}{% if demande.organe %} — {{ demande.organe }}{% endif %} · prévu le {{ demande.date_prelevement|date_fr }}</div>
+        </div>
+        <div class="robox">
+            <div class="ro-t">Motif</div>
+            <div class="ro-s">{{ demande.get_motif_display() }}{% if demande.mois_controle %} · {{ demande.get_mois_controle_display() }}{% endif %}</div>
+        </div>
+        <div class="robox">
+            <div class="ro-t">Statut VIH connu</div>
+            <div class="ro-s">{{ demande.get_statut_vih_display()|default('Non renseigné') }}</div>
+        </div>
+    </div>
+
+    {% if demande.observations %}
+    <div class="robox" style="margin-top:12px">
+        <div class="ro-t">Observations du prescripteur</div>
+        <div class="ro-s">{{ demande.observations }}</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Résultats du laboratoire -->
+<div class="fcard">
+    <div class="fcard-h"><h2><i class="lab icon"></i>Résultats du laboratoire</h2></div>
+    {% if resultats %}
+    <div class="result-entries">
+        {% for res in resultats %}
+        <div class="result-entry">
+            <div class="result-entry-h">
+                <span class="badge {% if res.statut == 'VALIDE' %}ok{% else %}neg{% endif %}">{{ res.get_statut_display() }}</span>
+                <span>Enregistré le {{ res.cree_le|date_fr }} par {{ res.laborantin.titled_name }}</span>
+                {% if res.date_lecture %}<span>Lecture des lames : {{ res.date_lecture|date_fr }}</span>{% endif %}
+            </div>
+
+            {% if res.date_reception %}
+            <div class="result-grid">
+                <div class="result-cell"><span>Date de réception</span><strong>{{ res.date_reception|date_fr }}</strong></div>
+                <div class="result-cell"><span>Apparence</span><strong>{{ res.get_apparence_display() }}</strong></div>
+                {% if res.echantillon_1 or res.echantillon_2 %}
+                <div class="result-cell"><span>Échantillon 1 (jour J)</span><strong class="{% if res.echantillon_1 in res.BAAR_POSITIFS %}pos{% endif %}">{{ res.get_echantillon_1_display() }}</strong></div>
+                <div class="result-cell"><span>Échantillon 2 (lendemain)</span><strong class="{% if res.echantillon_2 in res.BAAR_POSITIFS %}pos{% endif %}">{{ res.get_echantillon_2_display() }}</strong></div>
+                <div class="result-cell"><span>Coloration</span><strong>{{ res.get_technique_coloration_display() }}</strong></div>
+                {% endif %}
+                {% if res.resultat_genexpert %}
+                <div class="result-cell"><span>GeneXpert</span><strong class="{% if res.resultat_genexpert == 'MTB_PLUS_RIF_PLUS' or res.resultat_genexpert == 'MTB_PLUS_RIF_MOINS' or res.resultat_genexpert == 'MTB_MOINS_RIF_PLUS' %}pos{% endif %}">{{ res.get_resultat_genexpert_display() }}</strong></div>
+                {% endif %}
+                {% if res.resultat_vih %}
+                <div class="result-cell"><span>Test VIH</span><strong class="{% if res.resultat_vih == 'POSITIF' %}pos{% endif %}">{{ res.get_resultat_vih_display() }}</strong></div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if res.commentaires %}
+            <div class="robox" style="margin-top:10px">
+                <div class="ro-t">Remarques</div>
+                <div class="ro-s">{{ res.commentaires }}</div>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty">
+        <i class="lab icon"></i>
+        <p>Aucun résultat saisi pour cette demande.</p>
+        <a href="{{ url('resultat_saisie', pk=demande.pk) }}" class="ui teal button"><i class="lab icon"></i>Saisir les résultats</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

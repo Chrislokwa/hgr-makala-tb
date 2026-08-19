@@ -1,6 +1,15 @@
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
-from .models import ExamenPrescription, Patient, StatutDossier, StatutExamen
+from .models import (
+    ExamenPrescription,
+    Notification,
+    Patient,
+    ResultatLabo,
+    StatutDossier,
+    StatutExamen,
+    StatutResultat,
+)
 
 
 def creer_dossier_provisoire(*, medecin, donnees):
@@ -52,3 +61,73 @@ def trouver_prescriptions_en_attente(patient, codes_types):
         .distinct()
         .order_by('-date_prescription')
     )
+
+
+def _sauvegarder_resultat(*, laborantin, prescription, donnees, statut, date_lecture):
+    resultat = (
+        ResultatLabo.objects.filter(prescription=prescription)
+        .order_by('-cree_le')
+        .first()
+    )
+    if resultat is None:
+        resultat = ResultatLabo(prescription=prescription, laborantin=laborantin)
+    for champ, valeur in donnees.items():
+        setattr(resultat, champ, valeur)
+    resultat.laborantin = laborantin
+    resultat.statut = statut
+    resultat.date_lecture = date_lecture
+    resultat.save()
+    return resultat
+
+
+def enregistrer_resultats(*, laborantin, prescription, donnees, valider):
+    """Sauvegarde les résultats d'une demande de laboratoire.
+
+    - Entrée simple : modifie la dernière entrée existante (brouillon le plus
+      récent, sinon le résultat validé affiché au médecin).
+    - Validation : si un résultat validé existe déjà, une nouvelle entrée est
+      créée (version précédente conservée pour traçabilité) ; sinon l'entrée
+      courante est promue au statut VALIDE. Le statut de la demande passe à
+      « Résultats disponibles » et une notification est envoyée au médecin.
+    """
+    with transaction.atomic():
+        if valider:
+            deja_valide = ResultatLabo.objects.filter(
+                prescription=prescription, statut=StatutResultat.VALIDE
+            ).exists()
+            if deja_valide:
+                resultat = ResultatLabo(
+                    prescription=prescription,
+                    laborantin=laborantin,
+                    statut=StatutResultat.VALIDE,
+                    date_lecture=timezone.now(),
+                    **donnees,
+                )
+                resultat.save()
+            else:
+                resultat = _sauvegarder_resultat(
+                    laborantin=laborantin,
+                    prescription=prescription,
+                    donnees=donnees,
+                    statut=StatutResultat.VALIDE,
+                    date_lecture=timezone.now(),
+                )
+            prescription.statut = StatutExamen.RESULTATS_DISPONIBLES
+            prescription.save(update_fields=['statut'])
+            Notification.objects.create(
+                destinataire=prescription.medecin,
+                message=(
+                    f"Résultats disponibles : {prescription.numero_demande} — "
+                    f"{prescription.patient.full_name} ({prescription.types_libelles})."
+                ),
+                url=f"/patients/{prescription.patient.pk}/",
+            )
+            return resultat
+
+        return _sauvegarder_resultat(
+            laborantin=laborantin,
+            prescription=prescription,
+            donnees=donnees,
+            statut=StatutResultat.BROUILLON,
+            date_lecture=None,
+        )

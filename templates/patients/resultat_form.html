@@ -1,0 +1,151 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Saisie des résultats — {{ demande.numero_demande }} · Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Saisie des résultats de laboratoire</h1>
+        <p class="vsub">{{ demande.numero_demande }}</p>
+    </div>
+    <a href="{{ url('examen_detail', pk=demande.pk) }}" class="ui basic button"><i class="eye icon"></i>Consultation</a>
+</div>
+
+{% if deja_valide %}
+<div class="notice">
+    <i class="info circle icon"></i>
+    <div style="flex:1;min-width:0">
+        <strong>Des résultats validés existent déjà pour cette demande</strong>
+        <p>Une nouvelle validation créera une version supplémentaire ; les versions précédentes restent conservées pour traçabilité.</p>
+    </div>
+</div>
+{% endif %}
+
+<form class="ui form" method="post" novalidate>
+    {{ csrf_input }}
+    {% if form.non_field_errors() %}
+    <div class="ui negative message">{{ form.non_field_errors() }}</div>
+    {% endif %}
+
+    <!-- Zone 1 · Prescription (lecture seule) -->
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="clipboard list icon"></i>Demande du médecin</h2></div>
+        <div class="ro-zone">
+            <span class="avatar lg" style="{{ demande.patient.avatar_style }}">{{ demande.patient.initiales }}</span>
+            <div class="ro-id">
+                <strong>{{ demande.patient.full_name }}</strong>
+                <span>{{ demande.patient.get_sexe_display() }} · {{ demande.patient.age }} ans · {{ demande.patient.ndp }}</span>
+                <span class="ro-ndp">Prescrite le {{ demande.date_prescription|date_fr }} par {{ demande.medecin.titled_name }}</span>
+            </div>
+            <span class="badge">{{ demande.get_statut_display() }}</span>
+        </div>
+        <div class="robox" style="margin-top:12px">
+            <div class="ro-t">Examens demandés</div>
+            <div class="ro-s">{{ demande.types_libelles }} · {{ demande.get_nature_echantillon_display() }}{% if demande.organe %} ({{ demande.organe }}){% endif %}{% if demande.mois_controle %} · {{ demande.get_mois_controle_display() }}{% endif %}</div>
+        </div>
+        {% if demande.observations %}
+        <div class="robox" style="margin-top:8px">
+            <div class="ro-t">Observations du prescripteur</div>
+            <div class="ro-s">{{ demande.observations }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Zone 2 · Résultats par type d'examen -->
+    {% if 'BACILLOSCOPIE' in codes_examens %}
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="microscope icon"></i>Bacilloscopie des crachats</h2></div>
+
+        <div class="grid two">
+            <div class="field {% if form.date_reception.errors %}error{% endif %}">
+                <label for="id_date_reception">{{ form.date_reception.label }}</label>
+                {{ form.date_reception }}
+                {% if form.date_reception.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.date_reception.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field {% if form.apparence.errors %}error{% endif %}">
+                <label for="id_apparence">{{ form.apparence.label }}</label>
+                {{ form.apparence }}
+                {% if form.apparence.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.apparence.errors[0] }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="field {% if form.echantillon_1.errors %}error{% endif %}">
+            <label>{{ form.echantillon_1.label }}</label>
+            <div class="radio-list result-radios">
+                {{ form.echantillon_1 }}
+            </div>
+            {% if form.echantillon_1.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.echantillon_1.errors[0] }}</div>{% endif %}
+        </div>
+
+        <div class="field {% if form.echantillon_2.errors %}error{% endif %}">
+            <label>{{ form.echantillon_2.label }}</label>
+            <div class="radio-list result-radios">
+                {{ form.echantillon_2 }}
+            </div>
+            {% if form.echantillon_2.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.echantillon_2.errors[0] }}</div>{% endif %}
+        </div>
+
+        <div class="field {% if form.technique_coloration.errors %}error{% endif %}">
+            <label>{{ form.technique_coloration.label }}</label>
+            <div class="radio-list result-radios">
+                {{ form.technique_coloration }}
+            </div>
+            {% if form.technique_coloration.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.technique_coloration.errors[0] }}</div>{% endif %}
+        </div>
+
+        <div class="form-note"><i class="info circle icon"></i>Deux échantillons sont examinés pour cette demande : un prélevé le jour J et un le lendemain matin.</div>
+    </div>
+    {% endif %}
+
+    {% if 'GENEXPERT' in codes_examens %}
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="dna icon"></i>GeneXpert (PCR)</h2></div>
+        <div class="field {% if form.resultat_genexpert.errors %}error{% endif %}" style="max-width:360px">
+            <label for="id_resultat_genexpert">{{ form.resultat_genexpert.label }}</label>
+            {{ form.resultat_genexpert }}
+            {% if form.resultat_genexpert.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.resultat_genexpert.errors[0] }}</div>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if 'VIH' in codes_examens %}
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="heartbeat icon"></i>Test VIH</h2></div>
+        <div class="field {% if form.resultat_vih.errors %}error{% endif %}" style="max-width:360px">
+            <label for="id_resultat_vih">{{ form.resultat_vih.label }}</label>
+            {{ form.resultat_vih }}
+            {% if form.resultat_vih.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.resultat_vih.errors[0] }}</div>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Zone 3 · Remarques et validation -->
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="paper plane outline icon"></i>Remarques et validation</h2></div>
+        <div class="field {% if form.commentaires.errors %}error{% endif %}">
+            <label for="id_commentaires">{{ form.commentaires.label }}</label>
+            {{ form.commentaires }}
+            {% if form.commentaires.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.commentaires.errors[0] }}</div>{% endif %}
+        </div>
+        <div class="form-note">Le nom du laborantin, la date et l'heure seront enregistrés automatiquement. La validation rend les résultats visibles au médecin traitant.</div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; margin-top:18px;">
+        <a href="{{ url('examen_detail', pk=demande.pk) }}" class="ui basic button">Annuler</a>
+        <button type="submit" name="action" value="brouillon" class="ui basic teal button"><i class="save icon"></i>Enregistrer en brouillon</button>
+        <button type="submit" name="action" value="valider" class="ui primary button"><i class="check circle icon"></i>Valider et transmettre au médecin</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block app_js %}
+<script>
+(function() {
+    const dateInput = document.getElementById('id_date_reception');
+    if (dateInput) {
+        dateInput.max = new Date().toISOString().split('T')[0];
+    }
+})();
+</script>
+{% endblock %}

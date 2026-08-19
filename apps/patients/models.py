@@ -231,6 +231,46 @@ class StatutVihConnu(models.TextChoices):
 
 class StatutExamen(models.TextChoices):
     EN_ATTENTE = 'EN_ATTENTE', 'En attente au laboratoire'
+    RESULTATS_DISPONIBLES = 'RESULTATS_DISPONIBLES', 'Résultats disponibles'
+
+
+class ApparenceEchantillon(models.TextChoices):
+    MUCOPURULENT = 'MUCOPURULENT', 'Mucopurulent'
+    SALIVE = 'SALIVE', 'Salive'
+    SANG = 'SANG', 'Sang'
+
+
+class ResultatBacilloscopie(models.TextChoices):
+    NEGATIF = 'NEG', 'Nég'
+    BAAR_1_9 = '1_9', '1-9 BAAR'
+    POSITIF_1 = '+', '+'
+    POSITIF_2 = '++', '++'
+    POSITIF_3 = '+++', '+++'
+
+
+class TechniqueColoration(models.TextChoices):
+    ZN = 'ZN', 'ZN — Ziehl-Neelsen'
+    LED = 'LED', 'LED — Microscopie à fluorescence'
+
+
+class ResultatGeneXpert(models.TextChoices):
+    MTB_PLUS_RIF_PLUS = 'MTB_PLUS_RIF_PLUS', 'MTB+ RIF+'
+    MTB_PLUS_RIF_MOINS = 'MTB_PLUS_RIF_MOINS', 'MTB+ RIF-'
+    MTB_MOINS_RIF_PLUS = 'MTB_MOINS_RIF_PLUS', 'MTB- RIF+'
+    INVALID = 'INVALID', 'Invalid'
+    NON_FAIT = 'NON_FAIT', 'Non fait'
+
+
+class ResultatVih(models.TextChoices):
+    POSITIF = 'POSITIF', 'Positif'
+    NEGATIF = 'NEGATIF', 'Négatif'
+    PVV = 'PVV', 'PVV déjà connu'
+    NON_FAIT = 'NON_FAIT', 'Non fait'
+
+
+class StatutResultat(models.TextChoices):
+    BROUILLON = 'BROUILLON', 'Brouillon'
+    VALIDE = 'VALIDE', 'Validé'
 
 
 class ExamenPrescription(models.Model):
@@ -279,7 +319,7 @@ class ExamenPrescription(models.Model):
         help_text="Recommandations spécifiques à l'attention du laboratoire.",
     )
     statut = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=StatutExamen.choices,
         default=StatutExamen.EN_ATTENTE,
     )
@@ -314,3 +354,134 @@ class ExamenPrescription(models.Model):
         if not self.numero_demande:
             self.numero_demande = self.generer_numero_demande()
         super().save(*args, **kwargs)
+
+    @property
+    def resultat_recent(self):
+        return self.resultats_labo.order_by('-cree_le').first()
+
+    @property
+    def resultat_valide(self):
+        return (
+            self.resultats_labo
+            .filter(statut=StatutResultat.VALIDE)
+            .order_by('-cree_le')
+            .first()
+        )
+
+
+class ResultatLabo(models.Model):
+    BAAR_POSITIFS = (ResultatBacilloscopie.BAAR_1_9, ResultatBacilloscopie.POSITIF_1,
+                     ResultatBacilloscopie.POSITIF_2, ResultatBacilloscopie.POSITIF_3)
+
+    prescription = models.ForeignKey(
+        ExamenPrescription,
+        on_delete=models.PROTECT,
+        related_name='resultats_labo',
+    )
+    laborantin = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='resultats_saisis',
+        help_text="Laborantin ayant saisi les résultats.",
+    )
+    cree_le = models.DateTimeField(auto_now_add=True, db_index=True)
+    date_lecture = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date et heure de lecture des lames (renseignées à la validation).",
+    )
+    statut = models.CharField(
+        max_length=20,
+        choices=StatutResultat.choices,
+        default=StatutResultat.BROUILLON,
+    )
+    date_reception = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date de réception de l'échantillon au laboratoire.",
+    )
+    apparence = models.CharField(
+        max_length=20,
+        choices=ApparenceEchantillon.choices,
+        blank=True,
+        help_text="Apparence macroscopique de l'échantillon.",
+    )
+    echantillon_1 = models.CharField(
+        max_length=8,
+        choices=ResultatBacilloscopie.choices,
+        blank=True,
+        help_text="Résultat de l'échantillon 1 (prélevé le jour J).",
+    )
+    echantillon_2 = models.CharField(
+        max_length=8,
+        choices=ResultatBacilloscopie.choices,
+        blank=True,
+        help_text="Résultat de l'échantillon 2 (prélevé le lendemain matin).",
+    )
+    technique_coloration = models.CharField(
+        max_length=10,
+        choices=TechniqueColoration.choices,
+        blank=True,
+        help_text="Technique de coloration utilisée pour la bacilloscopie.",
+    )
+    resultat_genexpert = models.CharField(
+        max_length=30,
+        choices=ResultatGeneXpert.choices,
+        blank=True,
+    )
+    resultat_vih = models.CharField(
+        max_length=20,
+        choices=ResultatVih.choices,
+        blank=True,
+    )
+    commentaires = models.TextField(
+        blank=True,
+        help_text="Anomalies et remarques du laborantin (échantillon contaminé, qualité insuffisante…).",
+    )
+
+    class Meta:
+        ordering = ['-cree_le']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['prescription', 'cree_le'],
+                name='unique_resultat_labo_prescription_horodatage',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.prescription.numero_demande} · {self.get_statut_display()}"
+
+    @property
+    def resultats_positifs(self):
+        positifs = []
+        if self.echantillon_1 in self.BAAR_POSITIFS:
+            positifs.append(f"Échantillon 1 : {self.get_echantillon_1_display()}")
+        if self.echantillon_2 in self.BAAR_POSITIFS:
+            positifs.append(f"Échantillon 2 : {self.get_echantillon_2_display()}")
+        if self.resultat_genexpert in (
+                ResultatGeneXpert.MTB_PLUS_RIF_PLUS,
+                ResultatGeneXpert.MTB_PLUS_RIF_MOINS,
+                ResultatGeneXpert.MTB_MOINS_RIF_PLUS,
+        ):
+            positifs.append(f"GeneXpert : {self.get_resultat_genexpert_display()}")
+        if self.resultat_vih == ResultatVih.POSITIF:
+            positifs.append("Test VIH : Positif")
+        return positifs
+
+
+class Notification(models.Model):
+    destinataire = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+    )
+    message = models.CharField(max_length=255)
+    url = models.CharField(max_length=255, blank=True, help_text="Lien interne vers le dossier concerné.")
+    cree_le = models.DateTimeField(auto_now_add=True, db_index=True)
+    lu = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-cree_le']
+
+    def __str__(self):
+        return f"{self.message} → {self.destinataire}"

@@ -85,8 +85,24 @@
                 <strong>{{ dem.numero_demande }}</strong>
                 <span>{{ dem.types_libelles }}</span>
                 <span>Prescrite le {{ dem.date_prescription|date_fr }} · {{ dem.get_nature_echantillon_display() }}{% if dem.organe %} ({{ dem.organe }}){% endif %}</span>
+                {% set res = dem.resultat_valide %}
+                {% if res %}
+                <div class="result-summary">
+                    <span class="badge ok">Résultats disponibles ({{ res.cree_le|date_fr }})</span>
+                    {% if res.echantillon_1 or res.echantillon_2 %}
+                    <span class="res-item">Bacilloscopie : <strong class="{% if res.echantillon_1 in res.BAAR_POSITIFS %}pos{% endif %}">{{ res.get_echantillon_1_display() }}{% if res.echantillon_2 %}/{{ res.get_echantillon_2_display() }}{% endif %}</strong></span>
+                    {% endif %}
+                    {% if res.resultat_genexpert %}
+                    <span class="res-item">GeneXpert : <strong class="{% if res.resultat_genexpert == 'MTB_PLUS_RIF_PLUS' or res.resultat_genexpert == 'MTB_PLUS_RIF_MOINS' or res.resultat_genexpert == 'MTB_MOINS_RIF_PLUS' %}pos{% endif %}">{{ res.get_resultat_genexpert_display() }}</strong></span>
+                    {% endif %}
+                    {% if res.resultat_vih %}
+                    <span class="res-item">VIH : <strong class="{% if res.resultat_vih == 'POSITIF' %}pos{% endif %}">{{ res.get_resultat_vih_display() }}</strong></span>
+                    {% endif %}
+                    {% if res.commentaires %}<span class="res-item res-note"><i class="sticky note outline icon"></i>{{ res.commentaires }}</span>{% endif %}
+                </div>
+                {% endif %}
             </div>
-            <span class="badge">{{ dem.get_statut_display() }}</span>
+            <span class="badge {% if dem.statut == 'RESULTATS_DISPONIBLES' %}ok{% endif %}">{{ dem.get_statut_display() }}</span>
         </div>
         {% endfor %}
     </div>

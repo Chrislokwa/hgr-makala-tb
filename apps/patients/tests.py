@@ -5,8 +5,21 @@ from django.urls import reverse
 
 from apps.users.models import CustomUser, UserRole
 
-from .models import ExamenPrescription, Patient, StatutDossier, StatutExamen, TypeExamen
-from .services import creer_dossier_provisoire, creer_prescription_examen
+from .models import (
+    ExamenPrescription,
+    Notification,
+    Patient,
+    ResultatLabo,
+    StatutDossier,
+    StatutExamen,
+    StatutResultat,
+    TypeExamen,
+)
+from .services import (
+    creer_dossier_provisoire,
+    creer_prescription_examen,
+    enregistrer_resultats,
+)
 
 
 class PatientModelTests(TestCase):
@@ -427,3 +440,233 @@ class PrescriptionExamenTests(TestCase):
         self.assertContains(response, 'Examens prescrits')
         self.assertContains(response, 'Bacilloscopie des crachats')
         self.assertContains(response, f'DM-{date.today().year}-0001')
+
+
+class LaboratoireModuleTests(TestCase):
+    def setUp(self):
+        self.medecin = CustomUser.objects.create_user(
+            username='dr.test@hgr-makala.cd',
+            password='password123',
+            email='dr.test@hgr-makala.cd',
+            first_name='Paul',
+            last_name='Kalombo',
+            role=UserRole.MEDECIN,
+            is_active=True,
+        )
+        self.laborantin = CustomUser.objects.create_user(
+            username='lab.test@hgr-makala.cd',
+            password='password123',
+            email='lab.test@hgr-makala.cd',
+            first_name='Jean',
+            last_name='Bofasa',
+            role=UserRole.LABORANTIN,
+            is_active=True,
+        )
+
+    def _patient(self, **kwargs):
+        donnees = {
+            'nom': 'Mbuyi',
+            'post_nom': 'Kanyinda',
+            'prenom': 'Claire',
+            'sexe': 'F',
+            'date_naissance': date(1990, 5, 12),
+            'signe_toux_persistante': True,
+        }
+        donnees.update(kwargs)
+        return creer_dossier_provisoire(medecin=self.medecin, donnees=donnees)
+
+    def _prescription(self, patient, codes=('BACILLOSCOPIE', 'VIH')):
+        return creer_prescription_examen(
+            medecin=self.medecin,
+            patient=patient,
+            donnees={
+                'nature_echantillon': 'P',
+                'organe': '',
+                'motif': 'DIAGNOSTIC',
+                'mois_controle': '',
+                'date_prelevement': date.today(),
+                'statut_vih': '',
+                'observations': '',
+            },
+            types_examens=list(TypeExamen.objects.filter(code__in=codes)),
+        )
+
+    def _donnees_resultats(self, **kwargs):
+        donnees = {
+            'date_reception': date.today().isoformat(),
+            'apparence': 'MUCOPURULENT',
+            'echantillon_1': '+',
+            'echantillon_2': 'NEG',
+            'technique_coloration': 'ZN',
+            'resultat_vih': 'NEGATIF',
+            'commentaires': '',
+        }
+        donnees.update(kwargs)
+        return donnees
+
+    def test_examen_list_requires_login(self):
+        response = self.client.get(reverse('examen_list'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_examen_list_requires_laborantin_role(self):
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        response = self.client.get(reverse('examen_list'))
+        self.assertRedirects(response, reverse('dashboard'))
+
+    def test_medecin_cannot_access_result_saisie(self):
+        patient = self._patient()
+        presc = self._prescription(patient)
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        response = self.client.get(
+            reverse('resultat_saisie', kwargs={'pk': presc.pk})
+        )
+        self.assertRedirects(response, reverse('dashboard'))
+
+    def test_laborantin_see_list_sections(self):
+        self.client.login(username='lab.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        response = self.client.get(reverse('examen_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Demandes en attente')
+        self.assertContains(response, presc.numero_demande)
+        self.assertContains(response, 'Claire Kanyinda Mbuyi')
+
+    def test_saisie_form_champs_dynamiques(self):
+        self.client.login(username='lab.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(
+            patient, codes=('BACILLOSCOPIE', 'VIH')
+        )
+        response = self.client.get(
+            reverse('resultat_saisie', kwargs={'pk': presc.pk})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id_echantillon_1')
+        self.assertContains(response, 'id_resultat_vih')
+        # Pas de GeneXpert prescrit : champ absent
+        self.assertNotContains(response, 'id_resultat_genexpert')
+
+    def test_resultats_brouillon_conserve_statut(self):
+        self.client.login(username='lab.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        response = self.client.post(
+            reverse('resultat_saisie', kwargs={'pk': presc.pk}),
+            {**self._donnees_resultats(), 'action': 'brouillon'},
+        )
+        self.assertRedirects(
+            response, reverse('examen_detail', kwargs={'pk': presc.pk})
+        )
+        presc.refresh_from_db()
+        self.assertEqual(presc.statut, StatutExamen.EN_ATTENTE)
+        res = ResultatLabo.objects.get(prescription=presc)
+        self.assertEqual(res.statut, StatutResultat.BROUILLON)
+        self.assertEqual(res.laborantin, self.laborantin)
+        self.assertFalse(Notification.objects.filter(
+            destinataire=self.medecin
+        ).exists())
+
+    def test_validation_resultats_notifie_le_medecin(self):
+        self.client.login(username='lab.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        response = self.client.post(
+            reverse('resultat_saisie', kwargs={'pk': presc.pk}),
+            {**self._donnees_resultats(), 'action': 'valider'},
+        )
+        self.assertRedirects(
+            response, reverse('examen_detail', kwargs={'pk': presc.pk})
+        )
+        presc.refresh_from_db()
+        self.assertEqual(presc.statut, StatutExamen.RESULTATS_DISPONIBLES)
+        res = ResultatLabo.objects.get(prescription=presc)
+        self.assertEqual(res.statut, StatutResultat.VALIDE)
+        self.assertEqual(res.laborantin, self.laborantin)
+        self.assertEqual(res.echantillon_1, '+')
+        self.assertIsNotNone(res.date_lecture)
+        notif = Notification.objects.get(destinataire=self.medecin)
+        self.assertIn(presc.numero_demande, notif.message)
+
+    def test_revalidation_conserve_traçabilite(self):
+        self.client.login(username='lab.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        url = reverse('resultat_saisie', kwargs={'pk': presc.pk})
+        self.client.post(url, {**self._donnees_resultats(), 'action': 'valider'})
+        self.client.post(url, {**self._donnees_resultats(), 'action': 'valider'})
+        self.assertEqual(
+            ResultatLabo.objects.filter(prescription=presc).count(), 2
+        )
+        self.assertEqual(
+            Notification.objects.filter(destinataire=self.medecin).count(), 2
+        )
+
+    def test_validation_rend_le_resultat_visible_au_medecin(self):
+        self.client.login(username='lab.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        self.client.post(
+            reverse('resultat_saisie', kwargs={'pk': presc.pk}),
+            {**self._donnees_resultats(), 'action': 'valider'},
+        )
+        self.client.logout()
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        response = self.client.get(reverse('patient_detail', kwargs={'pk': patient.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, presc.numero_demande)
+        self.assertContains(response, 'Résultats disponibles')
+
+    def test_dashboard_medecin_affiche_notification_non_lue(self):
+        self.client.login(username='lab.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        self.client.post(
+            reverse('resultat_saisie', kwargs={'pk': presc.pk}),
+            {**self._donnees_resultats(), 'action': 'valider'},
+        )
+        self.client.logout()
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Notifications')
+        self.assertContains(response, presc.numero_demande)
+        self.assertContains(response, 'Non lu')
+
+    def test_marquer_notifications_lues(self):
+        self.client.login(username='lab.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        self.client.post(
+            reverse('resultat_saisie', kwargs={'pk': presc.pk}),
+            {**self._donnees_resultats(), 'action': 'valider'},
+        )
+        self.client.logout()
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        self.client.post(reverse('notifications_lues'))
+        self.assertFalse(
+            Notification.objects.filter(
+                destinataire=self.medecin, lu=False
+            ).exists()
+        )
+
+    def test_donnees_sans_echantillon_de_gene_requis(self):
+        self.client.login(username='lab.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient, codes=('VIH',))
+        response = self.client.post(
+            reverse('resultat_saisie', kwargs={'pk': presc.pk}),
+            {
+                'resultat_vih': 'POSITIF',
+                'commentaires': 'Test rapide positif.',
+                'action': 'valider',
+            },
+        )
+        self.assertRedirects(
+            response, reverse('examen_detail', kwargs={'pk': presc.pk})
+        )
+        presc.refresh_from_db()
+        self.assertEqual(presc.statut, StatutExamen.RESULTATS_DISPONIBLES)
+        res = ResultatLabo.objects.get(prescription=presc)
+        self.assertEqual(res.resultat_vih, 'POSITIF')
+        self.assertTrue(res.resultats_positifs)

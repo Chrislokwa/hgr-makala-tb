@@ -17,4 +17,37 @@
         Vous êtes connecté en tant que <strong>{{ request.user.titled_name }}</strong> (Rôle : <strong>{{ request.user.get_role_display() }}</strong>).
     </div>
 </div>
+
+{% if request.user.role == 'MEDECIN' %}
+<div class="fcard" style="margin-top:16px">
+    <div class="fcard-h">
+        <h2><i class="bell icon"></i>Notifications</h2>
+        {% if notifications %}
+        <form action="{{ url('notifications_lues') }}" method="post" style="margin:0">
+            {{ csrf_input }}
+            <button type="submit" class="ui basic tiny button"><i class="check double icon"></i>Tout marquer comme lu</button>
+        </form>
+        {% endif %}
+    </div>
+    {% if notifications %}
+    <div class="result-list">
+        {% for notif in notifications %}
+        <a class="result-row {% if not notif.lu %}unread{% endif %}" href="{{ notif.url or url('dashboard') }}" style="text-decoration:none">
+            <div class="result-tx">
+                <strong>{{ notif.message }}</strong>
+                <span>{{ notif.cree_le|date_fr }}</span>
+            </div>
+            {% if not notif.lu %}<span class="badge neg">Non lu</span>{% endif %}
+            <i class="chevron right icon"></i>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty">
+        <i class="bell outline icon"></i>
+        <p>Aucune notification pour le moment.</p>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
 {% endblock %}

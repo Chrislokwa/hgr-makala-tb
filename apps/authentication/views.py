@@ -4,6 +4,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import View
 from django.urls import reverse_lazy
 
+from apps.patients.models import Notification
 from apps.users.models import CustomUser, UserRole
 from .forms import CustomAuthenticationForm
 
@@ -26,7 +27,11 @@ class DashboardView(LoginRequiredMixin, View):
         user = request.user
         if user.role == UserRole.ADMIN:
             return redirect('user_list')
-        return render(request, 'authentication/dashboard.html', {
+        context = {
             'user': user,
-            'active_nav': 'home'
-        })
+            'active_nav': 'home',
+        }
+        if user.role == UserRole.MEDECIN:
+            context['notifications'] = user.notifications.all()[:5]
+            context['non_lues'] = user.notifications.filter(lu=False).count()
+        return render(request, 'authentication/dashboard.html', context)

@@ -4,13 +4,19 @@ from django.utils import timezone
 from apps.users.forms import NoClientValidationMixin
 
 from .models import (
+    ApparenceEchantillon,
     ExamenPrescription,
     MoisControle,
     MotifExamen,
     NatureEchantillon,
     Patient,
+    ResultatBacilloscopie,
+    ResultatGeneXpert,
+    ResultatLabo,
+    ResultatVih,
     Sexe,
     StatutVihConnu,
+    TechniqueColoration,
     TypeExamen,
 )
 
@@ -210,3 +216,81 @@ class PrescriptionExamenForm(NoClientValidationMixin, forms.ModelForm):
                 'La date de prélèvement ne peut pas être dans le passé.',
             )
         return cleaned
+
+
+class SaisieResultatForm(NoClientValidationMixin, forms.ModelForm):
+    date_reception = forms.DateField(
+        label='Date de réception de l’échantillon *',
+        widget=forms.DateInput(attrs={'type': 'date'}),
+    )
+    apparence = forms.ChoiceField(
+        label='Apparence macroscopique de l’échantillon *',
+        choices=ApparenceEchantillon.choices,
+        widget=forms.Select(),
+    )
+    echantillon_1 = forms.ChoiceField(
+        label='Échantillon 1 — jour J *',
+        choices=ResultatBacilloscopie.choices,
+        widget=forms.RadioSelect(),
+    )
+    echantillon_2 = forms.ChoiceField(
+        label='Échantillon 2 — matin du lendemain *',
+        choices=ResultatBacilloscopie.choices,
+        widget=forms.RadioSelect(),
+    )
+    technique_coloration = forms.ChoiceField(
+        label='Technique de coloration utilisée *',
+        choices=TechniqueColoration.choices,
+        widget=forms.RadioSelect(),
+    )
+    resultat_genexpert = forms.ChoiceField(
+        label='Résultat GeneXpert *',
+        choices=ResultatGeneXpert.choices,
+        widget=forms.Select(),
+    )
+    resultat_vih = forms.ChoiceField(
+        label='Résultat du test VIH *',
+        choices=ResultatVih.choices,
+        widget=forms.Select(),
+    )
+    commentaires = forms.CharField(
+        label='Anomalies, observations et remarques',
+        required=False,
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Échantillon contaminé, qualité insuffisante, remarques…',
+            'rows': 3,
+        }),
+    )
+
+    class Meta:
+        model = ResultatLabo
+        fields = [
+            'date_reception', 'apparence',
+            'echantillon_1', 'echantillon_2', 'technique_coloration',
+            'resultat_genexpert', 'resultat_vih', 'commentaires',
+        ]
+
+    def __init__(self, *args, prescription=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.prescription = prescription
+        if prescription is None:
+            return
+        codes = set(
+            prescription.examens.values_list('code', flat=True)
+        )
+        if 'BACILLOSCOPIE' not in codes:
+            for champ in ('date_reception', 'apparence', 'echantillon_1',
+                          'echantillon_2', 'technique_coloration'):
+                self.fields.pop(champ)
+        if 'GENEXPERT' not in codes:
+            self.fields.pop('resultat_genexpert')
+        if 'VIH' not in codes:
+            self.fields.pop('resultat_vih')
+
+    def clean_date_reception(self):
+        date = self.cleaned_data.get('date_reception')
+        if date and date > timezone.localdate():
+            raise forms.ValidationError(
+                "La date de réception ne peut pas être dans le futur."
+            )
+        return date

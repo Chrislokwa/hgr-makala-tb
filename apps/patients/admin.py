@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ExamenPrescription, Patient, TypeExamen
+from .models import ExamenPrescription, Notification, Patient, ResultatLabo, TypeExamen
 
 
 @admin.register(Patient)
@@ -35,3 +35,22 @@ class ExamenPrescriptionAdmin(admin.ModelAdmin):
     list_filter = ('statut', 'motif', 'nature_echantillon')
     search_fields = ('numero_demande', 'patient__nom', 'patient__prenom')
     readonly_fields = ('numero_demande', 'date_prescription')
+
+
+@admin.register(ResultatLabo)
+class ResultatLaboAdmin(admin.ModelAdmin):
+    list_display = ('prescription', 'statut', 'echantillons', 'date_lecture', 'laborantin', 'cree_le')
+    list_filter = ('statut',)
+    search_fields = ('prescription__numero_demande', 'prescription__patient__nom')
+    readonly_fields = ('cree_le',)
+
+    @admin.display(description='Échantillons')
+    def echantillons(self, obj):
+        return f"{obj.get_echantillon_1_display()}/{obj.get_echantillon_2_display()}"
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('destinataire', 'message', 'lu', 'cree_le')
+    list_filter = ('lu',)
+    readonly_fields = ('cree_le',)

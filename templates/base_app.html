@@ -14,9 +14,11 @@
             {% if request.user.role == 'ADMIN' %}
             <a class="nitem {% if active_nav == 'users' %}active{% endif %}" href="{{ url('user_list') }}"><i class="users icon"></i>Utilisateurs</a>
             {% else %}
-            <a class="nitem {% if active_nav != 'patients' %}active{% endif %}" href="{{ url('dashboard') }}"><i class="home icon"></i>Accueil</a>
+            <a class="nitem {% if active_nav == 'home' or not active_nav %}active{% endif %}" href="{{ url('dashboard') }}"><i class="home icon"></i>Accueil</a>
             {% if request.user.role == 'MEDECIN' %}
             <a class="nitem {% if active_nav == 'patients' %}active{% endif %}" href="{{ url('patient_list') }}"><i class="user outline icon"></i>Patients</a>
+            {% elif request.user.role == 'LABORANTIN' %}
+            <a class="nitem {% if active_nav == 'examens' %}active{% endif %}" href="{{ url('examen_list') }}"><i class="lab icon"></i>Examens</a>
             {% endif %}
             {% endif %}
         </nav>

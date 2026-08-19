@@ -20,6 +20,7 @@ from .services import (
     creer_prescription_examen,
     enregistrer_resultats,
 )
+from .views import NotificationSseView
 
 
 class PatientModelTests(TestCase):
@@ -528,9 +529,10 @@ class LaboratoireModuleTests(TestCase):
         presc = self._prescription(patient)
         response = self.client.get(reverse('examen_list'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Demandes en attente')
+        self.assertContains(response, 'Examens de laboratoire')
         self.assertContains(response, presc.numero_demande)
         self.assertContains(response, 'Claire Kanyinda Mbuyi')
+        self.assertContains(response, 'En attente au laboratoire')
 
     def test_saisie_form_champs_dynamiques(self):
         self.client.login(username='lab.test@hgr-makala.cd', password='password123')
@@ -670,3 +672,205 @@ class LaboratoireModuleTests(TestCase):
         res = ResultatLabo.objects.get(prescription=presc)
         self.assertEqual(res.resultat_vih, 'POSITIF')
         self.assertTrue(res.resultats_positifs)
+
+    def test_prescription_notifie_les_laborantins(self):
+        patient = self._patient()
+        presc = self._prescription(patient)
+        notifs = Notification.objects.filter(destinataire=self.laborantin)
+        self.assertEqual(notifs.count(), 1)
+        self.assertIn(presc.numero_demande, notifs.get().message)
+
+    def _valider_resultats(self, presc):
+        enregistrer_resultats(
+            laborantin=self.laborantin,
+            prescription=presc,
+            donnees={
+                'date_reception': date.today(),
+                'apparence': 'MUCOPURULENT',
+                'echantillon_1': '+',
+                'echantillon_2': 'NEG',
+                'technique_coloration': 'ZN',
+                'resultat_vih': 'NEGATIF',
+                'commentaires': '',
+            },
+            valider=True,
+        )
+
+
+class NotificationSseTests(TestCase):
+    def setUp(self):
+        self.medecin = CustomUser.objects.create_user(
+            username='dr.test@hgr-makala.cd',
+            password='password123',
+            email='dr.test@hgr-makala.cd',
+            first_name='Paul',
+            last_name='Kalombo',
+            role=UserRole.MEDECIN,
+            is_active=True,
+        )
+        self.laborantin = CustomUser.objects.create_user(
+            username='lab.test@hgr-makala.cd',
+            password='password123',
+            email='lab.test@hgr-makala.cd',
+            first_name='Jean',
+            last_name='Bofasa',
+            role=UserRole.LABORANTIN,
+            is_active=True,
+        )
+
+    def _patient(self, **kwargs):
+        donnees = {
+            'nom': 'Mbuyi',
+            'post_nom': 'Kanyinda',
+            'prenom': 'Claire',
+            'sexe': 'F',
+            'date_naissance': date(1990, 5, 12),
+        }
+        donnees.update(kwargs)
+        return creer_dossier_provisoire(medecin=self.medecin, donnees=donnees)
+
+    def test_sse_requires_login(self):
+        response = self.client.get(reverse('notifications_sse'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_sse_pushes_resultat_event_to_medecin(self):
+        patient = self._patient()
+        presc = creer_prescription_examen(
+            medecin=self.medecin,
+            patient=patient,
+            donnees={
+                'nature_echantillon': 'P',
+                'organe': '',
+                'motif': 'DIAGNOSTIC',
+                'mois_controle': '',
+                'date_prelevement': date.today(),
+                'statut_vih': '',
+                'observations': '',
+            },
+            types_examens=[TypeExamen.objects.get(code='VIH')],
+        )
+        view = NotificationSseView()
+        stream = view._event_stream(self.medecin)
+        # Aucune notification au départ : keepalive
+        first = next(stream)
+        self.assertIn('keepalive', first)
+        # Le laborantin valide un résultat : événement poussé sans rechargement
+        enregistrer_resultats(
+            laborantin=self.laborantin,
+            prescription=presc,
+            donnees={'resultat_vih': 'NEGATIF', 'commentaires': ''},
+            valider=True,
+        )
+        event = next(stream)
+        self.assertIn('event: notification', event)
+        self.assertIn(presc.numero_demande, event)
+        payload = event.split('data: ', 1)[1].strip()
+        self.assertIn('"non_lues": 1', payload)
+
+    def test_sse_pushes_prescription_event_to_laborantin(self):
+        patient = self._patient()
+        view = NotificationSseView()
+        stream = view._event_stream(self.laborantin)
+        first = next(stream)
+        self.assertIn('keepalive', first)
+        presc = creer_prescription_examen(
+            medecin=self.medecin,
+            patient=patient,
+            donnees={
+                'nature_echantillon': 'P',
+                'organe': '',
+                'motif': 'DIAGNOSTIC',
+                'mois_controle': '',
+                'date_prelevement': date.today(),
+                'statut_vih': '',
+                'observations': '',
+            },
+            types_examens=[TypeExamen.objects.get(code='VIH')],
+        )
+        event = next(stream)
+        self.assertIn('event: notification', event)
+        self.assertIn(presc.numero_demande, event)
+
+
+class PatientRechercheEtOngletsTests(TestCase):
+    def setUp(self):
+        self.medecin = CustomUser.objects.create_user(
+            username='dr.test@hgr-makala.cd',
+            password='password123',
+            email='dr.test@hgr-makala.cd',
+            first_name='Paul',
+            last_name='Kalombo',
+            role=UserRole.MEDECIN,
+            is_active=True,
+        )
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+
+    def test_patient_list_search_filters(self):
+        creer_dossier_provisoire(
+            medecin=self.medecin,
+            donnees={
+                'nom': 'Mbuyi', 'post_nom': 'Kanyinda', 'prenom': 'Claire',
+                'sexe': 'F', 'date_naissance': date(1990, 5, 12),
+            },
+        )
+        creer_dossier_provisoire(
+            medecin=self.medecin,
+            donnees={
+                'nom': 'Adeleke', 'post_nom': 'Okafor', 'prenom': 'Sara',
+                'sexe': 'F', 'date_naissance': date(1985, 1, 1),
+            },
+        )
+        response = self.client.get(reverse('patient_list'), {'q': 'Mbuyi'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Claire Kanyinda Mbuyi')
+        self.assertNotContains(response, 'Sara Okafor Adeleke')
+        # Filtre par statut
+        response = self.client.get(
+            reverse('patient_list'), {'statut': StatutDossier.CONFIRME}
+        )
+        self.assertContains(response, 'Aucun dossier')  # tous provisoires
+        self.assertContains(response, 'Provisoires')
+
+    def test_patient_detail_tabs_and_prescription_pagination(self):
+        patient = creer_dossier_provisoire(
+            medecin=self.medecin,
+            donnees={
+                'nom': 'Mbuyi', 'post_nom': 'Kanyinda', 'prenom': 'Claire',
+                'sexe': 'F', 'date_naissance': date(1990, 5, 12),
+                'signe_toux_persistante': True,
+                'comorb_vih': True,
+            },
+        )
+        vih = TypeExamen.objects.get(code='VIH')
+        for _ in range(9):
+            creer_prescription_examen(
+                medecin=self.medecin,
+                patient=patient,
+                donnees={
+                    'nature_echantillon': 'P',
+                    'organe': '',
+                    'motif': 'DIAGNOSTIC',
+                    'mois_controle': '',
+                    'date_prelevement': date.today(),
+                    'statut_vih': '',
+                    'observations': '',
+                },
+                types_examens=[vih],
+            )
+        response = self.client.get(
+            reverse('patient_detail', kwargs={'pk': patient.pk}),
+            {'tab': 'examens'},
+        )
+        self.assertEqual(response.status_code, 200)
+        # Onglets présents
+        self.assertContains(response, 'Signes et symptômes')
+        self.assertContains(response, 'Comorbidités')
+        self.assertContains(response, 'Examens prescrits')
+        # Pagination : 8 demandes par page -> 2 pages
+        self.assertContains(response, 'page=2')
+        self.assertContains(response, '– 8 sur 9')
+        page2 = self.client.get(
+            reverse('patient_detail', kwargs={'pk': patient.pk}),
+            {'tab': 'examens', 'page': 2},
+        )
+        self.assertContains(page2, '9 – 9 sur 9')

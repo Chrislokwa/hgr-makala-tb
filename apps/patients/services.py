@@ -1,6 +1,8 @@
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from apps.users.models import CustomUser, UserRole
+
 from .models import (
     ExamenPrescription,
     Notification,
@@ -10,6 +12,22 @@ from .models import (
     StatutExamen,
     StatutResultat,
 )
+
+
+def _notifier_laborantins(prescription):
+    """Notifie tous les laborantins actifs d'une nouvelle demande à traiter."""
+    laborantins = CustomUser.objects.filter(
+        is_active=True, role=UserRole.LABORANTIN
+    )
+    for laborantin in laborantins:
+        Notification.objects.create(
+            destinataire=laborantin,
+            message=(
+                f"Nouvelle demande à traiter : {prescription.numero_demande} — "
+                f"{prescription.patient.full_name} ({prescription.types_libelles})."
+            ),
+            url="/examens/",
+        )
 
 
 def creer_dossier_provisoire(*, medecin, donnees):
@@ -38,6 +56,7 @@ def creer_prescription_examen(*, medecin, patient, donnees, types_examens):
                 )
                 prescription.save()
                 prescription.examens.set(types_examens)
+                _notifier_laborantins(prescription)
                 return prescription
         except IntegrityError:
             continue

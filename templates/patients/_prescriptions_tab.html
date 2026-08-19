@@ -1,0 +1,89 @@
+{% if page_obj.object_list %}
+<div class="tbl-wrap">
+    <table class="tbl">
+        <thead>
+            <tr>
+                <th>Demande</th>
+                <th>Examens</th>
+                <th>Prélèvement</th>
+                <th>Statut</th>
+                <th>Résultats</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for dem in page_obj.object_list %}
+            {% set res = dem.resultat_valide %}
+            <tr>
+                <td>
+                    <span class="un">{{ dem.numero_demande }}</span><br>
+                    <span class="ue">Prescrite le {{ dem.date_prescription|date_fr }}</span>
+                </td>
+                <td class="ue">{{ dem.types_libelles }}<br>{{ dem.get_motif_display() }}{% if dem.mois_controle %} · {{ dem.get_mois_controle_display() }}{% endif %}</td>
+                <td class="ue">{{ dem.get_nature_echantillon_display() }}{% if dem.organe %} ({{ dem.organe }}){% endif %}<br>{{ dem.date_prelevement|date_fr }}</td>
+                <td>
+                    <span class="badge {% if dem.statut == 'RESULTATS_DISPONIBLES' %}ok{% endif %}">{{ dem.get_statut_display() }}</span>
+                </td>
+                <td>
+                    {% if res %}
+                    <span class="badge ok">Disponibles</span>
+                    <div class="res-mini">
+                        {% if res.echantillon_1 or res.echantillon_2 %}
+                        <span>BAAR : <strong class="{% if res.echantillon_1 in res.BAAR_POSITIFS %}pos{% endif %}">{{ res.get_echantillon_1_display() }}{% if res.echantillon_2 %}/{{ res.get_echantillon_2_display() }}{% endif %}</strong></span>
+                        {% endif %}
+                        {% if res.resultat_genexpert %}
+                        <span>GeneXpert : <strong class="{% if res.resultat_genexpert == 'MTB_PLUS_RIF_PLUS' or res.resultat_genexpert == 'MTB_PLUS_RIF_MOINS' or res.resultat_genexpert == 'MTB_MOINS_RIF_PLUS' %}pos{% endif %}">{{ res.get_resultat_genexpert_display() }}</strong></span>
+                        {% endif %}
+                        {% if res.resultat_vih %}
+                        <span>VIH : <strong class="{% if res.resultat_vih == 'POSITIF' %}pos{% endif %}">{{ res.get_resultat_vih_display() }}</strong></span>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <span class="ue">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="pager">
+    <span class="pg-info">{{ page_obj.start_index() }} – {{ page_obj.end_index() }} sur {{ page_obj.paginator.count }}</span>
+    <div class="pg-btns">
+        {% if page_obj.has_previous() %}
+        <a href="?tab=examens&page={{ page_obj.previous_page_number() }}"
+           hx-get="{{ url('patient_detail', pk=patient.pk) }}?tab=examens&page={{ page_obj.previous_page_number() }}"
+           hx-target="#prescriptionsTab" hx-swap="innerHTML" class="pg-btn" aria-label="Page précédente"><i class="chevron left icon"></i></a>
+        {% else %}
+        <button class="pg-btn" disabled aria-label="Page précédente"><i class="chevron left icon"></i></button>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <button class="pg-btn active">{{ num }}</button>
+            {% else %}
+            <a href="?tab=examens&page={{ num }}"
+               hx-get="{{ url('patient_detail', pk=patient.pk) }}?tab=examens&page={{ num }}"
+               hx-target="#prescriptionsTab" hx-swap="innerHTML" class="pg-btn">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next() %}
+        <a href="?tab=examens&page={{ page_obj.next_page_number() }}"
+           hx-get="{{ url('patient_detail', pk=patient.pk) }}?tab=examens&page={{ page_obj.next_page_number() }}"
+           hx-target="#prescriptionsTab" hx-swap="innerHTML" class="pg-btn" aria-label="Page suivante"><i class="chevron right icon"></i></a>
+        {% else %}
+        <button class="pg-btn" disabled aria-label="Page suivante"><i class="chevron right icon"></i></button>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty">
+    <i class="clipboard list icon"></i>
+    <div class="e-t">Aucun examen prescrit</div>
+    <div class="e-s">Aucune demande d'examen pour ce patient pour le moment.</div>
+</div>
+{% endif %}

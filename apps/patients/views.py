@@ -1,14 +1,21 @@
+import json
+import time
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.paginator import Paginator
+from django.db.models import Q
+from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
-from django.views.generic import DetailView, FormView, ListView, TemplateView, View
+from django.views.generic import DetailView, FormView, ListView, View
 
 from .forms import DossierProvisoireForm, PrescriptionExamenForm, SaisieResultatForm
 from .models import (
     ExamenPrescription,
     MotifExamen,
     NatureEchantillon,
+    Notification,
     Patient,
     ResultatLabo,
     StatutDossier,
@@ -32,11 +39,33 @@ class PatientListView(MedecinRequiredMixin, ListView):
     paginate_by = 8
 
     def get_queryset(self):
-        return Patient.objects.all().order_by('-cree_le')
+        queryset = Patient.objects.all().order_by('-cree_le')
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            queryset = queryset.filter(
+                Q(ndp__icontains=q) |
+                Q(nom__icontains=q) |
+                Q(post_nom__icontains=q) |
+                Q(prenom__icontains=q) |
+                Q(telephone__icontains=q)
+            )
+        statut = self.request.GET.get('statut', '').strip()
+        if statut in dict(StatutDossier.choices):
+            queryset = queryset.filter(statut=statut)
+        return queryset
+
+    def get_template_names(self):
+        # Requête HTMX (recherche / filtrage asynchrones) : fragment uniquement.
+        if self.request.headers.get('HX-Request') == 'true':
+            return ['patients/patient_list_results.html']
+        return ['patients/patient_list.html']
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['active_nav'] = 'patients'
+        context['q'] = self.request.GET.get('q', '').strip()
+        context['statut_filter'] = self.request.GET.get('statut', '').strip()
+        context['statut_choices'] = [('', 'Tous les statuts')] + list(StatutDossier.choices)
         context['patients_provisoires'] = Patient.objects.filter(
             statut=StatutDossier.PROVISOIRE
         ).count()
@@ -87,10 +116,14 @@ class PatientDetailView(MedecinRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['active_nav'] = 'patients'
-        context['prescriptions'] = (
+        context['tab'] = self.request.GET.get('tab', 'signes')
+        prescriptions = (
             self.object.examens_prescrits.all()
             .prefetch_related('examens')
         )
+        paginator = Paginator(prescriptions, 8)
+        page = self.request.GET.get('page', '1')
+        context['page_obj'] = paginator.get_page(page)
         return context
 
 
@@ -155,28 +188,50 @@ class PrescriptionExamenCreateView(MedecinRequiredMixin, FormView):
         return redirect('patient_detail', pk=self.patient.pk)
 
 
-class ExamenListView(LaborantinRequiredMixin, TemplateView):
+class ExamenListView(LaborantinRequiredMixin, ListView):
+    model = ExamenPrescription
     template_name = 'patients/examen_list.html'
+    context_object_name = 'examens'
+    paginate_by = 8
+
+    def get_queryset(self):
+        queryset = (
+            ExamenPrescription.objects.all()
+            .select_related('patient', 'medecin')
+            .prefetch_related('examens')
+        )
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            queryset = queryset.filter(
+                Q(numero_demande__icontains=q) |
+                Q(patient__nom__icontains=q) |
+                Q(patient__post_nom__icontains=q) |
+                Q(patient__prenom__icontains=q) |
+                Q(patient__ndp__icontains=q)
+            )
+        statut = self.request.GET.get('statut', '').strip()
+        if statut in dict(StatutExamen.choices):
+            queryset = queryset.filter(statut=statut)
+        return queryset
+
+    def get_template_names(self):
+        # Requête HTMX (recherche / filtrage asynchrones) : fragment uniquement.
+        if self.request.headers.get('HX-Request') == 'true':
+            return ['patients/examen_list_results.html']
+        return ['patients/examen_list.html']
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['active_nav'] = 'examens'
-        en_attente = (
-            ExamenPrescription.objects
-            .filter(statut=StatutExamen.EN_ATTENTE)
-            .select_related('patient', 'medecin')
-            .prefetch_related('examens')
-        )
-        disponibles = (
-            ExamenPrescription.objects
-            .filter(statut=StatutExamen.RESULTATS_DISPONIBLES)
-            .select_related('patient', 'medecin')
-            .prefetch_related('examens')
-        )
-        context['a_traiter'] = en_attente
-        context['resultats_disponibles'] = disponibles
-        context['nb_a_traiter'] = en_attente.count()
-        context['nb_disponibles'] = disponibles.count()
+        context['q'] = self.request.GET.get('q', '').strip()
+        context['statut_filter'] = self.request.GET.get('statut', '').strip()
+        context['statut_choices'] = [('', 'Tous les statuts')] + list(StatutExamen.choices)
+        context['nb_a_traiter'] = ExamenPrescription.objects.filter(
+            statut=StatutExamen.EN_ATTENTE
+        ).count()
+        context['nb_disponibles'] = ExamenPrescription.objects.filter(
+            statut=StatutExamen.RESULTATS_DISPONIBLES
+        ).count()
         return context
 
 
@@ -261,3 +316,46 @@ class NotificationMarquerLuesView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         request.user.notifications.filter(lu=False).update(lu=True)
         return redirect('dashboard')
+
+
+class NotificationSseView(LoginRequiredMixin, View):
+    """Flux SSE des notifications de l'utilisateur connecté.
+
+    Le navigateur reste connecté ; chaque nouvelle notification est poussée
+    en temps réel (sans rechargement) sous la forme d'un événement
+    `notification`. La détection repose sur un polling BD léger côté serveur.
+    """
+
+    def get(self, request, *args, **kwargs):
+        response = StreamingHttpResponse(
+            self._event_stream(request.user),
+            content_type='text/event-stream',
+        )
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'
+        return response
+
+    def _event_stream(self, user):
+        dernier_id = (
+            Notification.objects.filter(destinataire=user)
+            .order_by('-pk')
+            .values_list('pk', flat=True)
+            .first() or 0
+        )
+        while True:
+            nouvelles = list(
+                Notification.objects.filter(destinataire=user, pk__gt=dernier_id)
+                .select_related('destinataire')
+            )
+            for notif in nouvelles:
+                payload = {
+                    'id': notif.pk,
+                    'message': notif.message,
+                    'url': notif.url or '/dashboard/',
+                    'cree_le': notif.cree_le.isoformat(),
+                    'non_lues': user.notifications.filter(lu=False).count(),
+                }
+                yield f"event: notification\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                dernier_id = notif.pk
+            yield ": keepalive\n\n"
+            time.sleep(3)

@@ -4,6 +4,7 @@ from .views import (
     ExamenDetailView,
     ExamenListView,
     NotificationMarquerLuesView,
+    NotificationSseView,
     PatientCreateView,
     PatientDetailView,
     PatientListView,
@@ -20,4 +21,5 @@ urlpatterns = [
     path('examens/<int:pk>/', ExamenDetailView.as_view(), name='examen_detail'),
     path('examens/<int:pk>/resultats/', SaisieResultatView.as_view(), name='resultat_saisie'),
     path('notifications/lues/', NotificationMarquerLuesView.as_view(), name='notifications_lues'),
+    path('notifications/sse/', NotificationSseView.as_view(), name='notifications_sse'),
 ]

@@ -47,25 +47,37 @@
 </div>
 
 <div class="pcard">
-    <h3 class="pcard-h"><i class="stethoscope icon"></i>Signes et symptômes évocateurs</h3>
-    {% if patient.signes_presents %}
-    <ul class="pills">
-        {% for signe in patient.signes_presents %}<li>{{ signe }}</li>{% endfor %}
-    </ul>
-    {% else %}
-    <p class="muted">Aucun signe évocateur renseigné.</p>
-    {% endif %}
-</div>
+    <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn {% if tab == 'signes' %}active{% endif %}" data-tab="signes" role="tab"><i class="stethoscope icon"></i>Signes et symptômes</button>
+        <button type="button" class="tab-btn {% if tab == 'comorbidites' %}active{% endif %}" data-tab="comorbidites" role="tab"><i class="heartbeat icon"></i>Comorbidités</button>
+        <button type="button" class="tab-btn {% if tab == 'examens' %}active{% endif %}" data-tab="examens" role="tab"><i class="clipboard list icon"></i>Examens prescrits</button>
+    </div>
 
-<div class="pcard">
-    <h3 class="pcard-h"><i class="heartbeat icon"></i>Comorbidités</h3>
-    {% if patient.comorbidites_presentes %}
-    <ul class="pills">
-        {% for comorb in patient.comorbidites_presentes %}<li>{{ comorb }}</li>{% endfor %}
-    </ul>
-    {% else %}
-    <p class="muted">Aucune comorbidité renseignée.</p>
-    {% endif %}
+    <div class="tab-panel" id="panel-signes" {% if tab != 'signes' %}hidden{% endif %}>
+        {% if patient.signes_presents %}
+        <ul class="pills">
+            {% for signe in patient.signes_presents %}<li>{{ signe }}</li>{% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted">Aucun signe évocateur renseigné.</p>
+        {% endif %}
+    </div>
+
+    <div class="tab-panel" id="panel-comorbidites" {% if tab != 'comorbidites' %}hidden{% endif %}>
+        {% if patient.comorbidites_presentes %}
+        <ul class="pills">
+            {% for comorb in patient.comorbidites_presentes %}<li>{{ comorb }}</li>{% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted">Aucune comorbidité renseignée.</p>
+        {% endif %}
+    </div>
+
+    <div class="tab-panel" id="panel-examens" {% if tab != 'examens' %}hidden{% endif %}>
+        <div id="prescriptionsTab">
+            {% include 'patients/_prescriptions_tab.html' %}
+        </div>
+    </div>
 </div>
 
 {% if patient.observations_cliniques %}
@@ -74,42 +86,6 @@
     <p>{{ patient.observations_cliniques }}</p>
 </div>
 {% endif %}
-
-<div class="pcard">
-    <h3 class="pcard-h"><i class="clipboard list icon"></i>Examens prescrits</h3>
-    {% if prescriptions %}
-    <div class="pres-list">
-        {% for dem in prescriptions %}
-        <div class="pres-row">
-            <div class="pres-tx">
-                <strong>{{ dem.numero_demande }}</strong>
-                <span>{{ dem.types_libelles }}</span>
-                <span>Prescrite le {{ dem.date_prescription|date_fr }} · {{ dem.get_nature_echantillon_display() }}{% if dem.organe %} ({{ dem.organe }}){% endif %}</span>
-                {% set res = dem.resultat_valide %}
-                {% if res %}
-                <div class="result-summary">
-                    <span class="badge ok">Résultats disponibles ({{ res.cree_le|date_fr }})</span>
-                    {% if res.echantillon_1 or res.echantillon_2 %}
-                    <span class="res-item">Bacilloscopie : <strong class="{% if res.echantillon_1 in res.BAAR_POSITIFS %}pos{% endif %}">{{ res.get_echantillon_1_display() }}{% if res.echantillon_2 %}/{{ res.get_echantillon_2_display() }}{% endif %}</strong></span>
-                    {% endif %}
-                    {% if res.resultat_genexpert %}
-                    <span class="res-item">GeneXpert : <strong class="{% if res.resultat_genexpert == 'MTB_PLUS_RIF_PLUS' or res.resultat_genexpert == 'MTB_PLUS_RIF_MOINS' or res.resultat_genexpert == 'MTB_MOINS_RIF_PLUS' %}pos{% endif %}">{{ res.get_resultat_genexpert_display() }}</strong></span>
-                    {% endif %}
-                    {% if res.resultat_vih %}
-                    <span class="res-item">VIH : <strong class="{% if res.resultat_vih == 'POSITIF' %}pos{% endif %}">{{ res.get_resultat_vih_display() }}</strong></span>
-                    {% endif %}
-                    {% if res.commentaires %}<span class="res-item res-note"><i class="sticky note outline icon"></i>{{ res.commentaires }}</span>{% endif %}
-                </div>
-                {% endif %}
-            </div>
-            <span class="badge {% if dem.statut == 'RESULTATS_DISPONIBLES' %}ok{% endif %}">{{ dem.get_statut_display() }}</span>
-        </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <p class="muted">Aucune demande d'examen pour ce patient pour le moment.</p>
-    {% endif %}
-</div>
 
 <div class="drow">
     <div class="drow-tx">
@@ -121,4 +97,24 @@
     </div>
     <a href="{{ url('prescription_create', pk=patient.pk) }}" class="ui teal button"><i class="clipboard outline icon"></i>Prescrire un examen</a>
 </div>
+{% endblock %}
+
+{% block app_js %}
+<script>
+(function() {
+    const btns = document.querySelectorAll('.tab-btn');
+    btns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            btns.forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            document.querySelectorAll('.tab-panel').forEach(function(p) { p.hidden = true; });
+            const panel = document.getElementById('panel-' + btn.dataset.tab);
+            if (panel) panel.hidden = false;
+            if (history.replaceState) {
+                history.replaceState(null, '', '?tab=' + btn.dataset.tab);
+            }
+        });
+    });
+})();
+</script>
 {% endblock %}

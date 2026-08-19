@@ -1,53 +1,106 @@
 {% extends 'base_app.html' %}
 
-{% block title %}Accueil — Suivi TB · HGR Makala{% endblock %}
+{% block title %}Notifications — Suivi TB · HGR Makala{% endblock %}
 
 {% block view_content %}
 <div class="vhead">
     <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
     <div style="flex:1">
-        <h1 class="vtitle">Bienvenue, {{ request.user.titled_name }}</h1>
-        <p class="vsub">Espace {{ request.user.get_role_display() }} — HGR Makala</p>
+        <h1 class="vtitle">Notifications</h1>
+        <p class="vsub">{{ request.user.titled_name }} — {{ request.user.get_role_display() }}</p>
     </div>
+    <form action="{{ url('notifications_lues') }}" method="post" style="margin:0">
+        {{ csrf_input }}
+        <button type="submit" class="ui basic button" {% if not non_lues %}disabled{% endif %}><i class="check double icon"></i>Tout marquer comme lu</button>
+    </form>
 </div>
 
-<div class="robox" style="margin-top:20px;">
-    <div class="ro-t">Session active</div>
-    <div class="ro-s">
-        Vous êtes connecté en tant que <strong>{{ request.user.titled_name }}</strong> (Rôle : <strong>{{ request.user.get_role_display() }}</strong>).
-    </div>
+<div class="pstats">
+    <div class="pstat"><span>Total notifications</span><strong>{{ notifications|length }}</strong></div>
+    <div class="pstat"><span>Non lues</span><strong>{{ non_lues }}</strong></div>
 </div>
 
-{% if request.user.role == 'MEDECIN' %}
-<div class="fcard" style="margin-top:16px">
-    <div class="fcard-h">
-        <h2><i class="bell icon"></i>Notifications</h2>
+<div class="fcard">
+    <div class="fcard-h"><h2><i class="bell icon"></i>Notifications récentes</h2></div>
+    <div id="notifList">
         {% if notifications %}
-        <form action="{{ url('notifications_lues') }}" method="post" style="margin:0">
-            {{ csrf_input }}
-            <button type="submit" class="ui basic tiny button"><i class="check double icon"></i>Tout marquer comme lu</button>
-        </form>
+        <div class="tbl-wrap">
+            <table class="tbl">
+                <thead>
+                    <tr>
+                        <th>Message</th>
+                        <th>Date</th>
+                        <th>État</th>
+                    </tr>
+                </thead>
+                <tbody id="notifBody">
+                    {% for notif in notifications %}
+                    <tr id="notif-{{ notif.pk }}" class="{% if not notif.lu %}unread{% endif %}">
+                        <td>
+                            <a class="notif-link {% if not notif.lu %}strong{% endif %}" href="{{ notif.url or url('dashboard') }}" style="text-decoration:none">
+                                {{ notif.message }}
+                            </a>
+                        </td>
+                        <td class="notif-date">{{ notif.cree_le|date_fr }}</td>
+                        <td>{% if not notif.lu %}<span class="badge neg">Non lu</span>{% else %}<span class="badge">Lu</span>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty">
+            <i class="bell outline icon"></i>
+            <p>Aucune notification pour le moment.</p>
+        </div>
         {% endif %}
     </div>
-    {% if notifications %}
-    <div class="result-list">
-        {% for notif in notifications %}
-        <a class="result-row {% if not notif.lu %}unread{% endif %}" href="{{ notif.url or url('dashboard') }}" style="text-decoration:none">
-            <div class="result-tx">
-                <strong>{{ notif.message }}</strong>
-                <span>{{ notif.cree_le|date_fr }}</span>
-            </div>
-            {% if not notif.lu %}<span class="badge neg">Non lu</span>{% endif %}
-            <i class="chevron right icon"></i>
-        </a>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty">
-        <i class="bell outline icon"></i>
-        <p>Aucune notification pour le moment.</p>
-    </div>
-    {% endif %}
 </div>
-{% endif %}
+{% endblock %}
+
+{% block app_js %}
+<script>
+(function() {
+    // Mise à jour en temps réel (SSE) de la page des notifications
+    const es = new EventSource("{{ url('notifications_sse') }}");
+    es.addEventListener('notification', function(e) {
+        const data = JSON.parse(e.data);
+        const body = document.getElementById('notifBody');
+        const list = document.getElementById('notifList');
+        const existing = document.getElementById('notif-' + data.id);
+        if (existing || !body) return;
+
+        const tr = document.createElement('tr');
+        tr.id = 'notif-' + data.id;
+        tr.className = 'unread';
+        const link = document.createElement('a');
+        link.href = data.url;
+        link.textContent = data.message;
+        link.className = 'notif-link strong';
+        link.style.textDecoration = 'none';
+        const td1 = document.createElement('td');
+        td1.appendChild(link);
+        const td2 = document.createElement('td');
+        td2.className = 'notif-date';
+        const d = new Date(data.cree_le);
+        td2.textContent = d.toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit'});
+        const td3 = document.createElement('td');
+        const badge = document.createElement('span');
+        badge.className = 'badge neg';
+        badge.textContent = 'Non lu';
+        td3.appendChild(badge);
+        tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+        body.prepend(tr);
+
+        const empty = list.querySelector('.empty');
+        if (empty) empty.remove();
+
+        const badgeEl = document.getElementById('notifBadge');
+        if (badgeEl) {
+            badgeEl.textContent = data.non_lues;
+            badgeEl.style.display = data.non_lues > 0 ? '' : 'none';
+        }
+    });
+})();
+</script>
 {% endblock %}

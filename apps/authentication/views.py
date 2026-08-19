@@ -27,11 +27,10 @@ class DashboardView(LoginRequiredMixin, View):
         user = request.user
         if user.role == UserRole.ADMIN:
             return redirect('user_list')
-        context = {
+        notifications = user.notifications.all()[:20]
+        return render(request, 'authentication/dashboard.html', {
             'user': user,
-            'active_nav': 'home',
-        }
-        if user.role == UserRole.MEDECIN:
-            context['notifications'] = user.notifications.all()[:5]
-            context['non_lues'] = user.notifications.filter(lu=False).count()
-        return render(request, 'authentication/dashboard.html', context)
+            'active_nav': 'notifications',
+            'notifications': notifications,
+            'non_lues': user.notifications.filter(lu=False).count(),
+        })

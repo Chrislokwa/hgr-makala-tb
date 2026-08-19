@@ -12,58 +12,41 @@
 </div>
 
 <div class="pstats">
-    <div class="pstat"><span>Total demandes</span><strong>{{ nb_a_traiter + nb_disponibles }}</strong></div>
+    <div class="pstat"><span>Résultats trouvés</span><strong>{{ paginator.count }}</strong></div>
     <div class="pstat"><span>En attente</span><strong>{{ nb_a_traiter }}</strong></div>
     <div class="pstat"><span>Résultats disponibles</span><strong>{{ nb_disponibles }}</strong></div>
 </div>
 
-<div class="fcard">
-    <div class="fcard-h"><h2><i class="hourglass half icon"></i>Demandes en attente ({{ nb_a_traiter }})</h2></div>
-    {% if a_traiter %}
-    <div class="result-list">
-        {% for dem in a_traiter %}
-        <div class="result-row">
-            <div class="result-tx">
-                <strong>{{ dem.numero_demande }}</strong>
-                <span>{{ dem.patient.full_name }} · {{ dem.patient.ndp }}</span>
-                <span>{{ dem.types_libelles }} · {{ dem.get_nature_echantillon_display() }}{% if dem.organe %} ({{ dem.organe }}){% endif %}</span>
-                <span>Prescrite le {{ dem.date_prescription|date_fr }} par {{ dem.medecin.titled_name }}</span>
-            </div>
-            <span class="badge">{{ dem.get_statut_display() }}</span>
-            <a href="{{ url('resultat_saisie', pk=dem.pk) }}" class="ui teal button"><i class="lab icon"></i>Saisir les résultats</a>
-        </div>
+<!-- Recherche et filtrage (HTMX) -->
+<div class="toolbar">
+    <div class="search_" style="flex:1;min-width:220px">
+        <i class="search icon"></i>
+        <input type="text" name="q" value="{{ q }}"
+               hx-get="{{ url('examen_list') }}"
+               hx-trigger="input changed delay:300ms"
+               hx-target="#examenResults"
+               hx-swap="innerHTML"
+               hx-push-url="true"
+               hx-include="[name='statut']"
+               hx-indicator="#examenLoading"
+               placeholder="Rechercher (n° de demande, patient, NDP)" aria-label="Recherche examens">
+    </div>
+    <select id="examenStatut" name="statut"
+            hx-get="{{ url('examen_list') }}"
+            hx-target="#examenResults"
+            hx-swap="innerHTML"
+            hx-push-url="true"
+            hx-include="[name='q']"
+            hx-indicator="#examenLoading"
+            aria-label="Filtrer par statut">
+        {% for val, label in statut_choices %}
+        <option value="{{ val }}" {% if statut_filter == val %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty">
-        <i class="check circle outline icon"></i>
-        <p>Aucune demande en attente au laboratoire.</p>
-    </div>
-    {% endif %}
+    </select>
 </div>
+<div id="examenLoading" class="hx-indicator" hidden></div>
 
-<div class="fcard">
-    <div class="fcard-h"><h2><i class="clipboard check icon"></i>Résultats disponibles ({{ nb_disponibles }})</h2></div>
-    {% if resultats_disponibles %}
-    <div class="result-list">
-        {% for dem in resultats_disponibles %}
-        <div class="result-row">
-            <div class="result-tx">
-                <strong>{{ dem.numero_demande }}</strong>
-                <span>{{ dem.patient.full_name }} · {{ dem.patient.ndp }}</span>
-                <span>{{ dem.types_libelles }} · {{ dem.get_nature_echantillon_display() }}{% if dem.organe %} ({{ dem.organe }}){% endif %}</span>
-                <span>Prescrite le {{ dem.date_prescription|date_fr }} par {{ dem.medecin.titled_name }}</span>
-            </div>
-            <span class="badge ok">{{ dem.get_statut_display() }}</span>
-            <a href="{{ url('examen_detail', pk=dem.pk) }}" class="ui primary button"><i class="eye icon"></i>Consulter</a>
-        </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty">
-        <i class="lab icon"></i>
-        <p>Aucun résultat disponible pour le moment.</p>
-    </div>
-    {% endif %}
+<div id="examenResults">
+    {% include 'patients/examen_list_results.html' %}
 </div>
 {% endblock %}

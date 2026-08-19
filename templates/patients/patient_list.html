@@ -13,44 +13,41 @@
 </div>
 
 <div class="pstats">
-    <div class="pstat"><span>Total dossiers</span><strong>{{ paginator.count }}</strong></div>
+    <div class="pstat"><span>Résultats trouvés</span><strong>{{ paginator.count }}</strong></div>
     <div class="pstat"><span>Provisoires</span><strong>{{ patients_provisoires }}</strong></div>
     <div class="pstat"><span>Confirmés</span><strong>{{ patients_confirmes }}</strong></div>
 </div>
 
-<div class="plist">
-    {% for patient in patients %}
-    <a class="prow" href="{{ url('patient_detail', pk=patient.pk) }}">
-        <span class="avatar lg" style="{{ patient.avatar_style }}">{{ patient.initiales }}</span>
-        <span class="prow-main">
-            <span class="prow-name">{{ patient.full_name }}</span>
-            <span class="prow-meta">{{ patient.ndp }} · {{ patient.get_sexe_display() }} · {{ patient.age }} ans{% if patient.district %} · {{ patient.district }}{% endif %}</span>
-        </span>
-        <span class="badge {% if patient.statut == 'NON_CONFIRME' %}neg{% elif patient.statut == 'CONFIRME' %}ok{% endif %}">{{ patient.get_statut_display() }}</span>
-        <i class="chevron right icon"></i>
-    </a>
-    {% else %}
-    <div class="empty">
-        <i class="user outline icon"></i>
-        <p>Aucun dossier patient pour le moment.</p>
-        <a href="{{ url('patient_create') }}" class="ui primary button"><i class="plus icon"></i>Créer le premier dossier</a>
+<!-- Recherche et filtrage (HTMX) -->
+<div class="toolbar">
+    <div class="search_" style="flex:1;min-width:220px">
+        <i class="search icon"></i>
+        <input type="text" name="q" value="{{ q }}"
+               hx-get="{{ url('patient_list') }}"
+               hx-trigger="input changed delay:300ms"
+               hx-target="#patientResults"
+               hx-swap="innerHTML"
+               hx-push-url="true"
+               hx-include="[name='statut']"
+               hx-indicator="#patientLoading"
+               placeholder="Rechercher (NDP, nom, post-nom, prénom, téléphone)" aria-label="Recherche patients">
     </div>
-    {% endfor %}
+    <select id="patientStatut" name="statut"
+            hx-get="{{ url('patient_list') }}"
+            hx-target="#patientResults"
+            hx-swap="innerHTML"
+            hx-push-url="true"
+            hx-include="[name='q']"
+            hx-indicator="#patientLoading"
+            aria-label="Filtrer par statut">
+        {% for val, label in statut_choices %}
+        <option value="{{ val }}" {% if statut_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
 </div>
+<div id="patientLoading" class="hx-indicator" hidden></div>
 
-{% if is_paginated %}
-<div class="pagination">
-    {% if page_obj.has_previous() %}
-    <a class="ui basic button" href="?page={{ page_obj.previous_page_number() }}"><i class="chevron left icon"></i>Précédent</a>
-    {% else %}
-    <span class="ui basic disabled button"><i class="chevron left icon"></i>Précédent</span>
-    {% endif %}
-    <span class="pg-info">Page {{ page_obj.number }} / {{ paginator.num_pages }}</span>
-    {% if page_obj.has_next() %}
-    <a class="ui basic button" href="?page={{ page_obj.next_page_number() }}">Suivant<i class="chevron right icon"></i></a>
-    {% else %}
-    <span class="ui basic disabled button">Suivant<i class="chevron right icon"></i></span>
-    {% endif %}
+<div id="patientResults">
+    {% include 'patients/patient_list_results.html' %}
 </div>
-{% endif %}
 {% endblock %}

@@ -1886,3 +1886,141 @@ tr.off td {
     color: #b3261e;
     font-weight: 600
 }
+
+/* ---------- Barre latérale : badge de notifications ------------------------- */
+.nav-badge {
+    margin-left: auto;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #d93025;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center
+}
+
+/* ---------- Onglets (dossier patient) --------------------------------------- */
+.tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 16px
+}
+
+.tab-btn {
+    border: none;
+    background: none;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--ink2);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: color .12s ease, border-color .12s ease
+}
+
+.tab-btn i.icon {
+    font-size: 15px
+}
+
+.tab-btn:hover {
+    color: var(--ink)
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    font-weight: 500
+}
+
+.tab-panel {
+    min-height: 80px
+}
+
+/* ---------- Notifications ---------------------------------------------------- */
+.notif-link.strong {
+    font-weight: 500;
+    color: var(--ink)
+}
+
+.notif-link {
+    color: var(--ink2)
+}
+
+.notif-date {
+    white-space: nowrap;
+    color: var(--ink2);
+    font-size: 13px
+}
+
+.table tbody tr.unread,
+.tbl tbody tr.unread {
+    background: #fff8f5
+}
+
+.tbl tbody tr.unread:hover td {
+    background: #fdf0ed
+}
+
+.res-mini {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--ink2)
+}
+
+.res-mini strong.pos {
+    color: #b3261e;
+    font-weight: 700
+}
+
+/* ---------- Barre d'outils des listes ---------------------------------------- */
+.toolbar select {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--ink);
+    background: #fff;
+    cursor: pointer;
+    min-width: 190px
+}
+
+.toolbar select:focus {
+    border-color: var(--primary);
+    outline: none
+}
+
+.hx-indicator.htmx-request {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    animation: hxbar 1.2s ease-in-out infinite;
+    margin-top: 10px;
+    border-radius: 2px;
+    opacity: 1
+}
+
+@keyframes hxbar {
+    0%,
+    100% {
+        opacity: .25
+    }
+
+    50% {
+        opacity: 1
+    }
+}

@@ -1,0 +1,185 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Prescription d'examen — {{ patient.full_name }} · Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Prescription d'examen de laboratoire</h1>
+        <p class="vsub">Demande transmise au laboratoire après validation</p>
+    </div>
+</div>
+
+{% if doublon_prescriptions %}
+<div class="notice">
+    <i class="exclamation triangle icon"></i>
+    <div style="flex:1;min-width:0">
+        <strong>Demande(s) identique(s) déjà en cours</strong>
+        <p>Ce patient a déjà une ou des demandes « en attente » avec les mêmes examens :</p>
+        <ul class="dup-list">
+            {% for demande in doublon_prescriptions %}
+            <li><strong>{{ demande.numero_demande }}</strong> — {{ demande.types_libelles }} · prescrite le {{ demande.date_prescription|date_fr }}</li>
+            {% endfor %}
+        </ul>
+        <p style="margin-top:6px">Consultez le dossier avant de créer une nouvelle demande.</p>
+    </div>
+    <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic tiny button">Consulter le dossier</a>
+</div>
+{% endif %}
+
+<form class="ui form" method="post" novalidate>
+    {{ csrf_input }}
+    {% if form.non_field_errors() %}
+    <div class="ui negative message">{{ form.non_field_errors() }}</div>
+    {% endif %}
+
+    <!-- Zone 1 · Patient et nature de l'échantillon (lecture seule) -->
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="user outline icon"></i>Patient et nature de l'échantillon</h2></div>
+        <div class="ro-zone">
+            <span class="avatar lg" style="{{ patient.avatar_style }}">{{ patient.initiales }}</span>
+            <div class="ro-id">
+                <strong>{{ patient.full_name }}</strong>
+                <span>{{ patient.get_sexe_display() }} · {{ patient.age }} ans</span>
+                <span class="ro-ndp">Dossier provisoire : <strong>{{ patient.ndp }}</strong></span>
+            </div>
+            <div class="ro-poids">
+                <span>Poids</span>
+                <strong>{% if patient.poids is not none %}{{ patient.poids }} kg{% else %}—{% endif %}</strong>
+            </div>
+        </div>
+
+        <div class="grid two">
+            <div class="field {% if form.nature_echantillon.errors %}error{% endif %}">
+                <label for="id_nature_echantillon">{{ form.nature_echantillon.label }}</label>
+                {{ form.nature_echantillon }}
+                {% if form.nature_echantillon.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.nature_echantillon.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field organe-field {% if form.organe.errors %}error{% endif %}" {% if form.nature_echantillon.value() != 'EP' %}hidden{% endif %}>
+                <label for="id_organe">{{ form.organe.label }}</label>
+                {{ form.organe }}
+                {% if form.organe.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.organe.errors[0] }}</div>{% endif %}
+                <div class="form-note">Échantillon extra-pulmonaire : précisez l'organe (ex. ganglion, plèvre, os).</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Zone 2 · Détails de la prescription -->
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="clipboard list icon"></i>Détails de la prescription</h2></div>
+
+        <div class="field {% if form.motif.errors %}error{% endif %}">
+            <label>{{ form.motif.label }}</label>
+            <div class="radio-list">
+                {{ form.motif }}
+            </div>
+            {% if form.motif.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.motif.errors[0] }}</div>{% endif %}
+        </div>
+
+        <div class="field mois-field {% if form.mois_controle.errors %}error{% endif %}" {% if form.motif.value() != 'SUIVI' %}hidden{% endif %} style="max-width:300px">
+            <label for="id_mois_controle">{{ form.mois_controle.label }}</label>
+            {{ form.mois_controle }}
+            {% if form.mois_controle.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.mois_controle.errors[0] }}</div>{% endif %}
+        </div>
+
+        <div class="field {% if form.examens.errors %}error{% endif %}">
+            <label>{{ form.examens.label }}</label>
+            <div class="symptomes examens-list">
+                {{ form.examens }}
+            </div>
+            {% if form.examens.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.examens.errors[0] }}</div>{% endif %}
+            <div class="form-note" style="margin-top:8px"><i class="info circle icon"></i>La bacilloscopie comprend 2 échantillons. Le test VIH est pré-coché pour tout patient suspect (politique nationale).</div>
+        </div>
+
+        <div class="grid three">
+            <div class="field {% if form.date_prelevement.errors %}error{% endif %}">
+                <label for="id_date_prelevement">{{ form.date_prelevement.label }} *</label>
+                {{ form.date_prelevement }}
+                {% if form.date_prelevement.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.date_prelevement.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field">
+                <label for="id_statut_vih">{{ form.statut_vih.label }}</label>
+                {{ form.statut_vih }}
+                {% if form.statut_vih.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.statut_vih.errors[0] }}</div>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Zone 3 · Validation et transmission -->
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="paper plane outline icon"></i>Validation et transmission</h2></div>
+        <div class="field {% if form.observations.errors %}error{% endif %}">
+            <label for="id_observations">{{ form.observations.label }}</label>
+            {{ form.observations }}
+            {% if form.observations.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.observations.errors[0] }}</div>{% endif %}
+        </div>
+        <div class="form-note">Le numéro de demande (DM-AAAA-NNNN), la date, l'heure et le prescripteur seront enregistrés automatiquement ; la demande sera visible dans le module laborantin avec le statut « En attente ».</div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; margin-top:18px;">
+        <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic button">Annuler</a>
+        <button type="submit" class="ui primary button"><i class="paper plane outline icon"></i>Valider et envoyer la demande au laboratoire</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block app_js %}
+<script>
+(function() {
+    const natureSel = document.getElementById('id_nature_echantillon');
+    const organeFld = document.querySelector('.organe-field');
+    function toggleOrgane() {
+        organeFld.hidden = natureSel.value !== 'EP';
+    }
+    if (natureSel && organeFld) {
+        natureSel.addEventListener('change', toggleOrgane);
+        toggleOrgane();
+    }
+
+    const motifRadios = document.querySelectorAll('input[name="motif"]');
+    const moisFld = document.querySelector('.mois-field');
+    function toggleMois() {
+        const suivi = document.querySelector('input[name="motif"]:checked');
+        moisFld.hidden = !(suivi && suivi.value === 'SUIVI');
+    }
+    motifRadios.forEach(r => r.addEventListener('change', toggleMois));
+    toggleMois();
+
+    const boxes = Array.from(document.querySelectorAll('input[name="examens"]'));
+    const byText = {};
+    boxes.forEach(b => {
+        const lbl = (b.nextElementSibling ? b.nextElementSibling.textContent : b.value).toLowerCase();
+        byText[lbl] = b;
+    });
+    const culture = boxes.find(b => b.closest('.ex-chk').textContent.toLowerCase().includes('culture')) || null;
+    const dst = boxes.find(b => b.closest('.ex-chk').textContent.toLowerCase().includes('dst')) || null;
+
+    function syncCultureDst() {
+        if (!culture || !dst) return;
+        if (culture.checked) {
+            dst.checked = true;   // le médecin reste libre de décocher
+        } else {
+            dst.checked = false;
+        }
+    }
+    function syncDstCulture() {
+        if (!culture || !dst) return;
+        if (dst.checked && !culture.checked) {
+            culture.checked = true;
+        }
+    }
+    if (culture) {
+        culture.addEventListener('change', syncCultureDst);
+    }
+    if (dst) {
+        dst.addEventListener('change', syncDstCulture);
+    }
+
+    const dateInput = document.getElementById('id_date_prelevement');
+    if (dateInput) {
+        dateInput.min = '{{ today }}';
+    }
+})();
+</script>
+{% endblock %}

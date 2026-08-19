@@ -3,7 +3,16 @@ from django.utils import timezone
 
 from apps.users.forms import NoClientValidationMixin
 
-from .models import Patient, Sexe
+from .models import (
+    ExamenPrescription,
+    MoisControle,
+    MotifExamen,
+    NatureEchantillon,
+    Patient,
+    Sexe,
+    StatutVihConnu,
+    TypeExamen,
+)
 
 
 class DossierProvisoireForm(NoClientValidationMixin, forms.ModelForm):
@@ -114,3 +123,90 @@ class DossierProvisoireForm(NoClientValidationMixin, forms.ModelForm):
         if date and date > timezone.localdate():
             raise forms.ValidationError("La date de naissance ne peut pas être dans le futur.")
         return date
+
+
+class PrescriptionExamenForm(NoClientValidationMixin, forms.ModelForm):
+    nature_echantillon = forms.ChoiceField(
+        label='Nature de l’échantillon à prélever *',
+        choices=NatureEchantillon.choices,
+        widget=forms.Select(),
+    )
+    organe = forms.CharField(
+        label='Précisez l’organe *',
+        required=False,
+        max_length=100,
+        widget=forms.TextInput(attrs={'placeholder': 'ex. ganglion, plèvre, os…'}),
+    )
+    motif = forms.ChoiceField(
+        label='Motif de l’examen *',
+        choices=MotifExamen.choices,
+        widget=forms.RadioSelect(),
+    )
+    mois_controle = forms.ChoiceField(
+        label='Mois de contrôle *',
+        required=False,
+        choices=MoisControle.choices,
+        widget=forms.Select(),
+    )
+    examens = forms.ModelMultipleChoiceField(
+        label='Type(s) d’examen(s) à réaliser *',
+        queryset=TypeExamen.objects.filter(actif=True),
+        widget=forms.CheckboxSelectMultiple(),
+        error_messages={'required': 'Sélectionnez au moins un type d’examen.'},
+    )
+    date_prelevement = forms.DateField(
+        label='Date prévue du premier prélèvement',
+        widget=forms.DateInput(attrs={'type': 'date'}),
+    )
+    statut_vih = forms.ChoiceField(
+        label='Statut VIH connu du patient (optionnel)',
+        required=False,
+        choices=[('', '— Non renseigné —')] + list(StatutVihConnu.choices),
+        widget=forms.Select(),
+    )
+    observations = forms.CharField(
+        label='Observations cliniques complémentaires',
+        required=False,
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Recommandations spécifiques pour le laboratoire…',
+        }),
+    )
+
+    class Meta:
+        model = ExamenPrescription
+        fields = [
+            'nature_echantillon', 'organe', 'motif', 'mois_controle',
+            'examens', 'date_prelevement', 'statut_vih', 'observations',
+        ]
+
+    def clean(self):
+        cleaned = super().clean()
+        nature = cleaned.get('nature_echantillon')
+        organe = (cleaned.get('organe') or '').strip()
+        if nature == NatureEchantillon.EXTRA_PULMONAIRE and not organe:
+            self.add_error('organe', 'Précisez l’organe concerné pour un prélèvement extra-pulmonaire.')
+
+        motif = cleaned.get('motif')
+        mois_controle = cleaned.get('mois_controle')
+        if motif == MotifExamen.SUIVI_CONTROLE and not mois_controle:
+            self.add_error(
+                'mois_controle',
+                'Indiquez le mois de contrôle (C2, C3, C5, fin de traitement, etc.).',
+            )
+
+        examens = cleaned.get('examens')
+        if examens:
+            types_exigeant_culture = [e for e in examens if e.exige_culture]
+            if types_exigeant_culture and not any(e.code == 'CULTURE' for e in examens):
+                self.add_error(
+                    'examens',
+                    'Le test de sensibilité (DST) n’est possible que si la culture est également demandée.',
+                )
+
+        date_prelevement = cleaned.get('date_prelevement')
+        if date_prelevement and date_prelevement < timezone.localdate():
+            self.add_error(
+                'date_prelevement',
+                'La date de prélèvement ne peut pas être dans le passé.',
+            )
+        return cleaned

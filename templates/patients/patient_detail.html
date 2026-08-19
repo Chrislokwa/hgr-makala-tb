@@ -75,14 +75,34 @@
 </div>
 {% endif %}
 
+<div class="pcard">
+    <h3 class="pcard-h"><i class="clipboard list icon"></i>Examens prescrits</h3>
+    {% if prescriptions %}
+    <div class="pres-list">
+        {% for dem in prescriptions %}
+        <div class="pres-row">
+            <div class="pres-tx">
+                <strong>{{ dem.numero_demande }}</strong>
+                <span>{{ dem.types_libelles }}</span>
+                <span>Prescrite le {{ dem.date_prescription|date_fr }} · {{ dem.get_nature_echantillon_display() }}{% if dem.organe %} ({{ dem.organe }}){% endif %}</span>
+            </div>
+            <span class="badge">{{ dem.get_statut_display() }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">Aucune demande d'examen pour ce patient pour le moment.</p>
+    {% endif %}
+</div>
+
 <div class="drow">
     <div class="drow-tx">
         <i class="clipboard check icon"></i>
         <div>
-            <strong>Examen initial (ECRS)</strong>
-            <span>Prescription de l'examen bactériologique, en attente d'analyse au laboratoire.</span>
+            <strong>Prescription d'examen de laboratoire</strong>
+            <span>Demande de bacilloscopie, GeneXpert, culture, DST ou test VIH transmise au laboratoire.</span>
         </div>
     </div>
-    <span class="ui basic disabled button">À prescrire</span>
+    <a href="{{ url('prescription_create', pk=patient.pk) }}" class="ui teal button"><i class="clipboard outline icon"></i>Prescrire un examen</a>
 </div>
 {% endblock %}

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Patient
+from .models import ExamenPrescription, Patient, TypeExamen
 
 
 @admin.register(Patient)
@@ -21,3 +21,17 @@ class PatientAdmin(admin.ModelAdmin):
         )}),
         ('Traçabilité', {'fields': ('cree_le', 'cree_par')}),
     )
+
+
+@admin.register(TypeExamen)
+class TypeExamenAdmin(admin.ModelAdmin):
+    list_display = ('code', 'libelle', 'nb_echantillons', 'exige_culture', 'actif', 'ordre')
+    list_editable = ('actif', 'ordre')
+
+
+@admin.register(ExamenPrescription)
+class ExamenPrescriptionAdmin(admin.ModelAdmin):
+    list_display = ('numero_demande', 'patient', 'nature_echantillon', 'motif', 'date_prescription', 'statut', 'medecin')
+    list_filter = ('statut', 'motif', 'nature_echantillon')
+    search_fields = ('numero_demande', 'patient__nom', 'patient__prenom')
+    readonly_fields = ('numero_demande', 'date_prescription')

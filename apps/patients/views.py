@@ -1,11 +1,18 @@
 from django.contrib import messages
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
+from django.utils import timezone
 from django.views.generic import DetailView, FormView, ListView
 
-from .forms import DossierProvisoireForm
-from .models import Patient, StatutDossier
+from .forms import DossierProvisoireForm, PrescriptionExamenForm
+from .models import (
+    MotifExamen,
+    NatureEchantillon,
+    Patient,
+    StatutDossier,
+    TypeExamen,
+)
 from .permissions import MedecinRequiredMixin
-from .services import creer_dossier_provisoire
+from .services import creer_dossier_provisoire, creer_prescription_examen, trouver_prescriptions_en_attente
 
 
 class PatientListView(MedecinRequiredMixin, ListView):
@@ -52,13 +59,13 @@ class PatientCreateView(MedecinRequiredMixin, FormView):
         if self.request.POST.get('action') == 'prescrire':
             messages.success(
                 self.request,
-                f"Dossier provisoire créé : {patient.ndp} — prescrivez l'examen initial depuis le dossier.",
-            )
-        else:
-            messages.success(
-                self.request,
                 f"Dossier provisoire créé : {patient.ndp} · {patient.full_name}",
             )
+            return redirect('prescription_create', pk=patient.pk)
+        messages.success(
+            self.request,
+            f"Dossier provisoire créé : {patient.ndp} · {patient.full_name}",
+        )
         return redirect('patient_detail', pk=patient.pk)
 
 
@@ -70,4 +77,69 @@ class PatientDetailView(MedecinRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['active_nav'] = 'patients'
+        context['prescriptions'] = (
+            self.object.examens_prescrits.all()
+            .prefetch_related('examens')
+        )
         return context
+
+
+class PrescriptionExamenCreateView(MedecinRequiredMixin, FormView):
+    template_name = 'patients/prescription_create.html'
+    form_class = PrescriptionExamenForm
+
+    def dispatch(self, request, *args, **kwargs):
+        self.patient = get_object_or_404(Patient, pk=self.kwargs['pk'])
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['active_nav'] = 'patients'
+        context['patient'] = self.patient
+        context['today'] = timezone.localdate()
+        return context
+
+    def get_initial(self):
+        symptomes_respiratoires = (
+            self.patient.signe_toux_persistante or self.patient.signe_hemoptysie
+        )
+        vih = TypeExamen.objects.filter(code='VIH').first()
+        return {
+            'nature_echantillon': (
+                NatureEchantillon.PULMONAIRE if symptomes_respiratoires
+                else NatureEchantillon.EXTRA_PULMONAIRE
+            ),
+            'motif': MotifExamen.DIAGNOSTIC,
+            'examens': [vih.pk] if vih else [],
+            'date_prelevement': timezone.localdate(),
+        }
+
+    def form_valid(self, form):
+        donnees = form.cleaned_data
+        codes_types = [t.code for t in donnees['examens']]
+        en_attente = list(trouver_prescriptions_en_attente(self.patient, codes_types))
+        if en_attente:
+            context = self.get_context_data(form=form)
+            context['doublon_prescriptions'] = en_attente
+            return self.render_to_response(context)
+
+        prescription = creer_prescription_examen(
+            medecin=self.request.user,
+            patient=self.patient,
+            donnees={
+                'nature_echantillon': donnees['nature_echantillon'],
+                'organe': donnees['organe'],
+                'motif': donnees['motif'],
+                'mois_controle': donnees['mois_controle'],
+                'date_prelevement': donnees['date_prelevement'],
+                'statut_vih': donnees['statut_vih'],
+                'observations': donnees['observations'],
+            },
+            types_examens=donnees['examens'],
+        )
+        messages.success(
+            self.request,
+            f"Demande {prescription.numero_demande} transmise au laboratoire "
+            f"({prescription.types_libelles}).",
+        )
+        return redirect('patient_detail', pk=self.patient.pk)

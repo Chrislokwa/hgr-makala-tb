@@ -46,11 +46,9 @@
                 {% if form.nom.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.nom.errors[0] }}</div>{% endif %}
             </div>
             <div class="field {% if form.sexe.errors %}error{% endif %}">
-                <label>{{ form.sexe.label }} *</label>
+<label>{{ form.sexe.label }} *</label>
                 <div class="radio-list">
-                    {% for choice in form.sexe.subwidgets %}
-                    <label class="radio-card">{{ choice }}</label>
-                    {% endfor %}
+                    {{ form.sexe }}
                 </div>
                 {% if form.sexe.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.sexe.errors[0] }}</div>{% endif %}
             </div>

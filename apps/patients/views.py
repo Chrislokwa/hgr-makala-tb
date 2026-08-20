@@ -10,8 +10,14 @@ from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views.generic import DetailView, FormView, ListView, View
 
-from .forms import DossierProvisoireForm, PrescriptionExamenForm, SaisieResultatForm
+from .forms import (
+    DossierProvisoireForm,
+    InterpretationForm,
+    PrescriptionExamenForm,
+    SaisieResultatForm,
+)
 from .models import (
+    DecisionDiagnostic,
     ExamenPrescription,
     MotifExamen,
     NatureEchantillon,
@@ -27,6 +33,7 @@ from .permissions import LaborantinRequiredMixin, MedecinRequiredMixin
 from .services import (
     creer_dossier_provisoire,
     creer_prescription_examen,
+    enregistrer_interpretation,
     enregistrer_resultats,
     trouver_prescriptions_en_attente,
 )
@@ -310,6 +317,110 @@ class SaisieResultatView(LaborantinRequiredMixin, FormView):
                 f"({self.demande.numero_demande}).",
             )
         return redirect('examen_detail', pk=self.demande.pk)
+
+
+class ConsultationResultatView(MedecinRequiredMixin, DetailView):
+    """UC5 — Consulter les résultats d'un examen.
+
+    Le médecin ouvre le dossier du patient, accède à la section « Examens »
+    puis sélectionne l'examen dont le statut est « Résultats disponibles ».
+    La page affiche la demande et les résultats validés, sans modification.
+    """
+
+    model = ExamenPrescription
+    template_name = 'patients/consultation_resultat.html'
+    context_object_name = 'demande'
+
+    def dispatch(self, request, *args, **kwargs):
+        self.demande = get_object_or_404(
+            ExamenPrescription,
+            pk=self.kwargs['prescription_pk'],
+            patient_id=self.kwargs['pk'],
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_object(self, queryset=None):
+        return self.demande
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['active_nav'] = 'patients'
+        context['resultat'] = self.demande.resultat_valide
+        context['interpretation'] = self.demande.interpretation
+        return context
+
+
+class InterpretationResultatView(MedecinRequiredMixin, FormView):
+    """UC6 — Interpréter les résultats.
+
+    Le médecin, après avoir consulté les résultats (UC5), sélectionne
+    l'option « Interpréter les résultats ». Le système affiche un formulaire
+    reprenant les résultats, puis enregistre l'analyse et déclenche le point
+    d'extension « Décision de diagnostic » (UC7 / UC8 selon la décision).
+    """
+
+    template_name = 'patients/interpretation_form.html'
+    form_class = InterpretationForm
+
+    def dispatch(self, request, *args, **kwargs):
+        self.demande = get_object_or_404(
+            ExamenPrescription,
+            pk=self.kwargs['prescription_pk'],
+            patient_id=self.kwargs['pk'],
+        )
+        if self.demande.statut != StatutExamen.RESULTATS_DISPONIBLES:
+            messages.info(
+                self.request,
+                "Les résultats ne sont pas encore disponibles pour cette demande : "
+                "l'interprétation n'est possible qu'une fois les analyses validées.",
+            )
+            return redirect('consultation_resultat', pk=self.demande.patient_id,
+                            prescription_pk=self.demande.pk)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['active_nav'] = 'patients'
+        context['demande'] = self.demande
+        context['resultat'] = self.demande.resultat_valide
+        context['interpretation'] = self.demande.interpretation
+        return context
+
+    def get_initial(self):
+        interpretation = self.demande.interpretation
+        if interpretation is None:
+            return {}
+        return {
+            'interpretation': interpretation.interpretation,
+            'observations': interpretation.observations,
+            'decision': interpretation.decision,
+        }
+
+    def form_valid(self, form):
+        donnees = form.cleaned_data
+        enregistrer_interpretation(
+            medecin=self.request.user,
+            prescription=self.demande,
+            donnees={
+                'interpretation': donnees['interpretation'],
+                'observations': donnees['observations'],
+                'decision': donnees['decision'],
+            },
+        )
+        if donnees['decision'] == DecisionDiagnostic.CONFIRMEE:
+            messages.success(
+                self.request,
+                f"Tuberculose confirmée — le dossier {self.demande.patient.ndp} "
+                f"est validé pour l'admission.",
+            )
+        else:
+            messages.info(
+                self.request,
+                f"Tuberculose infirmée — l'admission du dossier "
+                f"{self.demande.patient.ndp} a été annulée.",
+            )
+        return redirect('consultation_resultat', pk=self.demande.patient_id,
+                        prescription_pk=self.demande.pk)
 
 
 class NotificationMarquerLuesView(LoginRequiredMixin, View):

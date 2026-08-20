@@ -4,7 +4,9 @@ from django.utils import timezone
 from apps.users.models import CustomUser, UserRole
 
 from .models import (
+    DecisionDiagnostic,
     ExamenPrescription,
+    InterpretationResultat,
     Notification,
     Patient,
     ResultatLabo,
@@ -150,3 +152,49 @@ def enregistrer_resultats(*, laborantin, prescription, donnees, valider):
             statut=StatutResultat.BROUILLON,
             date_lecture=None,
         )
+
+
+def enregistrer_interpretation(*, medecin, prescription, donnees):
+    """Enregistre l'analyse médicale du médecin et applique la décision.
+
+    L'enregistrement déclenche le point d'extension « Décision de
+    diagnostic » :
+    - Tuberculose confirmée (UC7) : le dossier passe au statut « Confirmé ».
+    - Tuberculose infirmée (UC8) : le dossier passe au statut « Non confirmé ».
+    Une seule interprétation est conservée par prescription.
+    """
+    donnees = dict(donnees)
+    decision = donnees.get('decision')
+    if decision not in (DecisionDiagnostic.CONFIRMEE, DecisionDiagnostic.INFIRMEE):
+        raise ValueError("Décision de diagnostic invalide.")
+
+    with transaction.atomic():
+        interpretation, _ = InterpretationResultat.objects.update_or_create(
+            prescription=prescription,
+            defaults={
+                'medecin': medecin,
+                'observations': donnees.get('observations', ''),
+                'interpretation': donnees.get('interpretation', ''),
+                'decision': decision,
+            },
+        )
+        patient = prescription.patient
+        patient.statut = (
+            StatutDossier.CONFIRME
+            if decision == DecisionDiagnostic.CONFIRMEE
+            else StatutDossier.NON_CONFIRME
+        )
+        patient.save(update_fields=['statut'])
+        infirmiers = CustomUser.objects.filter(
+            is_active=True, role=UserRole.INFIRMIER
+        )
+        for infirmier in infirmiers:
+            Notification.objects.create(
+                destinataire=infirmier,
+                message=(
+                    f"Dossier {patient.ndp} ({patient.full_name}) "
+                    f"{'confirmé — admission à finaliser' if decision == DecisionDiagnostic.CONFIRMEE else 'non confirmé — admission annulée'}."
+                ),
+                url=f"/patients/{patient.pk}/",
+            )
+        return interpretation

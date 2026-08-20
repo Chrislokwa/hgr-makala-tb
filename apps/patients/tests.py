@@ -6,7 +6,9 @@ from django.urls import reverse
 from apps.users.models import CustomUser, UserRole
 
 from .models import (
+    DecisionDiagnostic,
     ExamenPrescription,
+    InterpretationResultat,
     Notification,
     Patient,
     ResultatLabo,
@@ -18,6 +20,7 @@ from .models import (
 from .services import (
     creer_dossier_provisoire,
     creer_prescription_examen,
+    enregistrer_interpretation,
     enregistrer_resultats,
 )
 from .views import NotificationSseView
@@ -695,6 +698,234 @@ class LaboratoireModuleTests(TestCase):
             },
             valider=True,
         )
+
+    # ---- US2.5 / UC5 : Consulter les résultats d'un examen ----
+
+    def test_consultation_resultat_requires_login(self):
+        patient = self._patient()
+        presc = self._prescription(patient)
+        url = reverse(
+            'consultation_resultat',
+            kwargs={'pk': patient.pk, 'prescription_pk': presc.pk},
+        )
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_consultation_resultat_requires_medecin(self):
+        patient = self._patient()
+        presc = self._prescription(patient)
+        self._valider_resultats(presc)
+        self.client.logout()
+        self.client.login(username='lab.test@hgr-makala.cd', password='password123')
+        url = reverse(
+            'consultation_resultat',
+            kwargs={'pk': patient.pk, 'prescription_pk': presc.pk},
+        )
+        response = self.client.get(url)
+        self.assertRedirects(response, reverse('dashboard'))
+
+    def test_medecin_consulte_les_resultats_disponibles(self):
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        self._valider_resultats(presc)
+        url = reverse(
+            'consultation_resultat',
+            kwargs={'pk': patient.pk, 'prescription_pk': presc.pk},
+        )
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, presc.numero_demande)
+        self.assertContains(response, 'Résultats du laboratoire')
+        self.assertContains(response, 'Interpréter les résultats')
+        self.assertContains(response, '+')
+        self.assertContains(response, 'Mucopurulent')
+
+    def test_medecin_ne_peut_pas_voir_resultats_en_attente(self):
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        url = reverse(
+            'consultation_resultat',
+            kwargs={'pk': patient.pk, 'prescription_pk': presc.pk},
+        )
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Résultats en attente')
+
+    def test_consultation_lien_depuis_le_dossier(self):
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        self._valider_resultats(presc)
+        response = self.client.get(reverse('patient_detail', kwargs={'pk': patient.pk}))
+        self.assertContains(response, 'Consulter les résultats')
+        self.assertContains(response, presc.numero_demande)
+
+    # ---- US2.6 / UC6 : Interpréter les résultats ----
+
+    def test_interpretation_requires_login(self):
+        patient = self._patient()
+        presc = self._prescription(patient)
+        self._valider_resultats(presc)
+        url = reverse(
+            'interpretation_resultat',
+            kwargs={'pk': patient.pk, 'prescription_pk': presc.pk},
+        )
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_interpretation_requires_medecin(self):
+        patient = self._patient()
+        presc = self._prescription(patient)
+        self._valider_resultats(presc)
+        self.client.login(username='lab.test@hgr-makala.cd', password='password123')
+        url = reverse(
+            'interpretation_resultat',
+            kwargs={'pk': patient.pk, 'prescription_pk': presc.pk},
+        )
+        response = self.client.get(url)
+        self.assertRedirects(response, reverse('dashboard'))
+
+    def test_interpretation_impossible_sans_resultats(self):
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        url = reverse(
+            'interpretation_resultat',
+            kwargs={'pk': patient.pk, 'prescription_pk': presc.pk},
+        )
+        response = self.client.get(url)
+        self.assertRedirects(
+            response,
+            reverse(
+                'consultation_resultat',
+                kwargs={'pk': patient.pk, 'prescription_pk': presc.pk},
+            ),
+        )
+        self.assertFalse(InterpretationResultat.objects.exists())
+
+    def test_interpretation_confirme_le_dossier(self):
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        self._valider_resultats(presc)
+        url = reverse(
+            'interpretation_resultat',
+            kwargs={'pk': patient.pk, 'prescription_pk': presc.pk},
+        )
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        # Le formulaire reprend les résultats
+        self.assertContains(response, 'Résultats analysés')
+        self.assertContains(response, 'Tuberculose confirmée')
+
+        response = self.client.post(
+            url,
+            {
+                'interpretation': 'Bacilloscopie positive, tableau clinique évocateur.',
+                'observations': 'Toux ≥ 2 semaines, perte de poids.',
+                'decision': DecisionDiagnostic.CONFIRMEE,
+            },
+        )
+        self.assertRedirects(
+            response,
+            reverse(
+                'consultation_resultat',
+                kwargs={'pk': patient.pk, 'prescription_pk': presc.pk},
+            ),
+        )
+        patient.refresh_from_db()
+        self.assertEqual(patient.statut, StatutDossier.CONFIRME)
+        interpretation = InterpretationResultat.objects.get(prescription=presc)
+        self.assertEqual(interpretation.medecin, self.medecin)
+        self.assertEqual(interpretation.decision, DecisionDiagnostic.CONFIRMEE)
+
+    def test_interpretation_infirme_le_dossier(self):
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        self._valider_resultats(presc)
+        url = reverse(
+            'interpretation_resultat',
+            kwargs={'pk': patient.pk, 'prescription_pk': presc.pk},
+        )
+        self.client.post(
+            url,
+            {
+                'interpretation': 'Aucun élément en faveur de la tuberculose.',
+                'observations': '',
+                'decision': DecisionDiagnostic.INFIRMEE,
+            },
+        )
+        patient.refresh_from_db()
+        self.assertEqual(patient.statut, StatutDossier.NON_CONFIRME)
+
+    def test_interpretation_erreur_champ_obligatoire(self):
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        self._valider_resultats(presc)
+        url = reverse(
+            'interpretation_resultat',
+            kwargs={'pk': patient.pk, 'prescription_pk': presc.pk},
+        )
+        response = self.client.post(
+            url,
+            {'interpretation': '', 'observations': '', 'decision': ''},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Rédigez votre interprétation")
+        self.assertContains(response, 'Choisissez l’issue du diagnostic')
+        self.assertEqual(InterpretationResultat.objects.count(), 0)
+
+    def test_interpretation_unique_par_prescription(self):
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        patient = self._patient()
+        presc = self._prescription(patient)
+        self._valider_resultats(presc)
+        url = reverse(
+            'interpretation_resultat',
+            kwargs={'pk': patient.pk, 'prescription_pk': presc.pk},
+        )
+        self.client.post(
+            url,
+            {'interpretation': 'Décision initiale.', 'observations': '', 'decision': 'INFIRMEE'},
+        )
+        self.client.post(
+            url,
+            {'interpretation': 'Décision révisée.', 'observations': 'Nouveaux éléments.', 'decision': 'CONFIRMEE'},
+        )
+        self.assertEqual(InterpretationResultat.objects.filter(prescription=presc).count(), 1)
+        patient.refresh_from_db()
+        self.assertEqual(patient.statut, StatutDossier.CONFIRME)
+
+    def test_interpretation_notifie_les_infirmiers(self):
+        infirmier = CustomUser.objects.create_user(
+            username='inf2.test@hgr-makala.cd',
+            password='password123',
+            email='inf2.test@hgr-makala.cd',
+            first_name='Sara',
+            last_name='Bofassa',
+            role=UserRole.INFIRMIER,
+            is_active=True,
+        )
+        patient = self._patient()
+        presc = self._prescription(patient)
+        self._valider_resultats(presc)
+        enregistrer_interpretation(
+            medecin=self.medecin,
+            prescription=presc,
+            donnees={
+                'interpretation': 'Confirmée.',
+                'observations': '',
+                'decision': DecisionDiagnostic.CONFIRMEE,
+            },
+        )
+        notif = Notification.objects.get(
+            destinataire=infirmier, message__icontains=patient.ndp
+        )
+        self.assertIn('confirmé', notif.message)
 
 
 class NotificationSseTests(TestCase):

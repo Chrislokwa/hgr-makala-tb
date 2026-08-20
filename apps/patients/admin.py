@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import ExamenPrescription, Notification, Patient, ResultatLabo, TypeExamen
+from .models import (
+    ExamenPrescription,
+    InterpretationResultat,
+    Notification,
+    Patient,
+    ResultatLabo,
+    TypeExamen,
+)
 
 
 @admin.register(Patient)
@@ -53,4 +60,12 @@ class ResultatLaboAdmin(admin.ModelAdmin):
 class NotificationAdmin(admin.ModelAdmin):
     list_display = ('destinataire', 'message', 'lu', 'cree_le')
     list_filter = ('lu',)
+    readonly_fields = ('cree_le',)
+
+
+@admin.register(InterpretationResultat)
+class InterpretationResultatAdmin(admin.ModelAdmin):
+    list_display = ('prescription', 'decision', 'medecin', 'cree_le')
+    list_filter = ('decision',)
+    search_fields = ('prescription__numero_demande', 'prescription__patient__nom')
     readonly_fields = ('cree_le',)

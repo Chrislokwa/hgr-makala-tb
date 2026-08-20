@@ -37,6 +37,11 @@
                         <span>VIH : <strong class="{% if res.resultat_vih == 'POSITIF' %}pos{% endif %}">{{ res.get_resultat_vih_display() }}</strong></span>
                         {% endif %}
                     </div>
+                    {% set interpretation = dem.interpretation %}
+                    {% if interpretation %}
+                    <span class="badge {% if interpretation.decision == 'CONFIRMEE' %}ok{% else %}neg{% endif %}">{{ interpretation.get_decision_display() }}</span>
+                    {% endif %}
+                    <a href="{{ url('consultation_resultat', pk=patient.pk, prescription_pk=dem.pk) }}" class="ui basic teal button" style="margin-top:6px"><i class="eye icon"></i>Consulter les résultats</a>
                     {% else %}
                     <span class="ue">—</span>
                     {% endif %}

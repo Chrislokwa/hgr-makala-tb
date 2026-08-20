@@ -5,6 +5,7 @@ from apps.users.forms import NoClientValidationMixin
 
 from .models import (
     ApparenceEchantillon,
+    DecisionDiagnostic,
     ExamenPrescription,
     MoisControle,
     MotifExamen,
@@ -294,3 +295,31 @@ class SaisieResultatForm(NoClientValidationMixin, forms.ModelForm):
                 "La date de réception ne peut pas être dans le futur."
             )
         return date
+
+
+class InterpretationForm(NoClientValidationMixin, forms.Form):
+    interpretation = forms.CharField(
+        label='Interprétation médicale *',
+        widget=forms.Textarea(attrs={
+            'placeholder': (
+                'Analyse des données cliniques : évolution de la toux, bacilloscopie, '
+                'GeneXpert, culture… et avis posé sur le diagnostic.'
+            ),
+            'rows': 5,
+        }),
+        error_messages={'required': 'Rédigez votre interprétation médicale.'},
+    )
+    observations = forms.CharField(
+        label='Observations complémentaires',
+        required=False,
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Éléments cliniques complémentaires pris en compte…',
+            'rows': 3,
+        }),
+    )
+    decision = forms.ChoiceField(
+        label='Décision de diagnostic',
+        choices=DecisionDiagnostic.choices,
+        widget=forms.RadioSelect(),
+        error_messages={'required': 'Choisissez l’issue du diagnostic.'},
+    )

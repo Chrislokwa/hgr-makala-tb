@@ -273,6 +273,11 @@ class StatutResultat(models.TextChoices):
     VALIDE = 'VALIDE', 'Validé'
 
 
+class DecisionDiagnostic(models.TextChoices):
+    CONFIRMEE = 'CONFIRMEE', 'Tuberculose confirmée'
+    INFIRMEE = 'INFIRMEE', 'Tuberculose infirmée'
+
+
 class ExamenPrescription(models.Model):
     numero_demande = models.CharField(
         max_length=20,
@@ -367,6 +372,10 @@ class ExamenPrescription(models.Model):
             .order_by('-cree_le')
             .first()
         )
+
+    @property
+    def interpretation(self):
+        return self.interpretations.order_by('-cree_le').first()
 
 
 class ResultatLabo(models.Model):
@@ -467,6 +476,63 @@ class ResultatLabo(models.Model):
         if self.resultat_vih == ResultatVih.POSITIF:
             positifs.append("Test VIH : Positif")
         return positifs
+
+
+class InterpretationResultat(models.Model):
+    """Analyse médicale par le médecin traitant des résultats validés.
+
+    L'enregistrement de l'interprétation déclenche le point d'extension
+    « Décision de diagnostic » : la tuberculose est confirmée (UC7 —
+    validation de l'admission) ou infirmée (UC8 — annulation de l'admission).
+    """
+
+    prescription = models.ForeignKey(
+        ExamenPrescription,
+        on_delete=models.PROTECT,
+        related_name='interpretations',
+        help_text="Demande d'examen dont les résultats sont interprétés.",
+    )
+    medecin = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='interpretations_resultats',
+        help_text="Médecin ayant analysé et interprété les résultats.",
+    )
+    cree_le = models.DateTimeField(auto_now_add=True, db_index=True)
+    observations = models.TextField(
+        blank=True,
+        help_text="Analyse des données cliniques et des résultats de laboratoire.",
+    )
+    interpretation = models.TextField(
+        help_text="Interprétation médicale des résultats et avis posé.",
+    )
+    decision = models.CharField(
+        max_length=20,
+        choices=DecisionDiagnostic.choices,
+        help_text="Décision de diagnostic (point d'extension « Décision de diagnostic »).",
+    )
+
+    class Meta:
+        ordering = ['-cree_le']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['prescription'],
+                name='unique_interpretation_par_prescription',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.prescription.numero_demande} · {self.get_decision_display()}"
+
+    @property
+    def statut_dossier_cible(self):
+        if self.decision == DecisionDiagnostic.CONFIRMEE:
+            return StatutDossier.CONFIRME
+        return StatutDossier.NON_CONFIRME
+
+    @property
+    def patient(self):
+        return self.prescription.patient
 
 
 class Notification(models.Model):

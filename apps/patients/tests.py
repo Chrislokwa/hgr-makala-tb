@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, time
 
 from django.test import TestCase
 from django.urls import reverse
@@ -10,24 +10,40 @@ from .models import (
     ExamenPrescription,
     InterpretationResultat,
     Notification,
+    ObservanceJournaliere,
     Patient,
     ResultatLabo,
+    RendezVous,
     StatutDossier,
     StatutExamen,
     StatutResultat,
+    StatutTraitement,
+    Traitement,
     TypeExamen,
     VerrouDossier,
 )
 from .services import (
     acquerir_verrou,
     admission_est_finalisable,
+    calculer_posologie,
+    cloturer_traitement,
+    cohorte_guerison,
     creer_dossier_provisoire,
     creer_prescription_examen,
+    creer_traitement,
+    derniere_prise,
+    detecter_perdus_de_vue,
     enregistrer_interpretation,
+    enregistrer_observance,
     enregistrer_resultats,
+    enregistrer_visite,
     finaliser_admission,
     liberer_verrou,
     mettre_a_jour_informations,
+    modifier_traitement,
+    programmer_rendez_vous,
+    statut_rendez_vous,
+    trouver_controle_en_attente,
 )
 from .views import NotificationSseView
 
@@ -1487,3 +1503,449 @@ class Epic3GestionAdministrativeTests(TestCase):
         # Le rapport médical / interprétation est réservé au médecin.
         self.assertNotContains(response, 'Interprétation du diagnostic')
         self.assertContains(response, 'Modifier les informations')
+
+
+class Epic4SuiviTherapeutiqueTests(TestCase):
+    """Epic 4 : fiche de traitement (US4.1), bon de contrôle (US4.2),
+    carte du malade et registre de cas (US4.3)."""
+
+    def setUp(self):
+        self.medecin = CustomUser.objects.create_user(
+            username='dr.test@hgr-makala.cd', password='password123',
+            email='dr.test@hgr-makala.cd',
+            first_name='Paul', last_name='Kalombo',
+            role=UserRole.MEDECIN, is_active=True,
+        )
+        self.infirmier = CustomUser.objects.create_user(
+            username='inf.test@hgr-makala.cd', password='password123',
+            email='inf.test@hgr-makala.cd',
+            first_name='Claire', last_name='Bofassa',
+            role=UserRole.INFIRMIER, is_active=True,
+        )
+        self.laborantin = CustomUser.objects.create_user(
+            username='lab.test@hgr-makala.cd', password='password123',
+            email='lab.test@hgr-makala.cd',
+            first_name='Jean', last_name='Bofasa',
+            role=UserRole.LABORANTIN, is_active=True,
+        )
+        self.patient = creer_dossier_provisoire(
+            medecin=self.medecin,
+            donnees={
+                'nom': 'Mbuyi', 'post_nom': 'Kanyinda', 'prenom': 'Claire',
+                'sexe': 'F', 'date_naissance': date(1990, 5, 12),
+                'district': 'Mont-Ngafula', 'poids': 55.0,
+            },
+        )
+
+    def _traitement(self, type_cas='NOUVEAU', date_debut=None, poids=55.0):
+        return creer_traitement(
+            medecin=self.medecin, patient=self.patient,
+            donnees={
+                'type_cas': type_cas,
+                'date_debut': date_debut or date.today(),
+                'poids_initial': poids,
+                'unite_traitement': 'HGR Makala',
+                'notes': '',
+            },
+        )
+
+    # ---- Posologie et création de la fiche ----
+
+    def test_posologie_par_bandes_de_poids(self):
+        self.assertEqual(calculer_posologie(30), 2)
+        self.assertEqual(calculer_posologie(37.5), 2)
+        self.assertEqual(calculer_posologie(38), 3)
+        self.assertEqual(calculer_posologie(54), 3)
+        self.assertEqual(calculer_posologie(55), 4)
+        self.assertEqual(calculer_posologie(70), 4)
+        self.assertEqual(calculer_posologie(71), 5)
+        self.assertIsNone(calculer_posologie(25))
+        self.assertIsNone(calculer_posologie(None))
+
+    def test_creation_fiche_nouveau_cas(self):
+        traitement = self._traitement(poids=55.0)
+        self.assertEqual(traitement.schema.code, '2RHZE/4RH')
+        self.assertEqual(traitement.posologie_jour, 4)
+        self.assertEqual(traitement.type_cas, 'NOUVEAU')
+        self.assertTrue(traitement.est_en_cours)
+
+    def test_creation_fiche_rechute_utilise_categorie_ii(self):
+        traitement = self._traitement(type_cas='RECHUTE', poids=42.0)
+        self.assertEqual(traitement.schema.categorie, 'RETRAITEMENT')
+        self.assertEqual(traitement.posologie_jour, 3)
+
+    def test_created_fiche_unique_par_patient(self):
+        self._traitement()
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            self._traitement()
+
+    def test_fiche_impossible_si_poids_hors_bandes_mais_adaptable(self):
+        traitement = self._traitement(poids=25.0)
+        self.assertIsNone(traitement.posologie_jour)
+
+    # ---- Observance journalière ----
+
+    def test_enregistrement_observance(self):
+        traitement = self._traitement()
+        mois = enregistrer_observance(
+            utilisateur=self.infirmier, traitement=traitement, mois=1,
+            statuts_par_jour={'1': 'X', '2': '-', '3': 'O', '5': 'J'},
+        )
+        self.assertEqual(mois, 1)
+        self.assertEqual(traitement.observances.count(), 4)
+        self.assertTrue(
+            traitement.observances.filter(jour=1, statut='X').exists()
+        )
+        self.assertIsNotNone(derniere_prise(traitement))
+
+    def test_observance_mois_hors_limites_refusee(self):
+        from django.core.exceptions import ValidationError
+        traitement = self._traitement()
+        with self.assertRaises(ValidationError):
+            enregistrer_observance(
+                utilisateur=self.infirmier, traitement=traitement, mois=20,
+                statuts_par_jour={'1': 'X'},
+            )
+
+    def test_perdu_de_vue_detecte_apres_2_mois(self):
+        traitement = self._traitement(date_debut=date.today() - timedelta(days=100))
+        signalés = detecter_perdus_de_vue()
+        self.assertIn(traitement, signalés)
+        traitement.refresh_from_db()
+        self.assertIsNotNone(traitement.perdu_de_vue)
+        self.assertTrue(traitement.a_recuperer)
+        self.assertTrue(
+            Notification.objects.filter(destinataire=self.medecin).exists()
+        )
+
+    def test_reprise_de_prise_efface_perdu_de_vue(self):
+        traitement = self._traitement(date_debut=date.today() - timedelta(days=100))
+        detecter_perdus_de_vue()
+        traitement.refresh_from_db()
+        self.assertIsNotNone(traitement.perdu_de_vue)
+        enregistrer_observance(
+            utilisateur=self.infirmier, traitement=traitement, mois=1,
+            statuts_par_jour={'1': 'X'},
+        )
+        traitement.refresh_from_db()
+        self.assertIsNone(traitement.perdu_de_vue)
+
+    # ---- Visite de suivi ----
+
+    def test_enregistrement_visite_et_synchronisation_poids(self):
+        traitement = self._traitement(poids=55.0)
+        visite = enregistrer_visite(
+            auteur=self.infirmier, traitement=traitement,
+            donnees={
+                'date': date.today(), 'poids': 57.0,
+                'troubles_visuels': True, 'jaunisse': False,
+                'eruption_cutanee': False, 'vertiges': False,
+                'autres_effets': '', 'observations': 'Évolution favorable.',
+            },
+        )
+        self.assertIn('Troubles visuels', visite.signes_alerte)
+        self.patient.refresh_from_db()
+        self.assertEqual(self.patient.poids, 57.0)
+        traitement.refresh_from_db()
+        self.assertEqual(traitement.poids_actuel, 57.0)
+
+    # ---- Modification du traitement ----
+
+    def test_modification_categorie_ii_avec_tracabilite(self):
+        traitement = self._traitement(poids=55.0)
+        modifier_traitement(
+            medecin=self.medecin, traitement=traitement,
+            donnees={
+                'type_modification': 'CATEGORIE_II',
+                'motif_medical': 'Rechute bactériologique confirmée.',
+                'description': '',
+            },
+        )
+        traitement.refresh_from_db()
+        self.assertEqual(traitement.schema.categorie, 'RETRAITEMENT')
+        historique = traitement.modifications_traitement.first()
+        self.assertEqual(historique.ancien_schema.code, '2RHZE/4RH')
+        self.assertEqual(historique.nouveau_schema.code, '2SRHZE/1RHZE/5RHE')
+        self.assertEqual(historique.motif_medical, 'Rechute bactériologique confirmée.')
+
+    def test_modification_motif_medical_obligatoire(self):
+        from django.core.exceptions import ValidationError
+        traitement = self._traitement()
+        with self.assertRaises(ValidationError):
+            modifier_traitement(
+                medecin=self.medecin, traitement=traitement,
+                donnees={'type_modification': 'SUSPENSION', 'motif_medical': ''},
+            )
+        self.assertFalse(traitement.modifications_traitement.exists())
+
+    def test_modification_posologie(self):
+        traitement = self._traitement(poids=55.0)
+        modifier_traitement(
+            medecin=self.medecin, traitement=traitement,
+            donnees={
+                'type_modification': 'POSOLOGIE',
+                'motif_medical': 'Intolérance digestive, posologie réduite.',
+                'nouveau_posologie_jour': 2,
+            },
+        )
+        traitement.refresh_from_db()
+        self.assertEqual(traitement.posologie_jour, 2)
+        historique = traitement.modifications_traitement.first()
+        self.assertEqual(historique.ancien_posologie_jour, 4)
+        self.assertEqual(historique.nouveau_posologie_jour, 2)
+
+    # ---- Rendez-vous (carte du malade) ----
+
+    def test_rendez_vous_conflit_sur_meme_case(self):
+        donnees = {
+            'date': date.today() + timedelta(days=3), 'heure': time(10, 0),
+            'type': 'CONTROLE', 'motif': '',
+        }
+        rdv, conflit = programmer_rendez_vous(
+            auteur=self.infirmier, patient=self.patient, donnees=donnees,
+        )
+        self.assertFalse(conflit)
+        autre_conflit, est_conflit = programmer_rendez_vous(
+            auteur=self.infirmier, patient=self.patient, donnees=donnees,
+        )
+        self.assertTrue(est_conflit)
+        self.assertEqual(autre_conflit.pk, rdv.pk)
+        rdv3, est_conflit3 = programmer_rendez_vous(
+            auteur=self.infirmier, patient=self.patient,
+            donnees={**donnees, 'heure': time(11, 0)},
+        )
+        self.assertFalse(est_conflit3)
+
+    def test_statut_rendez_vous_effectue(self):
+        rdv, _ = programmer_rendez_vous(
+            auteur=self.infirmier, patient=self.patient,
+            donnees={
+                'date': date.today() + timedelta(days=2), 'heure': time(9, 0),
+                'type': 'C2', 'motif': '',
+            },
+        )
+        statut_rendez_vous(
+            utilisateur=self.infirmier, rendez_vous=rdv,
+            nouveau_statut='EFFECTUE',
+        )
+        rdv.refresh_from_db()
+        self.assertEqual(rdv.statut, 'EFFECTUE')
+
+    # ---- Clôture et registre ----
+
+    def test_cloture_traitement_issue_et_lecture_seule(self):
+        from django.core.exceptions import ValidationError
+        traitement = self._traitement()
+        cloturer_traitement(
+            medecin=self.medecin, traitement=traitement,
+            issue_finale='GUERI', date_issue=date.today(),
+        )
+        traitement.refresh_from_db()
+        self.assertEqual(traitement.statut, StatutTraitement.CLOTURE)
+        self.assertEqual(traitement.get_issue_finale_display(), 'Guéri')
+        self.assertEqual(traitement.cloture_par, self.medecin)
+        with self.assertRaises(ValidationError):
+            enregistrer_observance(
+                utilisateur=self.infirmier, traitement=traitement, mois=1,
+                statuts_par_jour={'1': 'X'},
+            )
+
+    def test_cohorte_guerison_du_trimestre(self):
+        aujourdhui = date.today()
+        t1 = self._traitement()
+        cloturer_traitement(
+            medecin=self.medecin, traitement=t1,
+            issue_finale='GUERI', date_issue=aujourdhui,
+        )
+        autre_patient = creer_dossier_provisoire(
+            medecin=self.medecin,
+            donnees={
+                'nom': 'Lutumba', 'prenom': 'Paul', 'sexe': 'M',
+                'date_naissance': date(1985, 1, 1), 'poids': 48.0,
+            },
+        )
+        creer_traitement(
+            medecin=self.medecin, patient=autre_patient,
+            donnees={
+                'type_cas': 'NOUVEAU', 'date_debut': aujourdhui,
+                'poids_initial': 48.0, 'unite_traitement': 'HGR Makala',
+                'notes': '',
+            },
+        )
+        trimestre = (aujourdhui.month - 1) // 3 + 1
+        cohorte = cohorte_guerison(aujourdhui.year, trimestre)
+        self.assertEqual(cohorte['total'], 2)
+        self.assertEqual(cohorte['gueris'], 1)
+        self.assertEqual(cohorte['taux'], 50.0)
+
+    def test_bon_controle_doublon_detecte(self):
+        creer_prescription_examen(
+            medecin=self.medecin, patient=self.patient,
+            donnees={
+                'nature_echantillon': 'P', 'organe': '', 'motif': 'SUIVI',
+                'mois_controle': 'C2', 'date_prelevement': date.today(),
+                'statut_vih': '', 'observations': '',
+            },
+            types_examens=[TypeExamen.objects.get(code='BACILLOSCOPIE')],
+        )
+        self.assertIsNotNone(trouver_controle_en_attente(self.patient, 'C2'))
+        self.assertIsNone(trouver_controle_en_attente(self.patient, 'C5'))
+
+    # ---- Accès et vues ----
+
+    def test_fiche_traitement_acces_roles(self):
+        traitement = self._traitement()
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        response = self.client.get(
+            reverse('traitement_fiche', kwargs={'pk': self.patient.pk})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '2RHZE/4RH')
+        self.client.logout()
+        self.client.login(username='inf.test@hgr-makala.cd', password='password123')
+        response = self.client.get(
+            reverse('traitement_fiche', kwargs={'pk': self.patient.pk})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.client.logout()
+        self.client.login(username='lab.test@hgr-makala.cd', password='password123')
+        response = self.client.get(
+            reverse('traitement_fiche', kwargs={'pk': self.patient.pk})
+        )
+        self.assertNotEqual(response.status_code, 200)
+
+    def test_vue_creation_fiche_par_le_medecin(self):
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        response = self.client.post(
+            reverse('traitement_create', kwargs={'pk': self.patient.pk}),
+            {
+                'type_cas': 'NOUVEAU', 'date_debut': str(date.today()),
+                'poids_initial': '55.0', 'unite_traitement': 'HGR Makala',
+                'notes': '',
+            },
+        )
+        self.assertRedirects(
+            response,
+            reverse('traitement_fiche', kwargs={'pk': self.patient.pk}),
+        )
+        self.patient.refresh_from_db()
+        self.assertEqual(self.patient.traitement.posologie_jour, 4)
+
+    def test_vue_observance_post(self):
+        traitement = self._traitement()
+        self.client.login(username='inf.test@hgr-makala.cd', password='password123')
+        donnees = {'mois': '1'}
+        for jour in range(1, 6):
+            donnees[f'jour_{jour}'] = 'X'
+        response = self.client.post(
+            reverse('traitement_observance', kwargs={'pk': self.patient.pk}),
+            donnees,
+        )
+        self.assertRedirects(
+            response,
+            reverse('traitement_fiche', kwargs={'pk': self.patient.pk}) + '?mois=1',
+        )
+        self.assertEqual(traitement.observances.filter(mois=1).count(), 5)
+
+    def test_vue_bon_controle_creation_et_doublon(self):
+        bacillo = TypeExamen.objects.get(code='BACILLOSCOPIE')
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        donnees = {
+            'mois_controle': 'C2',
+            'examens': [bacillo.pk],
+            'observations_cliniques': 'Contrôle du 2e mois.',
+        }
+        response = self.client.post(
+            reverse('bon_controle', kwargs={'pk': self.patient.pk}), donnees,
+        )
+        self.assertRedirects(
+            response,
+            reverse('patient_detail', kwargs={'pk': self.patient.pk}),
+        )
+        self.assertTrue(
+            ExamenPrescription.objects.filter(
+                patient=self.patient, motif='SUIVI', mois_controle='C2'
+            ).exists()
+        )
+        # Nouveau bon identique → rendu avec avertissement, pas de doublon créé.
+        response = self.client.post(
+            reverse('bon_controle', kwargs={'pk': self.patient.pk}), donnees,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'déjà en attente')
+        self.assertEqual(
+            ExamenPrescription.objects.filter(patient=self.patient).count(), 1
+        )
+
+    def test_vue_modifier_traitement_reservee_aux_medecins(self):
+        self._traitement()
+        self.client.login(username='inf.test@hgr-makala.cd', password='password123')
+        response = self.client.get(
+            reverse('traitement_modifier', kwargs={'pk': self.patient.pk})
+        )
+        self.assertRedirects(response, reverse('notification'))
+
+    def test_vue_bon_controle_sans_traitement(self):
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        response = self.client.get(
+            reverse('bon_controle', kwargs={'pk': self.patient.pk})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Bon de demande')
+
+    def test_vue_carte_malade(self):
+        self._traitement()
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        response = self.client.get(
+            reverse('carte_malade', kwargs={'pk': self.patient.pk})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Carte du malade')
+
+    def test_vue_rendez_vous_conflit_message(self):
+        self.client.login(username='inf.test@hgr-makala.cd', password='password123')
+        donnees = {
+            'date': str(date.today() + timedelta(days=4)), 'heure': '10:00',
+            'type': 'CONTROLE', 'motif': '',
+        }
+        response = self.client.post(
+            reverse('rendez_vous_create', kwargs={'pk': self.patient.pk}), donnees,
+        )
+        self.assertRedirects(
+            response,
+            reverse('carte_malade', kwargs={'pk': self.patient.pk}),
+        )
+        self.assertEqual(RendezVous.objects.count(), 1)
+        # Même date et heure → conflit, pas de second rendez-vous.
+        response = self.client.post(
+            reverse('rendez_vous_create', kwargs={'pk': self.patient.pk}), donnees,
+        )
+        self.assertRedirects(
+            response,
+            reverse('carte_malade', kwargs={'pk': self.patient.pk}),
+        )
+        self.assertEqual(RendezVous.objects.count(), 1)
+
+    def test_vue_cloture_dossier(self):
+        traitement = self._traitement()
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        response = self.client.post(
+            reverse('traitement_cloturer', kwargs={'pk': self.patient.pk}),
+            {'issue_finale': 'TERMINE', 'date_issue': str(date.today())},
+        )
+        self.assertRedirects(
+            response,
+            reverse('traitement_fiche', kwargs={'pk': self.patient.pk}),
+        )
+        traitement.refresh_from_db()
+        self.assertEqual(traitement.statut, StatutTraitement.CLOTURE)
+
+    def test_vue_registre_cas(self):
+        self._traitement()
+        self.client.login(username='dr.test@hgr-makala.cd', password='password123')
+        response = self.client.get(reverse('registre'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Registre de cas de tuberculose')
+        self.assertContains(response, 'Claire Kanyinda Mbuyi')
+        self.assertContains(response, 'Nouveau cas')

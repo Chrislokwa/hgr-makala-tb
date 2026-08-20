@@ -2,19 +2,31 @@ from django.urls import path
 
 from .views import (
     AdmissionFinaliserView,
+    BonControleView,
+    CarteDuMaladeView,
     ConsultationResultatView,
     ExamenDetailView,
     ExamenListView,
+    FicheTraitementView,
     InterpretationResultatView,
+    ModifierTraitementView,
     NotificationMarquerLuesView,
     NotificationSseView,
+    ObservanceSaisieView,
     PatientAdminAnnulerView,
     PatientAdminUpdateView,
     PatientCreateView,
     PatientDetailView,
     PatientListView,
     PrescriptionExamenCreateView,
+    RegistreExportView,
+    RegistreView,
+    RendezVousCreateView,
+    RendezVousStatutView,
     SaisieResultatView,
+    TraitementCloturerView,
+    TraitementCreateView,
+    VisiteSuiviCreateView,
 )
 
 urlpatterns = [
@@ -32,4 +44,18 @@ urlpatterns = [
     path('examens/<int:pk>/resultats/', SaisieResultatView.as_view(), name='resultat_saisie'),
     path('notifications/lues/', NotificationMarquerLuesView.as_view(), name='notifications_lues'),
     path('notifications/sse/', NotificationSseView.as_view(), name='notifications_sse'),
+
+    # --- Epic 4 : Suivi thérapeutique (US4.1 / US4.2 / US4.3) ---
+    path('patients/<int:pk>/traitement/creer/', TraitementCreateView.as_view(), name='traitement_create'),
+    path('patients/<int:pk>/traitement/', FicheTraitementView.as_view(), name='traitement_fiche'),
+    path('patients/<int:pk>/traitement/observance/', ObservanceSaisieView.as_view(), name='traitement_observance'),
+    path('patients/<int:pk>/traitement/visites/', VisiteSuiviCreateView.as_view(), name='traitement_visite'),
+    path('patients/<int:pk>/traitement/modifier/', ModifierTraitementView.as_view(), name='traitement_modifier'),
+    path('patients/<int:pk>/traitement/cloturer/', TraitementCloturerView.as_view(), name='traitement_cloturer'),
+    path('patients/<int:pk>/controle/', BonControleView.as_view(), name='bon_controle'),
+    path('patients/<int:pk>/carte/', CarteDuMaladeView.as_view(), name='carte_malade'),
+    path('patients/<int:pk>/rendezvous/', RendezVousCreateView.as_view(), name='rendez_vous_create'),
+    path('rendezvous/<int:pk>/statut/', RendezVousStatutView.as_view(), name='rendez_vous_statut'),
+    path('registre/', RegistreView.as_view(), name='registre'),
+    path('registre/export/', RegistreExportView.as_view(), name='registre_export'),
 ]

@@ -629,3 +629,428 @@ class VerrouDossier(models.Model):
     @property
     def est_actif(self):
         return timezone.now() < self.expire_le
+
+
+# ---------------------------------------------------------------------------
+# Epic 4 — Suivi thérapeutique (US4.1, US4.2, US4.3)
+# ---------------------------------------------------------------------------
+
+
+class CategorieSchemaTraitement(models.TextChoices):
+    NOUVEAU_CAS = 'NOUVEAU_CAS', 'Nouveau cas'
+    RETRAITEMENT = 'RETRAITEMENT', 'Retraitement (Catégorie II)'
+
+
+class TypeCasTraitement(models.TextChoices):
+    NOUVEAU = 'NOUVEAU', 'Nouveau cas'
+    RECHUTE = 'RECHUTE', 'Rechute'
+
+
+class StatutTraitement(models.TextChoices):
+    EN_COURS = 'EN_COURS', 'En cours'
+    CLOTURE = 'CLOTURE', 'Clôturé'
+
+
+class IssueFinale(models.TextChoices):
+    GUERI = 'GUERI', 'Guéri'
+    TERMINE = 'TERMINE', 'Traitement terminé'
+    ECHEC = 'ECHEC', 'Échec du traitement'
+    DECEDE = 'DECEDE', 'Décédé'
+    PERDU_DE_VUE = 'PERDU_DE_VUE', 'Perdu de vue'
+    TRANSFERE = 'TRANSFERE', 'Transféré'
+
+
+class ModeObservation(models.TextChoices):
+    PRIS_SOUS_SUPERVISION = 'X', 'X — Pris sous supervision (DOTS)'
+    AUTO_ADMINISTRE = '-', '- — Auto-administré'
+    ABSENT = 'O', 'O — Absent'
+    RELAIS_COMMUNAUTAIRE = 'J', '↑ — Relais communautaire (ASC)'
+
+
+class TypeModificationTraitement(models.TextChoices):
+    CATEGORIE_II = 'CATEGORIE_II', 'Passage en Catégorie II (retraitement)'
+    SUSPENSION_MEDICAMENT = 'SUSPENSION', 'Suspension d’un médicament'
+    CHANGEMENT_POSOLOGIE = 'POSOLOGIE', 'Changement de posologie'
+
+
+class TypeRendezVous(models.TextChoices):
+    CONTROLE_MENSUEL = 'CONTROLE', 'Contrôle mensuel'
+    REMISE_MEDICAMENTS = 'MEDICAMENTS', 'Remise de médicaments'
+    RESULTATS_C2 = 'C2', 'Lecture des résultats C2'
+    RESULTATS_C5 = 'C5', 'Lecture des résultats C5'
+    FIN_TRAITEMENT = 'FIN', 'Fin de traitement'
+    SUIVI_CLINIQUE = 'CLINIQUE', 'Suivi clinique'
+    AUTRE = 'AUTRE', 'Autre'
+
+
+class StatutRendezVous(models.TextChoices):
+    PLANIFIE = 'PLANIFIE', 'Planifié'
+    EFFECTUE = 'EFFECTUE', 'Effectué'
+    ANNULE = 'ANNULE', 'Annulé'
+
+
+class SchemaTraitement(models.Model):
+    """Schéma thérapeutique antituberculeux (ex. 2 RHZE / 4 RH)."""
+
+    code = models.CharField(max_length=30, unique=True)
+    libelle = models.CharField(max_length=120)
+    categorie = models.CharField(
+        max_length=20,
+        choices=CategorieSchemaTraitement.choices,
+        default=CategorieSchemaTraitement.NOUVEAU_CAS,
+    )
+    actif = models.BooleanField(default=True)
+    ordre = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['ordre']
+
+    def __str__(self):
+        return self.libelle
+
+    @property
+    def phases_listees(self):
+        return " / ".join(
+            f"{phase.duree_mois} {phase.medicament}"
+            for phase in self.phases.all()
+        )
+
+    @property
+    def duree_totale_mois(self):
+        return sum(phase.duree_mois for phase in self.phases.all())
+
+
+class PhaseSchemaTraitement(models.Model):
+    """Une phase du schéma : durée en mois et médicaments associés."""
+
+    schema = models.ForeignKey(
+        SchemaTraitement,
+        on_delete=models.CASCADE,
+        related_name='phases',
+    )
+    ordre = models.PositiveSmallIntegerField(default=1)
+    duree_mois = models.PositiveSmallIntegerField()
+    medicament = models.CharField(
+        max_length=30,
+        help_text="Code du médicament, ex. RHZE, RH, SRHZE, RHE.",
+    )
+    intensive = models.BooleanField(
+        default=False,
+        help_text="Phase intensive (2 premiers mois) ou phase de continuation.",
+    )
+
+    class Meta:
+        ordering = ['schema', 'ordre']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['schema', 'ordre'],
+                name='unique_phase_par_schema_ordre',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.schema.code} · {self.duree_mois} {self.medicament}"
+
+
+class Traitement(models.Model):
+    """US4.1 / US4.3 — Fiche de traitement antituberculeux du patient.
+
+    Le schéma et la posologie journalière (comprimés/jour) sont calculés
+    automatiquement à partir du poids ; le schéma peut être modifié
+    (Catégorie II, suspension, posologie) avec traçabilité dans
+    `HistoriqueModificationTraitement`.
+    """
+
+    patient = models.OneToOneField(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='traitement',
+    )
+    schema = models.ForeignKey(
+        SchemaTraitement,
+        on_delete=models.PROTECT,
+        related_name='traitements',
+    )
+    type_cas = models.CharField(max_length=20, choices=TypeCasTraitement.choices)
+    date_debut = models.DateField(db_index=True)
+    poids_initial = models.DecimalField(
+        max_digits=5,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        help_text="Poids au début du traitement, base du calcul de la posologie.",
+    )
+    posologie_jour = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Nombre de comprimés par jour, calculé selon le poids.",
+    )
+    unite_traitement = models.CharField(
+        max_length=120,
+        default='HGR Makala',
+        help_text="Unité de traitement (TS, HGR…) pour le registre de cas.",
+    )
+    statut = models.CharField(
+        max_length=20,
+        choices=StatutTraitement.choices,
+        default=StatutTraitement.EN_COURS,
+    )
+    issue_finale = models.CharField(
+        max_length=20,
+        choices=IssueFinale.choices,
+        blank=True,
+        help_text="Issue définitive du traitement (renseignée à la clôture).",
+    )
+    issue_decision_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date de l'issue finale (clôture du dossier).",
+    )
+    cloture_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='traitements_clotures',
+        help_text="Médecin ayant clôturé le dossier.",
+    )
+    perdu_de_vue = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date d'alerte « perdu de vue » (aucune prise depuis 2 mois).",
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Notes générales sur le suivi thérapeutique.",
+    )
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='traitements_crees',
+        help_text="Médecin prescripteur du traitement.",
+    )
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date_debut']
+
+    def __str__(self):
+        issue = f" · {self.get_issue_finale_display()}" if self.issue_finale else ""
+        return f"{self.patient.ndp} — {self.schema.code} ({self.date_debut:%d/%m/%Y}){issue}"
+
+    @property
+    def date_fin_prevue(self):
+        date = self.date_debut
+        for _ in range(self.schema.duree_totale_mois):
+            mois = date.month - 1
+            annee = date.year
+            annee += mois // 12
+            mois = mois % 12 + 1
+            jour = min(date.day, [31, 29 if annee % 4 == 0 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mois - 1])
+            date = date.replace(year=annee, month=mois, day=jour)
+        return date
+
+    @property
+    def est_en_cours(self):
+        return self.statut == StatutTraitement.EN_COURS
+
+    @property
+    def a_recuperer(self):
+        return self.perdu_de_vue is not None and self.est_en_cours
+
+    @property
+    def poids_actuel(self):
+        visite = self.visites.order_by('-date').first()
+        if visite is not None and visite.poids is not None:
+            return visite.poids
+        return self.poids_initial
+
+
+class ObservanceJournaliere(models.Model):
+    """US4.1 — Observance d'une prise au jour J d'un mois de traitement.
+
+    Codes : X = pris sous supervision (DOTS), - = auto-administré,
+    O = absent, ↑ (J) = relais communautaire (ASC).
+    """
+
+    EVENEMENTS = (ModeObservation.PRIS_SOUS_SUPERVISION,
+                  ModeObservation.AUTO_ADMINISTRE, ModeObservation.RELAIS_COMMUNAUTAIRE)
+
+    traitement = models.ForeignKey(
+        Traitement,
+        on_delete=models.CASCADE,
+        related_name='observances',
+    )
+    mois = models.PositiveSmallIntegerField(
+        help_text="Mois de traitement (1 = premier mois)."
+    )
+    jour = models.PositiveSmallIntegerField()
+    statut = models.CharField(max_length=1, choices=ModeObservation.choices)
+    cree_le = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['mois', 'jour']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['traitement', 'mois', 'jour'],
+                name='unique_observance_traitement_mois_jour',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.traitement.patient.ndp} — M{self.mois} J{self.jour} : {self.statut}"
+
+
+class VisiteSuivi(models.Model):
+    """US4.1 — Visite de suivi clinique (poids, signes d'alerte)."""
+
+    traitement = models.ForeignKey(
+        Traitement,
+        on_delete=models.CASCADE,
+        related_name='visites',
+    )
+    date = models.DateField(db_index=True)
+    poids = models.DecimalField(
+        max_digits=5,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        help_text="Poids actuel du patient (kg).",
+    )
+    troubles_visuels = models.BooleanField(
+        default=False, help_text="Troubles visuels (signe d'alerte)."
+    )
+    jaunisse = models.BooleanField(default=False, help_text="Jaunisse / ictère.")
+    eruption_cutanee = models.BooleanField(default=False, help_text="Éruptions cutanées.")
+    vertiges = models.BooleanField(default=False, help_text="Vertiges.")
+    autres_effets = models.TextField(
+        blank=True,
+        help_text="Autres effets indésirables signalés par le patient.",
+    )
+    observations = models.TextField(
+        blank=True,
+        help_text="Observations cliniques de la visite.",
+    )
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='visites_suivi',
+    )
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-cree_le']
+
+    def __str__(self):
+        return f"{self.traitement.patient.ndp} — visite du {self.date:%d/%m/%Y}"
+
+    @property
+    def signes_alerte(self):
+        libelles = {
+            'troubles_visuels': 'Troubles visuels',
+            'jaunisse': 'Jaunisse',
+            'eruption_cutanee': 'Éruptions cutanées',
+            'vertiges': 'Vertiges',
+        }
+        return [libelle for champ, libelle in libelles.items() if getattr(self, champ)]
+
+
+class HistoriqueModificationTraitement(models.Model):
+    """US4.1 — Traçabilité des modifications du traitement (Catégorie II,
+    suspension d'un médicament, changement de posologie).
+
+    Toute modification exige un motif médical (champ obligatoire).
+    """
+
+    traitement = models.ForeignKey(
+        Traitement,
+        on_delete=models.CASCADE,
+        related_name='modifications_traitement',
+    )
+    medecin = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='modifications_traitements',
+    )
+    cree_le = models.DateTimeField(auto_now_add=True, db_index=True)
+    type_modification = models.CharField(
+        max_length=20,
+        choices=TypeModificationTraitement.choices,
+    )
+    motif_medical = models.TextField(
+        help_text="Motif médical de la modification (obligatoire)."
+    )
+    ancien_schema = models.ForeignKey(
+        SchemaTraitement,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='+',
+    )
+    nouveau_schema = models.ForeignKey(
+        SchemaTraitement,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='+',
+    )
+    ancien_posologie_jour = models.PositiveSmallIntegerField(null=True, blank=True)
+    nouveau_posologie_jour = models.PositiveSmallIntegerField(null=True, blank=True)
+    medicament_suspendu = models.CharField(
+        max_length=30,
+        blank=True,
+        help_text="Médicament suspendu (ex. EH, S).",
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Précisions complémentaires sur la modification.",
+    )
+
+    class Meta:
+        ordering = ['-cree_le']
+
+    def __str__(self):
+        return f"{self.traitement.patient.ndp} — {self.get_type_modification_display()} ({self.cree_le:%d/%m/%Y %H:%M})"
+
+
+class RendezVous(models.Model):
+    """US4.3 — Rendez-vous de suivi du malade (carte du malade).
+
+    Agenda partagé : un rendez-vous planifié bloque la case (date + heure)
+    pour toute autre planification dans le service.
+    """
+
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='rendez_vous',
+    )
+    date = models.DateField(db_index=True)
+    heure = models.TimeField()
+    type = models.CharField(max_length=20, choices=TypeRendezVous.choices)
+    statut = models.CharField(
+        max_length=20,
+        choices=StatutRendezVous.choices,
+        default=StatutRendezVous.PLANIFIE,
+    )
+    motif = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Précision sur l'objet du rendez-vous.",
+    )
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='rendez_vous_crees',
+    )
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date', 'heure']
+
+    def __str__(self):
+        return f"{self.patient.ndp} — {self.date:%d/%m/%Y} {self.heure:%H:%M} ({self.get_statut_display()})"
+
+    @property
+    def est_planifie(self):
+        return self.statut == StatutRendezVous.PLANIFIE

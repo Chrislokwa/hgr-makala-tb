@@ -1,0 +1,276 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Fiche de traitement — {{ patient.full_name }} · Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Fiche de traitement antituberculeux</h1>
+        <p class="vsub">{{ patient.ndp }} · {{ patient.full_name }} — {{ traitement.schema.code }}</p>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a href="{{ url('carte_malade', pk=patient.pk) }}" class="ui basic button"><i class="id card outline icon"></i>Carte du malade</a>
+        <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic button"><i class="arrow left icon"></i>Dossier</a>
+        {% if request.user.role == 'MEDECIN' and traitement.est_en_cours %}
+        <a href="{{ url('bon_controle', pk=patient.pk) }}" class="ui teal button"><i class="lab icon"></i>Bon de contrôle</a>
+        <a href="{{ url('traitement_modifier', pk=patient.pk) }}" class="ui primary button"><i class="edit outline icon"></i>Modifier le traitement</a>
+        {% endif %}
+    </div>
+</div>
+
+{% if not traitement.est_en_cours %}
+<div class="notice ok">
+    <i class="archive icon"></i>
+    <div>
+        <strong>Dossier clôturé — lecture seule</strong>
+        <p>{{ traitement.get_issue_finale_display() }} le {{ traitement.issue_decision_date|date_fr }} par {{ traitement.cloture_par.titled_name }}. Aucune modification n'est possible.</p>
+    </div>
+</div>
+{% elif traitement.a_recuperer %}
+<div class="notice neg">
+    <i class="exclamation triangle icon"></i>
+    <div>
+        <strong>Perdu de vue — carte à récupérer</strong>
+        <p>Aucune prise enregistrée depuis le {{ traitement.perdu_de_vue|date_fr }} (plus de 2 mois).</p>
+    </div>
+</div>
+{% endif %}
+
+{# ---------------------------------------------------------------- Zone 1 #}
+<div class="pcard">
+    <h3 class="pcard-h"><i class="prescription bottle icon"></i>Zone 1 · Schéma thérapeutique</h3>
+    <div class="schema-line">
+        <div class="schema-stat">
+            <span>Schéma</span>
+            <strong>{{ traitement.schema.code }}</strong>
+        </div>
+        <div class="schema-stat">
+            <span>Type de cas</span>
+            <strong>{{ traitement.get_type_cas_display() }}</strong>
+        </div>
+        <div class="schema-stat">
+            <span>Posologie</span>
+            <strong>{% if traitement.posologie_jour %}{{ traitement.posologie_jour }} c/j{% else %}à adapter{% endif %}</strong>
+        </div>
+        <div class="schema-stat">
+            <span>Bande de poids</span>
+            <strong>{% if bande_posologie %}{{ bande_posologie }}{% else %}—{% endif %}</strong>
+        </div>
+        <div class="schema-stat">
+            <span>Début / Fin prévue</span>
+            <strong>{{ traitement.date_debut|date_fr }} → {{ traitement.date_fin_prevue|date_fr }}</strong>
+        </div>
+        <div class="schema-stat">
+            <span>Unité</span>
+            <strong>{{ traitement.unite_traitement }}</strong>
+        </div>
+    </div>
+    <div class="schema-bloc">
+        {% for phase in traitement.schema.phases.all() %}
+        <div class="schema-card">
+            <div class="sc-phase">{{ phase.duree_mois }} {{ phase.medicament }}</div>
+            <div class="sc-role">{% if phase.intensive %}Phase intensive{% else %}Phase de continuation{% endif %}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% if traitement.poids_initial %}
+    <p class="muted" style="margin-top:10px">Poids au début du traitement : {{ traitement.poids_initial }} kg · poids actuel : {% if traitement.poids_actuel %}{{ traitement.poids_actuel }} kg{% else %}—{% endif %}</p>
+    {% endif %}
+</div>
+
+{# ---------------------------------------------------------------- Zone 2 #}
+<div class="pcard">
+    <h3 class="pcard-h"><i class="calendar alternate outline icon"></i>Zone 2 · Observance mensuelle</h3>
+    <p class="muted">Marquez chaque prise journalière : <strong>X</strong> = pris sous supervision (DOTS), <strong>-</strong> = auto-administré, <strong>O</strong> = absent, <strong>↑</strong> = relais communautaire (ASC).</p>
+
+    <div class="mois-chips">
+        {% for m in range(1, total_mois + 1) %}
+        <a class="mois-chip {% if m == mois %}active{% endif %}" href="{{ url('traitement_fiche', pk=patient.pk) }}?mois={{ m }}">{{ m }}</a>
+        {% endfor %}
+        <span style="align-self:center; font-size:13px; color:var(--ink2)">Mois {{ mois }} / {{ total_mois }}</span>
+    </div>
+
+    {% if traitement.est_en_cours %}
+    <form method="post" action="{{ url('traitement_observance', pk=patient.pk) }}">
+        {{ csrf_input }}
+        <input type="hidden" name="mois" value="{{ mois }}">
+        <div class="obs-wrap">
+            <table class="obs-grid">
+                <thead>
+                    <tr>
+                        <th class="first-col">{{ mois_label }}</th>
+                        {% for j in range(1, 32) %}<th>{{ j }}</th>{% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="first-col">Prise</td>
+                        {% for j in range(1, 32) %}<td>{{ observ_form['jour_' ~ j] }}</td>{% endfor %}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:12px;">
+            <button type="submit" class="ui primary button"><i class="save icon"></i>Enregistrer l'observance — {{ mois_label }}</button>
+        </div>
+    </form>
+    {% else %}
+    <div class="obs-wrap">
+        <table class="obs-grid">
+            <thead>
+                <tr>
+                    <th class="first-col">{{ mois_label }}</th>
+                    {% for j in range(1, 32) %}<th>{{ j }}</th>{% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="first-col">Prise</td>
+                    {% for j in range(1, 32) %}
+                    <td class="{{ 'ok' if observance_par_mois[mois].get(j) in ('X', 'J', '-') else ('neg' if observance_par_mois[mois].get(j) == 'O' else '') }}" style="font-weight:700; font-size:13px">{{ observance_par_mois[mois].get(j, '') }}</td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <p class="form-note" style="margin-top:10px"><i class="info circle icon"></i>Dernière prise enregistrée : {% if derniere_prise %}{{ derniere_prise|date_fr }}{% else %}aucune{% endif %}.</p>
+</div>
+
+{# ---------------------------------------------------------------- Zone 3 #}
+<div class="drow">
+    <div class="drow-tx">
+        <i class="stethoscope icon"></i>
+        <div>
+            <strong>Suivi clinique</strong>
+            <span>Poids actuel, signes d'alerte et effets indésirables lors des visites de contrôle.</span>
+        </div>
+    </div>
+</div>
+
+<div class="pcard">
+    <h3 class="pcard-h"><i class="weight icon"></i>Visites de suivi</h3>
+    {% if visites %}
+    <div class="tbl-wrap">
+        <table class="tbl">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Poids</th>
+                    <th>Signes d'alerte</th>
+                    <th>Observations</th>
+                    <th>Par</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for visite in visites %}
+                <tr>
+                    <td class="ue">{{ visite.date|date_fr }}</td>
+                    <td>{% if visite.poids is not none %}{{ visite.poids }} kg{% else %}—{% endif %}</td>
+                    <td>
+                        {% if visite.signes_alerte %}
+                        <div class="signe-list">
+                            {% for signe in visite.signes_alerte %}<span class="visite-tag">{{ signe }}</span>{% endfor %}
+                        </div>
+                        {% else %}<span class="muted">Aucun</span>{% endif %}
+                        {% if visite.autres_effets %}<div class="muted" style="font-size:12px; margin-top:4px">{{ visite.autres_effets }}</div>{% endif %}
+                    </td>
+                    <td class="ue">{{ visite.observations or '—' }}</td>
+                    <td>{{ visite.cree_par.titled_name }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="muted">Aucune visite de suivi enregistrée.</p>
+    {% endif %}
+
+    {% if traitement.est_en_cours %}
+    <form class="ui form" method="post" action="{{ url('traitement_visite', pk=patient.pk) }}" novalidate style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line)">
+        {{ csrf_input }}
+        {% if visite_form.non_field_errors() %}
+        <div class="ui negative message">{{ visite_form.non_field_errors() }}</div>
+        {% endif %}
+        <div class="grid three">
+            <div class="field {% if visite_form.date.errors %}error{% endif %}">
+                <label for="id_date">{{ visite_form.date.label }}</label>
+                {{ visite_form.date }}
+                {% if visite_form.date.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ visite_form.date.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field {% if visite_form.poids.errors %}error{% endif %}">
+                <label for="id_poids">{{ visite_form.poids.label }}</label>
+                {{ visite_form.poids }}
+            </div>
+        </div>
+        <div class="grid four" style="margin-top:10px">
+            <div class="field"><label class="ui checkbox">{{ visite_form.troubles_visuels }}&nbsp;{{ visite_form.troubles_visuels.label }}</label></div>
+            <div class="field"><label class="ui checkbox">{{ visite_form.jaunisse }}&nbsp;{{ visite_form.jaunisse.label }}</label></div>
+            <div class="field"><label class="ui checkbox">{{ visite_form.eruption_cutanee }}&nbsp;{{ visite_form.eruption_cutanee.label }}</label></div>
+            <div class="field"><label class="ui checkbox">{{ visite_form.vertiges }}&nbsp;{{ visite_form.vertiges.label }}</label></div>
+        </div>
+        <div class="grid two" style="margin-top:10px">
+            <div class="field">
+                <label for="id_autres_effets">{{ visite_form.autres_effets.label }}</label>
+                {{ visite_form.autres_effets }}
+            </div>
+            <div class="field">
+                <label for="id_observations">{{ visite_form.observations.label }}</label>
+                {{ visite_form.observations }}
+            </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+            <button type="submit" class="ui teal button"><i class="plus icon"></i>Ajouter la visite</button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+
+{% if modifications %}
+<div class="pcard">
+    <h3 class="pcard-h"><i class="history icon"></i>Historique des modifications du traitement</h3>
+    <div class="tbl-wrap">
+        <table class="tbl">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Médecin</th>
+                    <th>Type</th>
+                    <th>Détails</th>
+                    <th>Motif médical</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for modif in modifications %}
+                <tr>
+                    <td class="ue">{{ modif.cree_le|date_fr }}</td>
+                    <td>{{ modif.medecin.titled_name }}</td>
+                    <td class="un">{{ modif.get_type_modification_display() }}</td>
+                    <td>
+                        {% if modif.ancien_schema and modif.nouveau_schema %}
+                        <span>{{ modif.ancien_schema.code }}</span> → <strong>{{ modif.nouveau_schema.code }}</strong>
+                        {% elif modif.ancien_posologie_jour and modif.nouveau_posologie_jour %}
+                        <span>{{ modif.ancien_posologie_jour }}</span> → <strong>{{ modif.nouveau_posologie_jour }} c/j</strong>
+                        {% elif modif.medicament_suspendu %}
+                        <strong>{{ modif.medicament_suspendu }}</strong> suspendu
+                        {% else %}<span class="muted">—</span>{% endif %}
+                        {% if modif.description %}<div class="muted" style="font-size:12px; margin-top:4px">{{ modif.description }}</div>{% endif %}
+                    </td>
+                    <td class="ue">{{ modif.motif_medical }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if traitement.notes %}
+<div class="pcard">
+    <h3 class="pcard-h"><i class="comments outline icon"></i>Notes</h3>
+    <p>{{ traitement.notes }}</p>
+</div>
+{% endif %}
+{% endblock %}

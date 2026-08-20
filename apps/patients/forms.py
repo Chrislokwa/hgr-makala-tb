@@ -7,19 +7,27 @@ from .models import (
     ApparenceEchantillon,
     DecisionDiagnostic,
     ExamenPrescription,
+    IssueFinale,
+    ModeObservation,
     MoisControle,
     MotifExamen,
     NatureEchantillon,
     Patient,
+    RendezVous,
     ResultatBacilloscopie,
     ResultatGeneXpert,
     ResultatLabo,
     ResultatVih,
+    SchemaTraitement,
     Sexe,
     StatutVihConnu,
     TechniqueColoration,
+    TypeCasTraitement,
     TypeExamen,
+    TypeModificationTraitement,
+    VisiteSuivi,
 )
+from .services import CONTROLES_SUIVI
 
 
 class DossierProvisoireForm(NoClientValidationMixin, forms.ModelForm):
@@ -400,3 +408,251 @@ class InformationsAdministrativesForm(NoClientValidationMixin, forms.ModelForm):
                 "La date de naissance ne peut pas être dans le futur."
             )
         return date
+
+
+# ---------------------------------------------------------------------------
+# Epic 4 — Suivi thérapeutique (US4.1, US4.2, US4.3)
+# ---------------------------------------------------------------------------
+
+
+class TraitementForm(NoClientValidationMixin, forms.Form):
+    """US4.1 — Création de la fiche de traitement (schéma et posologie auto)."""
+
+    type_cas = forms.ChoiceField(
+        label='Type de cas *',
+        choices=TypeCasTraitement.choices,
+        widget=forms.RadioSelect(),
+    )
+    date_debut = forms.DateField(
+        label='Date de début du traitement *',
+        widget=forms.DateInput(attrs={'type': 'date'}),
+    )
+    poids_initial = forms.DecimalField(
+        label='Poids au début du traitement (kg)',
+        required=False,
+        min_value=0,
+        max_value=300,
+        decimal_places=1,
+        widget=forms.NumberInput(attrs={'placeholder': 'ex. 55.5'}),
+    )
+    unite_traitement = forms.CharField(
+        label='Unité de traitement',
+        max_length=120,
+        initial='HGR Makala',
+        widget=forms.TextInput(attrs={'placeholder': 'ex. TS Makala, HGR Makala…'}),
+    )
+    notes = forms.CharField(
+        label='Notes',
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 2}),
+    )
+
+    def __init__(self, *args, patient=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.patient = patient
+        if patient is not None and not self.is_bound:
+            if patient.poids is not None:
+                self.fields['poids_initial'].initial = patient.poids
+            self.fields['date_debut'].initial = timezone.localdate()
+
+    def clean_date_debut(self):
+        date_val = self.cleaned_data.get('date_debut')
+        if date_val and date_val > timezone.localdate():
+            raise forms.ValidationError("La date de début ne peut pas être dans le futur.")
+        return date_val
+
+
+class ObservanceMoisForm(forms.Form):
+    """US4.1 — Grille d'observance d'un mois (jours 1 à 31, codes X/-/O/↑)."""
+
+    def __init__(self, *args, traitement=None, mois=1, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.traitement = traitement
+        self.mois = mois
+        total_mois = traitement.schema.duree_totale_mois if traitement else 6
+        self.fields['mois'] = forms.ChoiceField(
+            label='Mois de traitement',
+            choices=[(m, f'Mois {m}') for m in range(1, total_mois + 1)],
+            initial=mois,
+            widget=forms.Select(attrs={'data-auto-submit': 'month'}),
+        )
+        existantes = {}
+        if traitement is not None:
+            existantes = {
+                observation.jour: observation.statut
+                for observation in traitement.observances.filter(mois=mois)
+            }
+        for jour in range(1, 32):
+            self.fields[f'jour_{jour}'] = forms.ChoiceField(
+                label=str(jour),
+                required=False,
+                choices=[('', '—')] + list(ModeObservation.choices),
+                initial=existantes.get(jour, ''),
+                widget=forms.Select(attrs={'class': 'obs-sel'}),
+            )
+
+    @property
+    def statuts_par_jour(self):
+        donnees = {champ: valeur for champ, valeur in self.cleaned_data.items() if champ.startswith('jour_')}
+        return {champ.replace('jour_', ''): (valeur or '') for champ, valeur in donnees.items()}
+
+
+class VisiteSuiviForm(NoClientValidationMixin, forms.ModelForm):
+    """US4.1 — Visite de contrôle clinique (poids actuel, signes d'alerte)."""
+
+    class Meta:
+        model = VisiteSuivi
+        fields = [
+            'date', 'poids',
+            'troubles_visuels', 'jaunisse', 'eruption_cutanee', 'vertiges',
+            'autres_effets', 'observations',
+        ]
+        labels = {
+            'date': 'Date de la visite *',
+            'poids': 'Poids actuel (kg)',
+            'troubles_visuels': 'Troubles visuels (ethambutol)',
+            'jaunisse': 'Jaunisse / ictère',
+            'eruption_cutanee': 'Éruptions cutanées',
+            'vertiges': 'Vertiges',
+            'autres_effets': 'Autres effets indésirables',
+            'observations': 'Observations cliniques',
+        }
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+            'poids': forms.NumberInput(attrs={'placeholder': 'ex. 56.0'}),
+            'autres_effets': forms.Textarea(attrs={'rows': 2}),
+            'observations': forms.Textarea(attrs={'rows': 2}),
+        }
+
+    def clean_date(self):
+        date_val = self.cleaned_data.get('date')
+        if date_val and date_val > timezone.localdate():
+            raise forms.ValidationError("La date de visite ne peut pas être dans le futur.")
+        return date_val
+
+
+class ModifierTraitementForm(NoClientValidationMixin, forms.Form):
+    """US4.1 — Modification du traitement par le médecin (motif obligatoire)."""
+
+    type_modification = forms.ChoiceField(
+        label='Type de modification *',
+        choices=TypeModificationTraitement.choices,
+        widget=forms.RadioSelect(),
+    )
+    motif_medical = forms.CharField(
+        label='Motif médical *',
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Raison clinique de la modification (obligatoire)…',
+            'rows': 3,
+        }),
+        error_messages={'required': 'Le motif médical est obligatoire.'},
+    )
+    nouveau_schema = forms.ModelChoiceField(
+        label='Schéma de retraitement (Catégorie II)',
+        required=False,
+        queryset=SchemaTraitement.objects.filter(categorie='RETRAITEMENT', actif=True),
+        widget=forms.Select(),
+        help_text="Appliqué automatiquement lors du passage en Catégorie II.",
+    )
+    medicament_suspendu = forms.CharField(
+        label='Médicament suspendu',
+        required=False,
+        max_length=30,
+        widget=forms.TextInput(attrs={'placeholder': 'ex. EH, S…'}),
+    )
+    nouvelle_posologie_jour = forms.IntegerField(
+        label='Nouvelle posologie (comprimés/jour)',
+        required=False,
+        min_value=1,
+        max_value=20,
+        widget=forms.NumberInput(attrs={'placeholder': 'ex. 4'}),
+    )
+    description = forms.CharField(
+        label='Précisions complémentaires',
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 2}),
+    )
+
+
+class BonControleForm(NoClientValidationMixin, forms.Form):
+    """US4.2 — Bon de demande d'examen de laboratoire de contrôle."""
+
+    mois_controle = forms.ChoiceField(
+        label='Mois de contrôle *',
+        choices=[(valeur, libelle) for valeur, libelle in MoisControle.choices if valeur in CONTROLES_SUIVI],
+        widget=forms.Select(),
+    )
+    examens = forms.ModelMultipleChoiceField(
+        label='Examen(s) à réaliser *',
+        queryset=TypeExamen.objects.filter(actif=True),
+        widget=forms.CheckboxSelectMultiple(),
+        error_messages={'required': 'Sélectionnez au moins un examen.'},
+    )
+    observations_cliniques = forms.CharField(
+        label='Observations cliniques',
+        required=False,
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Évolution clinique, éventuels effets indésirables…',
+            'rows': 2,
+        }),
+    )
+
+    EXAMENS_PAR_DEFAUT = ('BACILLOSCOPIE', 'GENEXPERT', 'CULTURE', 'VIH')
+
+    def __init__(self, *args, patient=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.patient = patient
+        if patient is not None and not self.is_bound:
+            defauts = [e.pk for e in TypeExamen.objects.filter(code__in=self.EXAMENS_PAR_DEFAUT)]
+            self.fields['examens'].initial = defauts
+
+    def clean_mois_controle(self):
+        mois_controle = self.cleaned_data.get('mois_controle')
+        if mois_controle not in CONTROLES_SUIVI:
+            raise forms.ValidationError("Mois de contrôle invalide.")
+        return mois_controle
+
+
+class RendezVousForm(NoClientValidationMixin, forms.ModelForm):
+    """US4.3 — Planification d'un rendez-vous sur la carte du malade."""
+
+    class Meta:
+        model = RendezVous
+        fields = ['date', 'heure', 'type', 'motif']
+        labels = {
+            'date': 'Date *',
+            'heure': 'Heure *',
+            'type': 'Type de rendez-vous *',
+            'motif': 'Motif / précision',
+        }
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+            'heure': forms.TimeInput(attrs={'type': 'time'}),
+            'motif': forms.TextInput(attrs={'placeholder': 'ex. contrôle mensuel, remise de médicaments…'}),
+        }
+
+    def clean_date(self):
+        date_val = self.cleaned_data.get('date')
+        if date_val and date_val < timezone.localdate():
+            raise forms.ValidationError("La date du rendez-vous ne peut pas être dans le passé.")
+        return date_val
+
+
+class CloturerTraitementForm(NoClientValidationMixin, forms.Form):
+    """Registre de cas — Issue finale et clôture du dossier."""
+
+    issue_finale = forms.ChoiceField(
+        label='Issue finale *',
+        choices=IssueFinale.choices,
+        widget=forms.RadioSelect(),
+        error_messages={'required': 'Choisissez l’issue finale du traitement.'},
+    )
+    date_issue = forms.DateField(
+        label='Date de l’issue *',
+        widget=forms.DateInput(attrs={'type': 'date'}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            self.fields['date_issue'].initial = timezone.localdate()

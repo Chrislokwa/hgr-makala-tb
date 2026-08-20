@@ -11,6 +11,14 @@
     </div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <a href="{{ url('patient_list') }}" class="ui basic button"><i class="users icon"></i>Liste</a>
+        {% if request.user.role in ('MEDECIN', 'INFIRMIER') %}
+        <a href="{{ url('carte_malade', pk=patient.pk) }}" class="ui basic button"><i class="id card outline icon"></i>Carte du malade</a>
+        {% if traitement %}
+        <a href="{{ url('traitement_fiche', pk=patient.pk) }}" class="ui teal button"><i class="stethoscope icon"></i>Fiche de traitement</a>
+        {% elif request.user.role == 'MEDECIN' %}
+        <a href="{{ url('traitement_create', pk=patient.pk) }}" class="ui teal button"><i class="play icon"></i>Commencer le traitement</a>
+        {% endif %}
+        {% endif %}
         {% if request.user.role == 'INFIRMIER' and not patient.admission_finalisee and peut_finaliser_admission %}
         <a href="{{ url('admission_finaliser', pk=patient.pk) }}" class="ui teal button"><i class="check circle outline icon"></i>Finaliser l'admission</a>
         {% endif %}

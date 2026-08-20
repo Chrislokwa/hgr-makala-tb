@@ -2024,3 +2024,288 @@ tr.off td {
         opacity: 1
     }
 }
+
+/* ---------- Epic 4 · Fiche de traitement ---------- */
+.schema-bloc {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 12px
+}
+
+.schema-card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: #fbfbfc
+}
+
+.schema-card .sc-phase {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink)
+}
+
+.schema-card .sc-role {
+    font-size: 12px;
+    color: var(--ink2);
+    margin-top: 2px
+}
+
+.schema-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    margin-top: 10px
+}
+
+.schema-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px
+}
+
+.schema-stat span {
+    font-size: 12px;
+    color: var(--ink2)
+}
+
+.schema-stat strong {
+    font-size: 17px;
+    color: var(--ink)
+}
+
+.obs-conv {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    font-size: 12px;
+    color: var(--ink2);
+    flex-wrap: wrap
+}
+
+.mois-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 10px
+}
+
+.mois-chip {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: var(--ink);
+    background: #fff;
+    text-decoration: none
+}
+
+.mois-chip.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+    font-weight: 500
+}
+
+.obs-wrap {
+    overflow-x: auto;
+    margin-top: 8px
+}
+
+.obs-grid {
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff
+}
+
+.obs-grid th,
+.obs-grid td {
+    border-bottom: 1px solid #edf0f3;
+    border-right: 1px solid #edf0f3;
+    text-align: center;
+    padding: 2px;
+    min-width: 34px
+}
+
+.obs-grid th:last-child,
+.obs-grid td:last-child {
+    border-right: none
+}
+
+.obs-grid thead th {
+    background: #f4f7fa;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink2);
+    padding: 8px 2px
+}
+
+.obs-grid thead th.first-col {
+    background: #eff3f7;
+    text-align: left;
+    padding-left: 10px;
+    font-weight: 600;
+    color: var(--ink);
+    min-width: 90px
+}
+
+.obs-sel {
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: center;
+    width: 100%;
+    padding: 4px
+}
+
+.obs-sel:focus {
+    outline: 2px solid var(--primary);
+    border-radius: 4px
+}
+
+.visite-tag {
+    display: inline-block;
+    background: #fdeef4;
+    color: #c2185b;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 5px;
+    padding: 2px 6px;
+    margin-right: 4px
+}
+
+.signe-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px
+}
+
+/* ---------- Epic 4 · Carte du malade ---------- */
+.carte-print {
+    max-width: 760px;
+    margin: 0 auto
+}
+
+.carte-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px
+}
+
+.rdv-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #edf0f3;
+    flex-wrap: wrap
+}
+
+.rdv-row:last-child {
+    border-bottom: none
+}
+
+.rdv-date {
+    font-weight: 600;
+    color: var(--ink);
+    min-width: 96px
+}
+
+@media print {
+    .sidebar,
+    .vhead .icon-btn,
+    .vhead .ui.button,
+    .no-print {
+        display: none !important
+    }
+
+    .main {
+        padding: 0
+    }
+
+    body {
+        background: #fff
+    }
+
+    .carte-print {
+        max-width: 100%
+    }
+}
+
+/* ---------- Epic 4 · Registre de cas ---------- */
+.res-cell {
+    font-size: 12px;
+    color: var(--ink2);
+    line-height: 1.4
+}
+
+.res-cell a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600
+}
+
+.res-cell.ok {
+    color: #2e7d32
+}
+
+.res-cell.neg {
+    color: #c62828
+}
+
+.issue-pill {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap
+}
+
+.issue-pill.positif {
+    background: #e8f5e9;
+    color: #1b5e20
+}
+
+.issue-pill.neutre {
+    background: #e3f2fd;
+    color: #0d47a1
+}
+
+.issue-pill.negatif {
+    background: #fdecea;
+    color: #b3261e
+}
+
+.cohorte-card {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap
+}
+
+.cohorte-num {
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--primary)
+}
+
+.cohorte-sub {
+    font-size: 13px;
+    color: var(--ink2)
+}

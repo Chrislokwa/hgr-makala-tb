@@ -1,0 +1,61 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Registre de cas — Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Registre de cas de tuberculose</h1>
+        <p class="vsub">Suivi des traitements, résultats de contrôle et issues finales</p>
+    </div>
+    <a href="{{ url('registre_export') }}?{% if q %}q={{ q }}&{% endif %}{% if unite_filter %}unite={{ unite_filter }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if statut_filter %}statut={{ statut_filter }}{% endif %}" class="ui teal button"><i class="download icon"></i>Exporter CSV</a>
+</div>
+
+<div class="cohorte-card">
+    <div>
+        <div class="cohorte-num">{{ cohorte.taux }} %</div>
+        <div class="cohorte-sub">Guérison de la cohorte — {{ cohorte.gueris }} guéri(s) / {{ cohorte.total }} cas</div>
+    </div>
+    <form method="get" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin:0" class="no-print">
+        <div class="field" style="margin:0">
+            <label style="font-size:12px">Année</label>
+            <input type="number" name="annee" value="{{ cohorte_annee }}" min="2020" max="2100" style="width:110px">
+        </div>
+        <div class="field" style="margin:0">
+            <label style="font-size:12px">Trimestre</label>
+            <select name="trimestre" onchange="this.form.submit()">
+                <option value="1" {% if cohorte_trimestre == 1 %}selected{% endif %}>T1 (janv–mars)</option>
+                <option value="2" {% if cohorte_trimestre == 2 %}selected{% endif %}>T2 (avr–juin)</option>
+                <option value="3" {% if cohorte_trimestre == 3 %}selected{% endif %}>T3 (juil–sept)</option>
+                <option value="4" {% if cohorte_trimestre == 4 %}selected{% endif %}>T4 (oct–déc)</option>
+            </select>
+        </div>
+        <button type="submit" class="ui basic button"><i class="chart bar icon"></i>Calculer</button>
+    </form>
+</div>
+
+<div class="pcard" style="margin-top:18px">
+    <form method="get" class="toolbar" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px">
+        <div class="ui input"><input type="text" name="q" value="{{ q }}" placeholder="Nom, post-nom, NDP…" style="min-width:210px"></div>
+        <select name="unite">
+            <option value="">Toutes les unités</option>
+            {% for unite in unites %}
+            <option value="{{ unite }}" {% if unite_filter == unite %}selected{% endif %}>{{ unite }}</option>
+            {% endfor %}
+        </select>
+        <div class="ui input"><input type="date" name="date_debut" value="{{ date_debut }}"></div>
+        <select name="statut">
+            {% for valeur, libelle in statut_choices %}
+            <option value="{{ valeur }}" {% if statut_filter == valeur %}selected{% endif %}>{{ libelle }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="ui primary button"><i class="search icon"></i>Filtrer</button>
+        <a href="{{ url('registre') }}" class="ui basic button"><i class="times icon"></i>Effacer</a>
+    </form>
+
+    <div id="registreBody">
+        {% include 'patients/registre_results.html' %}
+    </div>
+</div>
+{% endblock %}

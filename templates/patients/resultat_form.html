@@ -9,6 +9,7 @@
         <h1 class="vtitle">Saisie des résultats de laboratoire</h1>
         <p class="vsub">{{ demande.numero_demande }}</p>
     </div>
+    <a href="{{ url('examen_list') }}" class="ui basic button"><i class="arrow left icon"></i>Retour aux examens</a>
     <a href="{{ url('examen_detail', pk=demande.pk) }}" class="ui basic button"><i class="eye icon"></i>Consultation</a>
 </div>
 

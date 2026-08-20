@@ -9,7 +9,9 @@
         <h1 class="vtitle">Patients</h1>
         <p class="vsub">Dossiers provisoires et confirmés</p>
     </div>
+    {% if request.user.role == 'MEDECIN' %}
     <a href="{{ url('patient_create') }}" class="ui primary button"><i class="plus icon"></i>Nouveau dossier</a>
+    {% endif %}
 </div>
 
 <div class="pstats">
@@ -28,16 +30,27 @@
                hx-target="#patientResults"
                hx-swap="innerHTML"
                hx-push-url="true"
-               hx-include="[name='statut']"
+               hx-include="[name='statut'],[name='date_naissance']"
                hx-indicator="#patientLoading"
                placeholder="Rechercher (NDP, nom, post-nom, prénom, téléphone)" aria-label="Recherche patients">
+    </div>
+    <div class="search_" style="min-width:170px">
+        <input type="date" name="date_naissance" value="{{ date_naissance }}"
+               hx-get="{{ url('patient_list') }}"
+               hx-trigger="change"
+               hx-target="#patientResults"
+               hx-swap="innerHTML"
+               hx-push-url="true"
+               hx-include="[name='q'],[name='statut']"
+               hx-indicator="#patientLoading"
+               aria-label="Filtrer par date de naissance">
     </div>
     <select id="patientStatut" name="statut"
             hx-get="{{ url('patient_list') }}"
             hx-target="#patientResults"
             hx-swap="innerHTML"
             hx-push-url="true"
-            hx-include="[name='q']"
+            hx-include="[name='q'],[name='date_naissance']"
             hx-indicator="#patientLoading"
             aria-label="Filtrer par statut">
         {% for val, label in statut_choices %}

@@ -1,26 +1,26 @@
 {% extends 'base_app.html' %}
 
-{% block title %}Nouveau dossier — Suivi TB · HGR Makala{% endblock %}
+{% block title %}Modifier le dossier — {{ patient.full_name }} · HGR Makala{% endblock %}
 
 {% block view_content %}
 <div class="vhead">
     <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
     <div style="flex:1">
-        <h1 class="vtitle">Nouveau dossier patient</h1>
-        <p class="vsub">Ouverture d'un dossier provisoire avant confirmation du diagnostic</p>
+        <h1 class="vtitle">Modifier les informations administratives</h1>
+        <p class="vsub">{{ patient.ndp }} · {{ patient.full_name }}</p>
     </div>
-    <a href="{{ url('patient_list') }}" class="ui basic button"><i class="arrow left icon"></i>Retour à la liste</a>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic button"><i class="arrow left icon"></i>Retour au dossier</a>
+    </div>
 </div>
 
-{% if doublon %}
 <div class="notice">
-    <i class="exclamation triangle icon"></i>
+    <i class="lock icon"></i>
     <div>
-        <strong>Dossier potentiellement en double</strong>
-        <p>Un dossier <strong>{{ doublon.ndp }}</strong> existe déjà pour <strong>{{ doublon.full_name }}</strong> ({{ doublon.get_sexe_display() }}, né(e) le {{ doublon.date_naissance|date_fr }}). Vérifiez avant de créer un doublon.</p>
+        <strong>Dossier verrouillé en édition</strong>
+        <p>Vous êtes en train de modifier ce dossier. Un autre utilisateur ne pourra pas le modifier tant que l'édition est en cours (verrou d'une durée maximale de 15 minutes).</p>
     </div>
 </div>
-{% endif %}
 
 <form class="ui form" method="post" novalidate>
     {{ csrf_input }}
@@ -76,51 +76,9 @@
         </div>
     </div>
 
-    <div class="fcard">
-        <div class="fcard-h"><h2><i class="stethoscope icon"></i>Évaluation clinique initiale</h2></div>
-        <div class="field" style="max-width:240px">
-            <label for="id_poids">{{ form.poids.label }}</label>
-            {{ form.poids }}
-            {% if form.poids.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.poids.errors[0] }}</div>{% endif %}
-        </div>
-        <div class="grid two">
-            <div class="field">
-                <label class="lbl-sec">Signes et symptômes évocateurs</label>
-                <div class="symptomes">
-                    {% for field in form %}
-                    {% if 'signe_' in field.name %}
-                    <label class="chk">{{ field }} <span>{{ field.label }}</span></label>
-                    {% endif %}
-                    {% endfor %}
-                </div>
-            </div>
-            <div class="field">
-                <label class="lbl-sec">Comorbidités</label>
-                <div class="symptomes">
-                    {% for field in form %}
-                    {% if 'comorb_' in field.name %}
-                    <label class="chk">{{ field }} <span>{{ field.label }}</span></label>
-                    {% endif %}
-                    {% endfor %}
-                </div>
-                <div class="field" style="margin-top:10px">
-                    <label for="id_autres_comorbidites">{{ form.autres_comorbidites.label }}</label>
-                    {{ form.autres_comorbidites }}
-                    {% if form.autres_comorbidites.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.autres_comorbidites.errors[0] }}</div>{% endif %}
-                </div>
-            </div>
-        </div>
-        <div class="field" style="margin-top:10px">
-            <label for="id_observations_cliniques">{{ form.observations_cliniques.label }}</label>
-            {{ form.observations_cliniques }}
-            {% if form.observations_cliniques.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.observations_cliniques.errors[0] }}</div>{% endif %}
-        </div>
-    </div>
-
     <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; margin-top:18px;">
-        <a href="{{ url('patient_list') }}" class="ui basic button">Annuler</a>
-        <button type="submit" class="ui primary button"><i class="save icon"></i>Enregistrer le dossier</button>
-        <button type="submit" name="action" value="prescrire" class="ui teal button"><i class="clipboard list icon"></i>Enregistrer et prescrire l'examen</button>
+        <button type="submit" name="action" value="cancel" class="ui basic button" formaction="{{ url('patient_admin_cancel', pk=patient.pk) }}" formnovalidate><i class="times icon"></i>Annuler et libérer le verrou</button>
+        <button type="submit" class="ui primary button"><i class="save icon"></i>Enregistrer les modifications</button>
     </div>
 </form>
 {% endblock %}

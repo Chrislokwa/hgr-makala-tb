@@ -38,10 +38,14 @@
                         {% endif %}
                     </div>
                     {% set interpretation = dem.interpretation %}
-                    {% if interpretation %}
+                    {% if interpretation and peut_voir_rapport_medical %}
                     <span class="badge {% if interpretation.decision == 'CONFIRMEE' %}ok{% else %}neg{% endif %}">{{ interpretation.get_decision_display() }}</span>
                     {% endif %}
+                    {% if peut_voir_rapport_medical %}
                     <a href="{{ url('consultation_resultat', pk=patient.pk, prescription_pk=dem.pk) }}" class="ui basic teal button" style="margin-top:6px"><i class="eye icon"></i>Consulter les résultats</a>
+                    {% else %}
+                    <span class="ue">Rapport médical réservé au médecin</span>
+                    {% endif %}
                     {% else %}
                     <span class="ue">—</span>
                     {% endif %}

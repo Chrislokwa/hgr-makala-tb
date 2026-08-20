@@ -7,12 +7,14 @@ from .models import (
     DecisionDiagnostic,
     ExamenPrescription,
     InterpretationResultat,
+    ModificationPatient,
     Notification,
     Patient,
     ResultatLabo,
     StatutDossier,
     StatutExamen,
     StatutResultat,
+    VerrouDossier,
 )
 
 
@@ -198,3 +200,143 @@ def enregistrer_interpretation(*, medecin, prescription, donnees):
                 url=f"/patients/{patient.pk}/",
             )
         return interpretation
+
+
+# ---------------------------------------------------------------------------
+# Epic 3 — Gestion administrative des dossiers patient
+# ---------------------------------------------------------------------------
+
+
+CHAMPS_ADMINISTRATIFS = (
+    'nom',
+    'post_nom',
+    'prenom',
+    'sexe',
+    'date_naissance',
+    'district',
+    'secteur',
+    'cellule',
+    'village',
+    'telephone',
+)
+
+
+def admission_est_finalisable(patient):
+    """Garde-fou métier (Fonction 3).
+
+    L'infirmier ne peut compléter et finaliser l'admission que si le
+    diagnostic a été confirmé et les résultats de laboratoire saisis.
+    """
+    if patient.statut != StatutDossier.CONFIRME:
+        return False
+    return ResultatLabo.objects.filter(
+        prescription__patient=patient,
+        statut=StatutResultat.VALIDE,
+    ).exists()
+
+
+def finaliser_admission(*, infirmier, patient, donnees):
+    """US3.1 / UC1 — Finalise l'admission administrative du patient.
+
+    Complète les données administratives obligatoires, contrôle les
+    doublons (Nom + Prénom + Date de naissance) puis marque l'admission
+    comme finalisée avec l'horodatage et l'infirmier auteur.
+    """
+    from django.core.exceptions import ValidationError
+
+    if patient.admission_finalisee:
+        raise ValidationError("L'admission de ce patient est déjà finalisée.")
+
+    champs = {cle: donnees.get(cle) for cle in CHAMPS_ADMINISTRATIFS}
+    manquants = [
+        libelle for cle, libelle in
+        (('nom', 'Nom'), ('prenom', 'Prénom'), ('sexe', 'Sexe'), ('date_naissance', 'Date de naissance'))
+        if not champs.get(cle)
+    ]
+    if manquants:
+        raise ValidationError(
+            "Champs obligatoires manquants : " + ", ".join(manquants) + "."
+        )
+
+    doublon = Patient.trouver_doublon(
+        champs['nom'], champs['prenom'], champs['date_naissance'],
+        exclure=patient,
+    )
+    if doublon:
+        return doublon, True
+
+    with transaction.atomic():
+        for champ, valeur in champs.items():
+            ancienne = getattr(patient, champ)
+            if ancienne != valeur:
+                enregistrer_modification(
+                    patient=patient,
+                    auteur=infirmier,
+                    champ=champ,
+                    ancienne_valeur=str(ancienne) if ancienne not in (None, '') else '',
+                    nouvelle_valeur=str(valeur) if valeur not in (None, '') else '',
+                )
+                setattr(patient, champ, valeur)
+        patient.date_admission = timezone.now()
+        patient.admise_par = infirmier
+        patient.save()
+    return patient, False
+
+
+def enregistrer_modification(*, patient, auteur, champ, ancienne_valeur, nouvelle_valeur):
+    """US3.2 / UC2 — Enregistre une modification pour traçabilité."""
+    ModificationPatient.objects.create(
+        patient=patient,
+        auteur=auteur,
+        champ=champ,
+        ancienne_valeur=ancienne_valeur or '',
+        nouvelle_valeur=nouvelle_valeur or '',
+    )
+
+
+def mettre_a_jour_informations(*, infirmier, patient, donnees):
+    """US3.2 / UC2 — Met à jour les informations administratives.
+
+    Conserve l'historique de chaque champ modifié (date, heure, auteur).
+    """
+    with transaction.atomic():
+        for champ in CHAMPS_ADMINISTRATIFS:
+            if champ not in donnees:
+                continue
+            nouvelle = donnees.get(champ)
+            ancienne = getattr(patient, champ)
+            if ancienne != nouvelle:
+                enregistrer_modification(
+                    patient=patient,
+                    auteur=infirmier,
+                    champ=champ,
+                    ancienne_valeur=str(ancienne) if ancienne not in (None, '') else '',
+                    nouvelle_valeur=str(nouvelle) if nouvelle not in (None, '') else '',
+                )
+                setattr(patient, champ, nouvelle)
+        patient.save()
+    return patient
+
+
+def acquerir_verrou(patient, utilisateur):
+    """Tente d'obtenir le verrou d'édition du dossier (UC2 / Ex1).
+
+    Retourne le verrou s'il est actif et détenu par un autre utilisateur,
+    None si le verrou a été obtenu (ou renouvelé).
+    """
+    verrou = VerrouDossier.objects.filter(patient=patient).select_related('utilisateur').first()
+    if verrou is not None and verrou.est_actif and verrou.utilisateur != utilisateur:
+        return verrou
+    VerrouDossier.objects.update_or_create(
+        patient=patient,
+        defaults={
+            'utilisateur': utilisateur,
+            'expire_le': timezone.now() + timezone.timedelta(minutes=VerrouDossier.DUREE_VERROU_MINUTES),
+        },
+    )
+    return None
+
+
+def liberer_verrou(patient, utilisateur):
+    """Libère le verrou détenu par l'utilisateur sur le dossier."""
+    VerrouDossier.objects.filter(patient=patient, utilisateur=utilisateur).delete()

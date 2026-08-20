@@ -68,6 +68,21 @@ class Patient(models.Model):
         help_text="Médecin à l'origine de la création du dossier.",
     )
 
+    # --- EPIC 3 : admission administrative définitive (US3.1 / UC1) ---
+    date_admission = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date de finalisation de l'admission administrative par l'infirmier.",
+    )
+    admise_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='admissions_finalisees',
+        help_text="Infirmier ayant finalisé l'admission administrative.",
+    )
+
     class Meta:
         ordering = ['-cree_le']
 
@@ -86,18 +101,15 @@ class Patient(models.Model):
         return f'{prefix}{sequence:04d}'
 
     @classmethod
-    def trouver_doublon(cls, nom, prenom, date_naissance):
-        return (
-            cls.objects
-            .filter(
-                nom__iexact=nom,
-                prenom__iexact=prenom,
-                date_naissance=date_naissance,
-            )
-            .exclude(statut=StatutDossier.NON_CONFIRME)
-            .order_by('-cree_le')
-            .first()
-        )
+    def trouver_doublon(cls, nom, prenom, date_naissance, exclure=None):
+        queryset = cls.objects.filter(
+            nom__iexact=nom,
+            prenom__iexact=prenom,
+            date_naissance=date_naissance,
+        ).exclude(statut=StatutDossier.NON_CONFIRME)
+        if exclure is not None:
+            queryset = queryset.exclude(pk=exclure.pk)
+        return queryset.order_by('-cree_le').first()
 
     def save(self, *args, **kwargs):
         if not self.ndp:
@@ -109,6 +121,10 @@ class Patient(models.Model):
         return " ".join(
             part for part in (self.prenom, self.post_nom, self.nom) if part
         ).strip()
+
+    @property
+    def admission_finalisee(self):
+        return self.date_admission is not None
 
     @property
     def age(self):
@@ -551,3 +567,65 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"{self.message} → {self.destinataire}"
+
+
+class ModificationPatient(models.Model):
+    """Traçabilité des modifications administratives (US3.2 / UC2).
+
+    Chaque changement d'un champ administratif du patient est enregistré
+    avec son auteur, la valeur précédente et la valeur nouvelle.
+    """
+
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='modifications',
+    )
+    auteur = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='modifications_patients',
+        help_text="Infirmier auteur de la modification.",
+    )
+    champ = models.CharField(max_length=100)
+    ancienne_valeur = models.TextField(blank=True)
+    nouvelle_valeur = models.TextField(blank=True)
+    cree_le = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-cree_le']
+
+    def __str__(self):
+        return f"{self.patient.ndp} — {self.champ} ({self.cree_le:%d/%m/%Y %H:%M})"
+
+
+class VerrouDossier(models.Model):
+    """Verrou temporaire d'un dossier en édition (UC2 / Ex1).
+
+    Empêche deux utilisateurs de modifier simultanément les informations
+    administratives d'un même patient. Le verrou expire automatiquement
+    après `DUREE_VERROU` minutes.
+    """
+
+    DUREE_VERROU_MINUTES = 15
+
+    patient = models.OneToOneField(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='verrou',
+    )
+    utilisateur = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='verrous_dossiers',
+    )
+    cree_le = models.DateTimeField(auto_now_add=True)
+    expire_le = models.DateTimeField()
+
+    def __str__(self):
+        return f"Verrou {self.patient.ndp} — {self.utilisateur} (expire {self.expire_le:%d/%m/%Y %H:%M})"
+
+    @property
+    def est_actif(self):
+        return timezone.now() < self.expire_le

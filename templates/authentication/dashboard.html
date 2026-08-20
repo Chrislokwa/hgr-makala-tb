@@ -37,7 +37,7 @@
                     {% for notif in notifications %}
                     <tr id="notif-{{ notif.pk }}" class="{% if not notif.lu %}unread{% endif %}">
                         <td>
-                            <a class="notif-link {% if not notif.lu %}strong{% endif %}" href="{{ notif.url or url('dashboard') }}" style="text-decoration:none">
+                            <a class="notif-link {% if not notif.lu %}strong{% endif %}" href="{{ notif.url or url('notification') }}" style="text-decoration:none">
                                 {{ notif.message }}
                             </a>
                         </td>

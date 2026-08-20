@@ -14,13 +14,13 @@
             {% if request.user.role == 'ADMIN' %}
             <a class="nitem {% if active_nav == 'users' %}active{% endif %}" href="{{ url('user_list') }}"><i class="users icon"></i>Utilisateurs</a>
             {% else %}
-            {% if request.user.role == 'MEDECIN' %}
+            {% if request.user.role in ('MEDECIN', 'INFIRMIER') %}
             <a class="nitem {% if active_nav == 'patients' %}active{% endif %}" href="{{ url('patient_list') }}"><i class="user outline icon"></i>Patients</a>
             {% elif request.user.role == 'LABORANTIN' %}
             <a class="nitem {% if active_nav == 'examens' %}active{% endif %}" href="{{ url('examen_list') }}"><i class="lab icon"></i>Examens</a>
             {% endif %}
             {% set non_lues = request.user.notifications.filter(lu=False).count() %}
-            <a class="nitem {% if active_nav == 'notifications' %}active{% endif %}" href="{{ url('dashboard') }}"><i class="bell outline icon"></i>Notifications<span class="nav-badge" id="notifBadge" {% if not non_lues %}style="display:none"{% endif %}>{{ non_lues }}</span></a>
+            <a class="nitem {% if active_nav == 'notifications' %}active{% endif %}" href="{{ url('notification') }}"><i class="bell outline icon"></i>Notifications<span class="nav-badge" id="notifBadge" {% if not non_lues %}style="display:none"{% endif %}>{{ non_lues }}</span></a>
             {% endif %}
         </nav>
         <div class="side-user">
@@ -124,7 +124,7 @@
         }
 
         // Notifications en temps réel (SSE) sans rechargement de la page
-        {% if request.user.role in ('MEDECIN', 'LABORANTIN') %}
+        {% if request.user.role in ('MEDECIN', 'LABORANTIN', 'INFIRMIER') %}
         (function() {
             const es = new EventSource("{{ url('notifications_sse') }}");
 

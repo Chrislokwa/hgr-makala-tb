@@ -3,6 +3,7 @@ import time
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import StreamingHttpResponse
@@ -12,6 +13,7 @@ from django.views.generic import DetailView, FormView, ListView, View
 
 from .forms import (
     DossierProvisoireForm,
+    InformationsAdministrativesForm,
     InterpretationForm,
     PrescriptionExamenForm,
     SaisieResultatForm,
@@ -19,6 +21,7 @@ from .forms import (
 from .models import (
     DecisionDiagnostic,
     ExamenPrescription,
+    ModificationPatient,
     MotifExamen,
     NatureEchantillon,
     Notification,
@@ -29,17 +32,27 @@ from .models import (
     StatutResultat,
     TypeExamen,
 )
-from .permissions import LaborantinRequiredMixin, MedecinRequiredMixin
+from .permissions import (
+    InfirmierRequiredMixin,
+    LaborantinRequiredMixin,
+    MedecinRequiredMixin,
+    PersonnelAutoriseMixin,
+)
 from .services import (
+    admission_est_finalisable,
+    acquerir_verrou,
     creer_dossier_provisoire,
     creer_prescription_examen,
     enregistrer_interpretation,
     enregistrer_resultats,
+    finaliser_admission,
+    liberer_verrou,
+    mettre_a_jour_informations,
     trouver_prescriptions_en_attente,
 )
 
 
-class PatientListView(MedecinRequiredMixin, ListView):
+class PatientListView(PersonnelAutoriseMixin, ListView):
     model = Patient
     template_name = 'patients/patient_list.html'
     context_object_name = 'patients'
@@ -56,6 +69,9 @@ class PatientListView(MedecinRequiredMixin, ListView):
                 Q(prenom__icontains=q) |
                 Q(telephone__icontains=q)
             )
+        date_naissance = self.request.GET.get('date_naissance', '').strip()
+        if date_naissance:
+            queryset = queryset.filter(date_naissance=date_naissance)
         statut = self.request.GET.get('statut', '').strip()
         if statut in dict(StatutDossier.choices):
             queryset = queryset.filter(statut=statut)
@@ -71,6 +87,7 @@ class PatientListView(MedecinRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context['active_nav'] = 'patients'
         context['q'] = self.request.GET.get('q', '').strip()
+        context['date_naissance'] = self.request.GET.get('date_naissance', '').strip()
         context['statut_filter'] = self.request.GET.get('statut', '').strip()
         context['statut_choices'] = [('', 'Tous les statuts')] + list(StatutDossier.choices)
         context['patients_provisoires'] = Patient.objects.filter(
@@ -115,7 +132,141 @@ class PatientCreateView(MedecinRequiredMixin, FormView):
         return redirect('patient_detail', pk=patient.pk)
 
 
-class PatientDetailView(MedecinRequiredMixin, DetailView):
+class AdmissionFinaliserView(InfirmierRequiredMixin, FormView):
+    """US3.1 / UC1 — Finaliser l'admission administrative d'un patient.
+
+    L'infirmier complète les données administratives (Nom, Post-nom,
+    Prénom, Sexe, Date de naissance, Adresse, etc.) pour finaliser
+    l'admission définitive. Garde-fou : diagnostic confirmé ET résultats
+    de laboratoire saisis (Fonction 3).
+    """
+
+    template_name = 'patients/admission_confirm.html'
+    form_class = InformationsAdministrativesForm
+
+    def dispatch(self, request, *args, **kwargs):
+        self.patient = get_object_or_404(Patient, pk=self.kwargs['pk'])
+        if self.patient.admission_finalisee:
+            messages.info(
+                self.request,
+                f"L'admission du dossier {self.patient.ndp} est déjà finalisée.",
+            )
+            return redirect('patient_detail', pk=self.patient.pk)
+        if not admission_est_finalisable(self.patient):
+            messages.error(
+                self.request,
+                "L'admission ne peut être finalisée qu'une fois le diagnostic "
+                "confirmé et les résultats de laboratoire saisis.",
+            )
+            return redirect('patient_detail', pk=self.patient.pk)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_initial(self):
+        return {
+            champ: getattr(self.patient, champ)
+            for champ in InformationsAdministrativesForm.Meta.fields
+        }
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['active_nav'] = 'patients'
+        context['patient'] = self.patient
+        return context
+
+    def form_valid(self, form):
+        donnees = form.cleaned_data
+        try:
+            patient, doublon = finaliser_admission(
+                infirmier=self.request.user,
+                patient=self.patient,
+                donnees=donnees,
+            )
+        except ValidationError as exc:
+            form.add_error(None, exc.message)
+            return self.form_invalid(form)
+
+        if doublon:
+            context = self.get_context_data(form=form)
+            context['doublon'] = doublon
+            return self.render_to_response(context)
+
+        messages.success(
+            self.request,
+            f"Admission du dossier {patient.ndp} finalisée · {patient.full_name}.",
+        )
+        return redirect('patient_detail', pk=patient.pk)
+
+    def form_invalid(self, form):
+        return self.render_to_response(self.get_context_data(form=form))
+
+
+class PatientAdminUpdateView(InfirmierRequiredMixin, FormView):
+    """US3.2 / UC2 — Mettre à jour les informations administratives.
+
+    L'infirmier modifie les données administratives (changement d'adresse,
+    téléphone, correction d'une erreur de saisie). Chaque modification est
+    historisée (date, heure, auteur). Le dossier est verrouillé pendant
+    l'édition (UC2 / Ex1) : un second utilisateur est bloqué.
+    """
+
+    template_name = 'patients/patient_admin_update.html'
+    form_class = InformationsAdministrativesForm
+
+    def dispatch(self, request, *args, **kwargs):
+        self.patient = get_object_or_404(Patient, pk=self.kwargs['pk'])
+        verrou = acquerir_verrou(self.patient, request.user)
+        if verrou is not None:
+            messages.error(
+                self.request,
+                "Le dossier est temporairement verrouillé par "
+                f"{verrou.utilisateur.titled_name}. Réessayez plus tard.",
+            )
+            return redirect('patient_detail', pk=self.patient.pk)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_initial(self):
+        return {
+            champ: getattr(self.patient, champ)
+            for champ in InformationsAdministrativesForm.Meta.fields
+        }
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['active_nav'] = 'patients'
+        context['patient'] = self.patient
+        return context
+
+    def form_valid(self, form):
+        mettre_a_jour_informations(
+            infirmier=self.request.user,
+            patient=self.patient,
+            donnees=form.cleaned_data,
+        )
+        liberer_verrou(self.patient, self.request.user)
+        messages.success(
+            self.request,
+            f"Informations du dossier {self.patient.ndp} mises à jour.",
+        )
+        return redirect('patient_detail', pk=self.patient.pk)
+
+    def form_invalid(self, form):
+        return self.render_to_response(self.get_context_data(form=form))
+
+
+class PatientAdminAnnulerView(InfirmierRequiredMixin, View):
+    """US3.2 / UC2 — Annule l'édition et libère le verrou du dossier."""
+
+    def post(self, request, *args, **kwargs):
+        self.patient = get_object_or_404(Patient, pk=self.kwargs['pk'])
+        liberer_verrou(self.patient, request.user)
+        messages.info(
+            self.request,
+            f"Modification du dossier {self.patient.ndp} annulée.",
+        )
+        return redirect('patient_detail', pk=self.patient.pk)
+
+
+class PatientDetailView(PersonnelAutoriseMixin, DetailView):
     model = Patient
     template_name = 'patients/patient_detail.html'
     context_object_name = 'patient'
@@ -131,6 +282,18 @@ class PatientDetailView(MedecinRequiredMixin, DetailView):
         paginator = Paginator(prescriptions, 8)
         page = self.request.GET.get('page', '1')
         context['page_obj'] = paginator.get_page(page)
+        role = self.request.user.role
+        # UC3 / Extension 4a : les informations sensibles (rapport médical,
+        # interprétation) ne sont visibles que du médecin.
+        context['peut_voir_rapport_medical'] = role == 'MEDECIN'
+        context['peut_finaliser_admission'] = (
+            role == 'INFIRMIER'
+            and not self.object.admission_finalisee
+            and admission_est_finalisable(self.object)
+        )
+        context['modifications'] = ModificationPatient.objects.filter(
+            patient=self.object
+        ).select_related('auteur')[:10]
         return context
 
 
@@ -426,7 +589,7 @@ class InterpretationResultatView(MedecinRequiredMixin, FormView):
 class NotificationMarquerLuesView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         request.user.notifications.filter(lu=False).update(lu=True)
-        return redirect('dashboard')
+        return redirect('notification')
 
 
 class NotificationSseView(LoginRequiredMixin, View):
@@ -462,7 +625,7 @@ class NotificationSseView(LoginRequiredMixin, View):
                 payload = {
                     'id': notif.pk,
                     'message': notif.message,
-                    'url': notif.url or '/dashboard/',
+                    'url': notif.url or '/notification/',
                     'cree_le': notif.cree_le.isoformat(),
                     'non_lues': user.notifications.filter(lu=False).count(),
                 }

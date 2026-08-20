@@ -323,3 +323,80 @@ class InterpretationForm(NoClientValidationMixin, forms.Form):
         widget=forms.RadioSelect(),
         error_messages={'required': 'Choisissez l’issue du diagnostic.'},
     )
+
+
+class InformationsAdministrativesForm(NoClientValidationMixin, forms.ModelForm):
+    """US3.1 / UC1 et US3.2 / UC2 — Formulaire administratif du patient."""
+
+    nom = forms.CharField(
+        label='Nom de famille *',
+        max_length=100,
+        widget=forms.TextInput(attrs={'placeholder': 'ex. Kalombo'}),
+    )
+    post_nom = forms.CharField(
+        label='Post-nom',
+        required=False,
+        max_length=100,
+        widget=forms.TextInput(attrs={'placeholder': 'ex. Kanyinda'}),
+    )
+    prenom = forms.CharField(
+        label='Prénom *',
+        max_length=100,
+        widget=forms.TextInput(attrs={'placeholder': 'ex. Paul'}),
+    )
+    sexe = forms.ChoiceField(
+        label='Sexe *',
+        choices=Sexe.choices,
+        widget=forms.RadioSelect(),
+    )
+    date_naissance = forms.DateField(
+        label='Date de naissance *',
+        widget=forms.DateInput(attrs={'type': 'date'}),
+    )
+    district = forms.CharField(
+        label='District',
+        required=False,
+        max_length=100,
+        widget=forms.TextInput(attrs={'placeholder': 'ex. Ngaliema'}),
+    )
+    secteur = forms.CharField(
+        label='Secteur',
+        required=False,
+        max_length=100,
+        widget=forms.TextInput(attrs={'placeholder': 'ex. Secteur Météo'}),
+    )
+    cellule = forms.CharField(
+        label='Cellule',
+        required=False,
+        max_length=100,
+        widget=forms.TextInput(attrs={'placeholder': 'ex. Cellule B'}),
+    )
+    village = forms.CharField(
+        label='Village',
+        required=False,
+        max_length=100,
+        widget=forms.TextInput(attrs={'placeholder': 'ex. Village Turc'}),
+    )
+    telephone = forms.CharField(
+        label='Téléphone',
+        required=False,
+        max_length=20,
+        widget=forms.TextInput(attrs={'placeholder': '+243 8X XXX XXXX'}),
+    )
+
+    CHAMPS_OBLIGATOIRES = ('nom', 'prenom', 'sexe', 'date_naissance')
+
+    class Meta:
+        model = Patient
+        fields = [
+            'nom', 'post_nom', 'prenom', 'sexe', 'date_naissance',
+            'district', 'secteur', 'cellule', 'village', 'telephone',
+        ]
+
+    def clean_date_naissance(self):
+        date = self.cleaned_data.get('date_naissance')
+        if date and date > timezone.localdate():
+            raise forms.ValidationError(
+                "La date de naissance ne peut pas être dans le futur."
+            )
+        return date

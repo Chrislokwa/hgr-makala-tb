@@ -9,6 +9,7 @@
         <h1 class="vtitle">Prescription d'examen de laboratoire</h1>
         <p class="vsub">Demande transmise au laboratoire après validation</p>
     </div>
+    <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic button"><i class="arrow left icon"></i>Retour au dossier</a>
 </div>
 
 {% if doublon_prescriptions %}

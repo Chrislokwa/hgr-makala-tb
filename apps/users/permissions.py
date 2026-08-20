@@ -10,7 +10,7 @@ class AdminRequiredMixin(UserPassesTestMixin):
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
         messages.error(self.request, "Accès réservé aux administrateurs.")
-        return redirect('dashboard')
+        return redirect('notification')
 
 class RoleRequiredMixin(UserPassesTestMixin):
     allowed_roles = []
@@ -22,4 +22,4 @@ class RoleRequiredMixin(UserPassesTestMixin):
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
         messages.error(self.request, "Accès non autorisé pour votre rôle.")
-        return redirect('dashboard')
+        return redirect('notification')

@@ -19,7 +19,7 @@ class CustomLoginView(LoginView):
         return context
 
     def get_success_url(self):
-        return reverse_lazy('dashboard')
+        return reverse_lazy('notification')
 
 
 class DashboardView(LoginRequiredMixin, View):

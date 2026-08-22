@@ -4,33 +4,64 @@
         <thead>
             <tr>
                 <th>Patient</th>
-                <th>NDP</th>
-                <th>Détails</th>
+                <th>Date début</th>
+                <th>Type de cas</th>
+                <th>Poids</th>
                 <th>Statut</th>
                 <th style="text-align:right">Actions</th>
             </tr>
         </thead>
         <tbody>
             {% for patient in patients %}
-            <tr>
+            <tr class="{% if patient.statut == 'CLOTURE' %}off{% endif %}">
                 <td>
                     <div class="u-cell">
                         <span class="avatar sm" style="{{ patient.avatar_style }}">{{ patient.initiales }}</span>
                         <span>
                             <span class="un">{{ patient.full_name }}</span><br>
-                            <span class="ue">{{ patient.get_sexe_display() }} · {{ patient.age }} ans{% if patient.district %} · {{ patient.district }}{% endif %}</span>
+                            <span class="ue">{{ patient.ndp }}</span>
                         </span>
                     </div>
                 </td>
-                <td>{{ patient.ndp }}</td>
-                <td class="ue">{% if patient.telephone %}<i class="phone icon"></i>{{ patient.telephone }}{% else %}—{% endif %}</td>
+                <td class="ue">{% if patient.traitement %}{{ patient.traitement.date_debut|date_fr }}{% else %}—{% endif %}</td>
+                <td class="ue">{% if patient.traitement %}{{ patient.traitement.get_type_cas_display() }}{% else %}—{% endif %}</td>
+                <td class="ue">{% if patient.poids %}{{ patient.poids }} kg{% else %}—{% endif %}</td>
                 <td>
-                    <span class="badge {% if patient.statut == 'NON_CONFIRME' %}neg{% elif patient.statut == 'CONFIRME' %}ok{% endif %}">{{ patient.get_statut_display() }}</span>
+                    {% if patient.traitement and patient.traitement.issue_finale %}
+                        {% if patient.traitement.issue_finale == 'GUERI' %}
+                        <span class="tag tg-hon">{{ patient.traitement.get_issue_finale_display() }}</span>
+                        {% elif patient.traitement.issue_finale == 'TERMINE' %}
+                        <span class="tag tg-hon">{{ patient.traitement.get_issue_finale_display() }}</span>
+                        {% elif patient.traitement.issue_finale in ('ECHEC', 'DECEDE', 'PERDU_DE_VUE') %}
+                        <span class="tag tg-off">{{ patient.traitement.get_issue_finale_display() }}</span>
+                        {% else %}
+                        <span class="tag tg-off">{{ patient.traitement.get_issue_finale_display() }}</span>
+                        {% endif %}
+                    {% elif patient.statut == 'GUERI' %}
+                    <span class="tag tg-hon">{{ patient.get_statut_display() }}</span>
+                    {% elif patient.statut == 'CLOTURE' %}
+                    <span class="tag tg-off">{{ patient.get_statut_display() }}</span>
+                    {% elif patient.statut == 'PROVISOIRE' %}
+                    <span class="tag" style="background:#fdf3e3;color:#7a5a1f">{{ patient.get_statut_display() }}</span>
+                    {% elif patient.statut == 'EN_TRAITEMENT' %}
+                    <span class="tag" style="background:#e8f1f9;color:#145a91">{{ patient.get_statut_display() }}</span>
+                    {% else %}
+                    <span class="badge">{{ patient.get_statut_display() }}</span>
+                    {% endif %}
                 </td>
-                <td>
-                    <div class="row-acts">
-                        <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic button btn-sm">Consulter</a>
-                    </div>
+                <td style="text-align:right">
+                    <details class="row-menu">
+                        <summary class="row-menu-btn" aria-label="Actions"><i class="ellipsis vertical icon"></i></summary>
+                        <div class="row-menu-pop">
+                            <a href="{{ url('patient_detail', pk=patient.pk) }}"><i class="folder open outline icon"></i>Voir dossier patient</a>
+                            {% if patient.traitement and patient.statut != 'PROVISOIRE' %}
+                            <a href="{{ url('traitement_fiche', pk=patient.pk) }}"><i class="file alternate outline icon"></i>Voir fiche de traitement</a>
+                            {% endif %}
+                            {% if request.user.role == 'INFIRMIER' and patient.statut != 'PROVISOIRE' %}
+                            <a href="{{ url('patient_admin_update', pk=patient.pk) }}"><i class="edit outline icon"></i>Modifier infos patient</a>
+                            {% endif %}
+                        </div>
+                    </details>
                 </td>
             </tr>
             {% endfor %}

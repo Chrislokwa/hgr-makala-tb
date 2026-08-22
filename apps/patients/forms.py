@@ -17,10 +17,8 @@ from .models import (
     ResultatBacilloscopie,
     ResultatGeneXpert,
     ResultatLabo,
-    ResultatVih,
     SchemaTraitement,
     Sexe,
-    StatutVihConnu,
     TechniqueColoration,
     TypeCasTraitement,
     TypeExamen,
@@ -109,6 +107,27 @@ class DossierProvisoireForm(NoClientValidationMixin, forms.ModelForm):
             'placeholder': 'Examen physique, signes cliniques, présence d’une cicatrice BCG…',
         }),
     )
+    type_cas = forms.ChoiceField(
+        label='Type de cas *',
+        choices=TypeCasTraitement.choices,
+        widget=forms.RadioSelect(),
+    )
+    date_debut = forms.DateField(
+        label='Date de début du traitement *',
+        initial=timezone.localdate,
+        widget=forms.DateInput(attrs={'type': 'date'}),
+    )
+    unite_traitement = forms.CharField(
+        label='Unité de traitement',
+        max_length=120,
+        initial='HGR Makala',
+        widget=forms.TextInput(attrs={'placeholder': 'ex. TS Makala, HGR Makala…'}),
+    )
+    notes_traitement = forms.CharField(
+        label='Notes sur le traitement',
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 2}),
+    )
 
     class Meta:
         model = Patient
@@ -118,7 +137,7 @@ class DossierProvisoireForm(NoClientValidationMixin, forms.ModelForm):
             'poids',
             'signe_toux_persistante', 'signe_fievre_sueurs',
             'signe_perte_poids', 'signe_hemoptysie', 'signe_contact_cas_tpm',
-            'comorb_vih', 'comorb_diabete', 'comorb_malnutrition',
+            'comorb_diabete', 'comorb_malnutrition',
             'comorb_autre', 'autres_comorbidites', 'observations_cliniques',
         ]
         labels = {
@@ -127,7 +146,6 @@ class DossierProvisoireForm(NoClientValidationMixin, forms.ModelForm):
             'signe_perte_poids': 'Perte de poids inexpliquée',
             'signe_hemoptysie': 'Hémoptysie (crachats striés de sang)',
             'signe_contact_cas_tpm': 'Contact étroit avec un cas TPM+',
-            'comorb_vih': 'VIH/SIDA (connu)',
             'comorb_diabete': 'Diabète',
             'comorb_malnutrition': 'Malnutrition',
             'comorb_autre': 'Autre comorbidité',
@@ -138,6 +156,20 @@ class DossierProvisoireForm(NoClientValidationMixin, forms.ModelForm):
         if date and date > timezone.localdate():
             raise forms.ValidationError("La date de naissance ne peut pas être dans le futur.")
         return date
+
+    def clean_date_debut(self):
+        date_val = self.cleaned_data.get('date_debut')
+        if date_val and date_val > timezone.localdate():
+            raise forms.ValidationError("La date de début ne peut pas être dans le futur.")
+        return date_val
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('comorb_autre') and not (cleaned.get('autres_comorbidites') or '').strip():
+            self.add_error('autres_comorbidites', 'Précisez la comorbidité lorsque « Autre » est coché.')
+        if not cleaned.get('comorb_autre'):
+            cleaned['autres_comorbidites'] = ''
+        return cleaned
 
 
 class PrescriptionExamenForm(NoClientValidationMixin, forms.ModelForm):
@@ -173,12 +205,6 @@ class PrescriptionExamenForm(NoClientValidationMixin, forms.ModelForm):
         label='Date prévue du premier prélèvement',
         widget=forms.DateInput(attrs={'type': 'date'}),
     )
-    statut_vih = forms.ChoiceField(
-        label='Statut VIH connu du patient (optionnel)',
-        required=False,
-        choices=[('', '— Non renseigné —')] + list(StatutVihConnu.choices),
-        widget=forms.Select(),
-    )
     observations = forms.CharField(
         label='Observations cliniques complémentaires',
         required=False,
@@ -191,7 +217,7 @@ class PrescriptionExamenForm(NoClientValidationMixin, forms.ModelForm):
         model = ExamenPrescription
         fields = [
             'nature_echantillon', 'organe', 'motif', 'mois_controle',
-            'examens', 'date_prelevement', 'statut_vih', 'observations',
+            'examens', 'date_prelevement', 'observations',
         ]
 
     def clean(self):
@@ -257,11 +283,6 @@ class SaisieResultatForm(NoClientValidationMixin, forms.ModelForm):
         choices=ResultatGeneXpert.choices,
         widget=forms.Select(),
     )
-    resultat_vih = forms.ChoiceField(
-        label='Résultat du test VIH *',
-        choices=ResultatVih.choices,
-        widget=forms.Select(),
-    )
     commentaires = forms.CharField(
         label='Anomalies, observations et remarques',
         required=False,
@@ -276,7 +297,7 @@ class SaisieResultatForm(NoClientValidationMixin, forms.ModelForm):
         fields = [
             'date_reception', 'apparence',
             'echantillon_1', 'echantillon_2', 'technique_coloration',
-            'resultat_genexpert', 'resultat_vih', 'commentaires',
+            'resultat_genexpert', 'commentaires',
         ]
 
     def __init__(self, *args, prescription=None, **kwargs):
@@ -293,8 +314,6 @@ class SaisieResultatForm(NoClientValidationMixin, forms.ModelForm):
                 self.fields.pop(champ)
         if 'GENEXPERT' not in codes:
             self.fields.pop('resultat_genexpert')
-        if 'VIH' not in codes:
-            self.fields.pop('resultat_vih')
 
     def clean_date_reception(self):
         date = self.cleaned_data.get('date_reception')
@@ -413,53 +432,6 @@ class InformationsAdministrativesForm(NoClientValidationMixin, forms.ModelForm):
 # ---------------------------------------------------------------------------
 # Epic 4 — Suivi thérapeutique (US4.1, US4.2, US4.3)
 # ---------------------------------------------------------------------------
-
-
-class TraitementForm(NoClientValidationMixin, forms.Form):
-    """US4.1 — Création de la fiche de traitement (schéma et posologie auto)."""
-
-    type_cas = forms.ChoiceField(
-        label='Type de cas *',
-        choices=TypeCasTraitement.choices,
-        widget=forms.RadioSelect(),
-    )
-    date_debut = forms.DateField(
-        label='Date de début du traitement *',
-        widget=forms.DateInput(attrs={'type': 'date'}),
-    )
-    poids_initial = forms.DecimalField(
-        label='Poids au début du traitement (kg)',
-        required=False,
-        min_value=0,
-        max_value=300,
-        decimal_places=1,
-        widget=forms.NumberInput(attrs={'placeholder': 'ex. 55.5'}),
-    )
-    unite_traitement = forms.CharField(
-        label='Unité de traitement',
-        max_length=120,
-        initial='HGR Makala',
-        widget=forms.TextInput(attrs={'placeholder': 'ex. TS Makala, HGR Makala…'}),
-    )
-    notes = forms.CharField(
-        label='Notes',
-        required=False,
-        widget=forms.Textarea(attrs={'rows': 2}),
-    )
-
-    def __init__(self, *args, patient=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.patient = patient
-        if patient is not None and not self.is_bound:
-            if patient.poids is not None:
-                self.fields['poids_initial'].initial = patient.poids
-            self.fields['date_debut'].initial = timezone.localdate()
-
-    def clean_date_debut(self):
-        date_val = self.cleaned_data.get('date_debut')
-        if date_val and date_val > timezone.localdate():
-            raise forms.ValidationError("La date de début ne peut pas être dans le futur.")
-        return date_val
 
 
 class ObservanceMoisForm(forms.Form):
@@ -597,7 +569,7 @@ class BonControleForm(NoClientValidationMixin, forms.Form):
         }),
     )
 
-    EXAMENS_PAR_DEFAUT = ('BACILLOSCOPIE', 'GENEXPERT', 'CULTURE', 'VIH')
+    EXAMENS_PAR_DEFAUT = ('BACILLOSCOPIE', 'GENEXPERT', 'CULTURE')
 
     def __init__(self, *args, patient=None, **kwargs):
         super().__init__(*args, **kwargs)

@@ -11,19 +11,21 @@
     </div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <a href="{{ url('patient_list') }}" class="ui basic button"><i class="users icon"></i>Liste</a>
-        {% if request.user.role in ('MEDECIN', 'INFIRMIER') %}
-        <a href="{{ url('carte_malade', pk=patient.pk) }}" class="ui basic button"><i class="id card outline icon"></i>Carte du malade</a>
-        {% if traitement %}
-        <a href="{{ url('traitement_fiche', pk=patient.pk) }}" class="ui teal button"><i class="stethoscope icon"></i>Fiche de traitement</a>
-        {% elif request.user.role == 'MEDECIN' %}
-        <a href="{{ url('traitement_create', pk=patient.pk) }}" class="ui teal button"><i class="play icon"></i>Commencer le traitement</a>
-        {% endif %}
-        {% endif %}
-        {% if request.user.role == 'INFIRMIER' and not patient.admission_finalisee and peut_finaliser_admission %}
-        <a href="{{ url('admission_finaliser', pk=patient.pk) }}" class="ui teal button"><i class="check circle outline icon"></i>Finaliser l'admission</a>
-        {% endif %}
-        {% if request.user.role == 'INFIRMIER' %}
-        <a href="{{ url('patient_admin_update', pk=patient.pk) }}" class="ui primary button"><i class="edit outline icon"></i>Modifier les informations</a>
+        {% if is_provisoire %}
+            {# Statut provisoire : seules Finaliser l'admission et Prescrire un examen sont autorisées #}
+            {% if request.user.role == 'INFIRMIER' and peut_finaliser_admission %}
+            <a href="{{ url('admission_finaliser', pk=patient.pk) }}" class="ui teal button"><i class="check circle outline icon"></i>Finaliser l'admission</a>
+            {% endif %}
+        {% else %}
+            {% if request.user.role == 'INFIRMIER' %}
+            <a href="{{ url('carte_malade', pk=patient.pk) }}" class="ui basic button"><i class="id card outline icon"></i>Carte du malade</a>
+            {% endif %}
+            {% if traitement %}
+            <a href="{{ url('traitement_fiche', pk=patient.pk) }}" class="ui teal button"><i class="stethoscope icon"></i>Fiche de traitement</a>
+            {% endif %}
+            {% if request.user.role == 'INFIRMIER' %}
+            <a href="{{ url('patient_admin_update', pk=patient.pk) }}" class="ui primary button"><i class="edit outline icon"></i>Modifier les informations</a>
+            {% endif %}
         {% endif %}
         {% if request.user.role == 'MEDECIN' %}
         <a href="{{ url('patient_create') }}" class="ui primary button"><i class="plus icon"></i>Nouveau dossier</a>
@@ -51,14 +53,17 @@
 
 <div class="pcard">
     <div class="pcard-top">
-        <span class="avatar lg" style="{{ patient.avatar_style }}">{{ patient.initiales }}</span>
         <div class="pcard-id">
             <h2>{{ patient.full_name }}</h2>
             <p class="pcard-ndp">{{ patient.ndp }} · {{ patient.get_sexe_display() }} · {{ patient.age }} ans</p>
             <p class="pcard-adr"><i class="map marker alternate icon"></i>{{ patient.adresse_complete or 'Adresse non renseignée' }}</p>
             {% if patient.telephone %}<p class="pcard-adr"><i class="phone icon"></i>{{ patient.telephone }}</p>{% endif %}
         </div>
-        <span class="badge {% if patient.statut == 'NON_CONFIRME' %}neg{% elif patient.statut == 'CONFIRME' %}ok{% endif %}">{{ patient.get_statut_display() }}</span>
+        {% if traitement and traitement.issue_finale %}
+        <span class="badge {% if traitement.issue_finale == 'GUERI' %}ok{% elif traitement.issue_finale == 'TERMINE' %}ok{% elif traitement.issue_finale == 'ECHEC' %}neg{% elif traitement.issue_finale == 'DECEDE' %}neg{% else %}mut{% endif %}">{{ traitement.get_issue_finale_display() }}</span>
+        {% else %}
+        <span class="badge {% if patient.statut == 'PROVISOIRE' %}warn{% elif patient.statut == 'EN_TRAITEMENT' %}info{% elif patient.statut == 'GUERI' %}ok{% else %}mut{% endif %}">{{ patient.get_statut_display() }}</span>
+        {% endif %}
     </div>
     <div class="info-grid">
         <div class="info-box">
@@ -127,7 +132,7 @@
         <i class="clipboard check icon"></i>
         <div>
             <strong>Prescription d'examen de laboratoire</strong>
-            <span>Demande de bacilloscopie, GeneXpert, culture, DST ou test VIH transmise au laboratoire.</span>
+            <span>Demande de bacilloscopie, GeneXpert, culture ou DST transmise au laboratoire.</span>
         </div>
     </div>
     <a href="{{ url('prescription_create', pk=patient.pk) }}" class="ui teal button"><i class="clipboard outline icon"></i>Prescrire un examen</a>

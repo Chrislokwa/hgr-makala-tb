@@ -28,21 +28,15 @@
 
 <div class="pcard carte-print">
     <div class="carte-head">
-        <div style="display:flex; gap:14px; align-items:center">
-            <span class="avatar lg" style="{{ patient.avatar_style }}">{{ patient.initiales }}</span>
-            <div>
-                <h2 style="margin:0">{{ patient.full_name }}</h2>
-                <p class="pcard-ndp" style="margin:2px 0">{{ patient.get_sexe_display() }} · {{ patient.age }} ans · {{ patient.ndp }}</p>
-                <p class="pcard-adr"><i class="map marker alternate icon"></i>{{ patient.adresse_complete or 'Adresse non renseignée' }}</p>
-                {% if patient.telephone %}<p class="pcard-adr"><i class="phone icon"></i>{{ patient.telephone }}</p>{% endif %}
-            </div>
+        <div>
+            <h2 style="margin:0">{{ patient.full_name }}</h2>
+            <p class="pcard-ndp" style="margin:2px 0">{{ patient.get_sexe_display() }} · {{ patient.age }} ans · {{ patient.ndp }}</p>
+            <p class="pcard-adr"><i class="map marker alternate icon"></i>{{ patient.adresse_complete or 'Adresse non renseignée' }}</p>
+            {% if patient.telephone %}<p class="pcard-adr"><i class="phone icon"></i>{{ patient.telephone }}</p>{% endif %}
         </div>
         <div style="text-align:right">
-            <span class="issue-pill {% if vih_positif %}negatif{% else %}neutre{% endif %}">VIH : {{ statut_vih }}</span>
             {% if traitement %}
-            <div style="margin-top:8px">
-                <span class="issue-pill neutre">{{ traitement.schema.code }}</span>
-            </div>
+            <span class="issue-pill neutre">{{ traitement.schema.code }}</span>
             {% endif %}
         </div>
     </div>
@@ -68,9 +62,9 @@
 </div>
 
 <div class="pcard">
-    <h3 class="pcard-h"><i class="calendar check outline icon"></i>Rendez-vous de suivi</h3>
+    <h3 class="pcard-h"><i class="calendar check outline icon"></i>Rendez-vous programmés</h3>
     {% if rendez_vous %}
-    <div>
+    <div class="rdv-list">
         {% for rdv in rendez_vous %}
         <div class="rdv-row">
             <span class="rdv-date">{{ rdv.date|date_fr }} · {{ rdv.heure.strftime('%H:%M') }}</span>
@@ -90,13 +84,15 @@
     {% else %}
     <p class="muted">Aucun rendez-vous planifié.</p>
     {% endif %}
+</div>
 
-    <form class="ui form no-print" method="post" action="{{ url('rendez_vous_create', pk=patient.pk) }}" novalidate style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line)">
+<div class="pcard no-print">
+    <h3 class="pcard-h"><i class="plus circle icon"></i>Planifier un rendez-vous</h3>
+    <form class="ui form" method="post" action="{{ url('rendez_vous_create', pk=patient.pk) }}" novalidate>
         {{ csrf_input }}
         {% if rdv_form.non_field_errors() %}
         <div class="ui negative message">{{ rdv_form.non_field_errors() }}</div>
         {% endif %}
-        <h4 style="margin:0 0 10px"><i class="plus circle icon"></i>Planifier un rendez-vous</h4>
         <div class="grid four">
             <div class="field {% if rdv_form.date.errors %}error{% endif %}">
                 <label for="id_date">{{ rdv_form.date.label }}</label>
@@ -116,7 +112,7 @@
                 {{ rdv_form.motif }}
             </div>
         </div>
-        <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+        <div style="display:flex; justify-content:flex-end; margin-top:12px;">
             <button type="submit" class="ui primary button"><i class="calendar plus outline icon"></i>Planifier</button>
         </div>
     </form>
@@ -147,10 +143,9 @@
                         <div class="res-mini">
                             {% if r.echantillon_1 or r.echantillon_2 %}<span>Bacilloscopie : É1 {{ r.get_echantillon_1_display() or '—' }} · É2 {{ r.get_echantillon_2_display() or '—' }}</span>{% endif %}
                             {% if r.resultat_genexpert %}<span {% if r.resultat_genexpert in ('MTB_PLUS_RIF_PLUS', 'MTB_PLUS_RIF_MOINS', 'MTB_MOINS_RIF_PLUS') %}class="pos"{% endif %}>GeneXpert : {{ r.get_resultat_genexpert_display() }}</span>{% endif %}
-                            {% if r.resultat_vih %}<span {% if r.resultat_vih == 'POSITIF' %}class="pos"{% endif %}>VIH : {{ r.get_resultat_vih_display() }}</span>{% endif %}
-                            {% if not r.echantillon_1 and not r.echantillon_2 and not r.resultat_genexpert and not r.resultat_vih %}<span class="muted">{{ r.get_statut_display() }}</span>{% endif %}
+                            {% if not r.echantillon_1 and not r.echantillon_2 and not r.resultat_genexpert %}<span class="muted">{{ r.get_statut_display() }}</span>{% endif %}
                         </div>
-                        {% else %}<span class="muted">En attente au laboratoire</span>{% endif %}
+                        {% else %}<span class="muted">En attente</span>{% endif %}
                     </td>
                 </tr>
                 {% endfor %}

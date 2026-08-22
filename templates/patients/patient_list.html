@@ -1,13 +1,13 @@
 {% extends 'base_app.html' %}
 
-{% block title %}Patients — Suivi TB · HGR Makala{% endblock %}
+{% block title %}Registre des cas — Suivi TB · HGR Makala{% endblock %}
 
 {% block view_content %}
 <div class="vhead">
     <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
     <div style="flex:1">
-        <h1 class="vtitle">Patients</h1>
-        <p class="vsub">Dossiers provisoires et confirmés</p>
+        <h1 class="vtitle">Registre des cas</h1>
+        <p class="vsub">Dossiers patients et traitements en cours</p>
     </div>
     {% if request.user.role == 'MEDECIN' %}
     <a href="{{ url('patient_create') }}" class="ui primary button"><i class="plus icon"></i>Nouveau dossier</a>
@@ -17,7 +17,7 @@
 <div class="pstats">
     <div class="pstat"><span>Résultats trouvés</span><strong>{{ paginator.count }}</strong></div>
     <div class="pstat"><span>Provisoires</span><strong>{{ patients_provisoires }}</strong></div>
-    <div class="pstat"><span>Confirmés</span><strong>{{ patients_confirmes }}</strong></div>
+    <div class="pstat"><span>En traitement</span><strong>{{ patients_en_traitement }}</strong></div>
 </div>
 
 <!-- Recherche et filtrage (HTMX) -->
@@ -63,4 +63,34 @@
 <div id="patientResults">
     {% include 'patients/patient_list_results.html' %}
 </div>
+{% endblock %}
+
+{% block app_js %}
+<script>
+(function() {
+    function bindRowMenus(root) {
+        root = root || document;
+        root.querySelectorAll('.row-menu').forEach(function(menu) {
+            menu.addEventListener('toggle', function() {
+                if (menu.open) {
+                    document.querySelectorAll('.row-menu').forEach(function(other) {
+                        if (other !== menu) other.removeAttribute('open');
+                    });
+                }
+            });
+        });
+    }
+    bindRowMenus(document);
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.row-menu')) {
+            document.querySelectorAll('.row-menu[open]').forEach(function(m){ m.removeAttribute('open'); });
+        }
+    });
+    document.body.addEventListener('htmx:afterSwap', function(e) {
+        if (e.detail && e.detail.target && e.detail.target.id === 'patientResults') {
+            bindRowMenus(e.detail.target);
+        }
+    });
+})();
+</script>
 {% endblock %}

@@ -32,7 +32,6 @@
     <div class="fcard">
         <div class="fcard-h"><h2><i class="user outline icon"></i>Patient et contrôle</h2></div>
         <div class="ro-zone">
-            <span class="avatar lg" style="{{ patient.avatar_style }}">{{ patient.initiales }}</span>
             <div class="ro-id">
                 <strong>{{ patient.full_name }}</strong>
                 <span>{{ patient.get_sexe_display() }} · {{ patient.age }} ans</span>
@@ -62,7 +61,7 @@
                 {{ form.examens }}
             </div>
             {% if form.examens.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.examens.errors[0] }}</div>{% endif %}
-            <div class="form-note" style="margin-top:8px"><i class="info circle icon"></i>Bacilloscopie, GeneXpert, culture et test VIH sont pré-cochés par défaut pour les contrôles de suivi.</div>
+            <div class="form-note" style="margin-top:8px"><i class="info circle icon"></i>La bacilloscopie est pré-cochée par défaut pour les contrôles de suivi ; ajoutez GeneXpert ou culture selon les indications du médecin.</div>
         </div>
     </div>
 

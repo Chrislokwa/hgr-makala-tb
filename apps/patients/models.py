@@ -12,8 +12,9 @@ class Sexe(models.TextChoices):
 
 class StatutDossier(models.TextChoices):
     PROVISOIRE = 'PROVISOIRE', 'Provisoire'
-    CONFIRME = 'CONFIRME', 'Confirmé'
-    NON_CONFIRME = 'NON_CONFIRME', 'Non confirmé'
+    EN_TRAITEMENT = 'EN_TRAITEMENT', 'En traitement'
+    GUERI = 'GUERI', 'Guéri'
+    CLOTURE = 'CLOTURE', 'Clôturé'
 
 
 class Patient(models.Model):
@@ -48,7 +49,6 @@ class Patient(models.Model):
     signe_perte_poids = models.BooleanField(default=False)
     signe_hemoptysie = models.BooleanField(default=False)
     signe_contact_cas_tpm = models.BooleanField(default=False)
-    comorb_vih = models.BooleanField(default=False)
     comorb_diabete = models.BooleanField(default=False)
     comorb_malnutrition = models.BooleanField(default=False)
     comorb_autre = models.BooleanField(default=False)
@@ -106,7 +106,7 @@ class Patient(models.Model):
             nom__iexact=nom,
             prenom__iexact=prenom,
             date_naissance=date_naissance,
-        ).exclude(statut=StatutDossier.NON_CONFIRME)
+        ).exclude(statut=StatutDossier.CLOTURE)
         if exclure is not None:
             queryset = queryset.exclude(pk=exclure.pk)
         return queryset.order_by('-cree_le').first()
@@ -157,7 +157,6 @@ class Patient(models.Model):
     @property
     def comorbidites_presentes(self):
         libelles = {
-            'comorb_vih': 'VIH/SIDA (connu)',
             'comorb_diabete': 'Diabète',
             'comorb_malnutrition': 'Malnutrition',
             'comorb_autre': 'Autre',
@@ -239,15 +238,9 @@ class MoisControle(models.TextChoices):
     FIN = 'FIN', 'Fin de traitement'
 
 
-class StatutVihConnu(models.TextChoices):
-    POSITIF = 'POSITIF', 'Positif'
-    NEGATIF = 'NEGATIF', 'Négatif'
-    INCONNU = 'INCONNU', 'Inconnu'
-
-
 class StatutExamen(models.TextChoices):
-    EN_ATTENTE = 'EN_ATTENTE', 'En attente au laboratoire'
-    RESULTATS_DISPONIBLES = 'RESULTATS_DISPONIBLES', 'Résultats disponibles'
+    EN_ATTENTE = 'EN_ATTENTE', 'En attente'
+    RESULTATS_DISPONIBLES = 'RESULTATS_DISPONIBLES', 'Disponible'
 
 
 class ApparenceEchantillon(models.TextChoices):
@@ -274,13 +267,6 @@ class ResultatGeneXpert(models.TextChoices):
     MTB_PLUS_RIF_MOINS = 'MTB_PLUS_RIF_MOINS', 'MTB+ RIF-'
     MTB_MOINS_RIF_PLUS = 'MTB_MOINS_RIF_PLUS', 'MTB- RIF+'
     INVALID = 'INVALID', 'Invalid'
-    NON_FAIT = 'NON_FAIT', 'Non fait'
-
-
-class ResultatVih(models.TextChoices):
-    POSITIF = 'POSITIF', 'Positif'
-    NEGATIF = 'NEGATIF', 'Négatif'
-    PVV = 'PVV', 'PVV déjà connu'
     NON_FAIT = 'NON_FAIT', 'Non fait'
 
 
@@ -329,12 +315,6 @@ class ExamenPrescription(models.Model):
     )
     examens = models.ManyToManyField(TypeExamen, related_name='prescriptions')
     date_prelevement = models.DateField()
-    statut_vih = models.CharField(
-        max_length=20,
-        choices=StatutVihConnu.choices,
-        blank=True,
-        help_text="Statut VIH connu du patient (optionnel).",
-    )
     observations = models.TextField(
         blank=True,
         help_text="Recommandations spécifiques à l'attention du laboratoire.",
@@ -418,7 +398,7 @@ class ResultatLabo(models.Model):
     statut = models.CharField(
         max_length=20,
         choices=StatutResultat.choices,
-        default=StatutResultat.BROUILLON,
+        default=StatutResultat.VALIDE,
     )
     date_reception = models.DateField(
         null=True,
@@ -454,11 +434,6 @@ class ResultatLabo(models.Model):
         choices=ResultatGeneXpert.choices,
         blank=True,
     )
-    resultat_vih = models.CharField(
-        max_length=20,
-        choices=ResultatVih.choices,
-        blank=True,
-    )
     commentaires = models.TextField(
         blank=True,
         help_text="Anomalies et remarques du laborantin (échantillon contaminé, qualité insuffisante…).",
@@ -489,17 +464,15 @@ class ResultatLabo(models.Model):
                 ResultatGeneXpert.MTB_MOINS_RIF_PLUS,
         ):
             positifs.append(f"GeneXpert : {self.get_resultat_genexpert_display()}")
-        if self.resultat_vih == ResultatVih.POSITIF:
-            positifs.append("Test VIH : Positif")
         return positifs
 
 
 class InterpretationResultat(models.Model):
     """Analyse médicale par le médecin traitant des résultats validés.
 
-    L'enregistrement de l'interprétation déclenche le point d'extension
-    « Décision de diagnostic » : la tuberculose est confirmée (UC7 —
-    validation de l'admission) ou infirmée (UC8 — annulation de l'admission).
+    La décision de diagnostic (confirmée / infirmée) est conservée au
+    dossier ; elle ne modifie plus le statut du patient, l'admission
+    étant validée par l'infirmier.
     """
 
     prescription = models.ForeignKey(
@@ -539,12 +512,6 @@ class InterpretationResultat(models.Model):
 
     def __str__(self):
         return f"{self.prescription.numero_demande} · {self.get_decision_display()}"
-
-    @property
-    def statut_dossier_cible(self):
-        if self.decision == DecisionDiagnostic.CONFIRMEE:
-            return StatutDossier.CONFIRME
-        return StatutDossier.NON_CONFIRME
 
     @property
     def patient(self):

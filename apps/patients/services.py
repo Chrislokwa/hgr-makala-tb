@@ -28,7 +28,6 @@ from .models import (
     StatutRendezVous,
     StatutResultat,
     StatutTraitement,
-    StatutVihConnu,
     Traitement,
     TypeCasTraitement,
     TypeModificationTraitement,
@@ -53,18 +52,81 @@ def _notifier_laborantins(prescription):
         )
 
 
+def _schema_pour_type_cas(type_cas):
+    """Sélectionne le schéma thérapeutique actif selon le type de cas."""
+    from django.core.exceptions import ValidationError
+
+    if type_cas not in TypeCasTraitement.values:
+        raise ValidationError("Type de cas de tuberculose invalide.")
+    categorie = (
+        CategorieSchemaTraitement.RETRAITEMENT
+        if type_cas == TypeCasTraitement.RECHUTE
+        else CategorieSchemaTraitement.NOUVEAU_CAS
+    )
+    schema = (
+        SchemaTraitement.objects
+        .filter(categorie=categorie, actif=True)
+        .order_by('ordre')
+        .first()
+    )
+    if schema is None:
+        raise ValidationError("Aucun schéma thérapeutique applicable n'est disponible.")
+    return schema
+
+
 def creer_dossier_provisoire(*, medecin, donnees):
+    """Crée le dossier provisoire du patient et sa fiche de traitement.
+
+    Le médecin renseigne en une seule étape les données cliniques ET les
+    paramètres du traitement (type de cas, date de début, unité) : le
+    schéma est prescrit automatiquement et la posologie calculée selon le
+    poids. L'infirmier finalisera ensuite l'admission administrative.
+    """
     donnees = dict(donnees)
+    traitement_donnees = {
+        'type_cas': donnees.pop('type_cas', None) or TypeCasTraitement.NOUVEAU,
+        'date_debut': donnees.pop('date_debut', None) or timezone.localdate(),
+        'unite_traitement': donnees.pop('unite_traitement', ''),
+        'notes': donnees.pop('notes', ''),
+    }
     donnees['statut'] = StatutDossier.PROVISOIRE
+    schema = _schema_pour_type_cas(traitement_donnees['type_cas'])
+    posologie = calculer_posologie(donnees.get('poids'))
+
     for _ in range(5):
         try:
             with transaction.atomic():
                 patient = Patient(cree_par=medecin, **donnees)
                 patient.save()
-                return patient
+                Traitement.objects.create(
+                    patient=patient,
+                    schema=schema,
+                    type_cas=traitement_donnees['type_cas'],
+                    date_debut=traitement_donnees['date_debut'],
+                    poids_initial=patient.poids,
+                    posologie_jour=posologie,
+                    unite_traitement=(
+                        traitement_donnees['unite_traitement'] or 'HGR Makala'
+                    ),
+                    notes=traitement_donnees['notes'],
+                    cree_par=medecin,
+                )
+                break
         except IntegrityError:
             continue
-    raise IntegrityError("Échec de la création du dossier (numéro de dossier unique).")
+    else:
+        raise IntegrityError("Échec de la création du dossier (numéro de dossier unique).")
+
+    for infirmier in CustomUser.objects.filter(is_active=True, role=UserRole.INFIRMIER):
+        Notification.objects.create(
+            destinataire=infirmier,
+            message=(
+                f"Nouveau dossier provisoire : {patient.ndp} ({patient.full_name}) — "
+                f"schéma {schema.code} prescrit, admission à valider."
+            ),
+            url=f"/patients/{patient.pk}/",
+        )
+    return patient
 
 
 def creer_prescription_examen(*, medecin, patient, donnees, types_examens):
@@ -89,17 +151,15 @@ def creer_prescription_examen(*, medecin, patient, donnees, types_examens):
 def trouver_prescriptions_en_attente(patient, codes_types):
     """Demandes identiques (même type, statut « En attente ») déjà en cours.
 
-    Le test VIH, systématiquement pré-coché pour tout suspect, est exclu de la
-    comparaison : seul un doublon sur les examens diagnostiques spécifiques
-    (bacilloscopie, GeneXpert, culture, DST) est signalé.
+    Seul un doublon sur les examens diagnostiques spécifiques (bacilloscopie,
+    GeneXpert, culture, DST) est signalé.
     """
-    codes_significatifs = [code for code in codes_types if code != 'VIH']
-    if not codes_significatifs:
+    if not codes_types:
         return ExamenPrescription.objects.none()
     return (
         ExamenPrescription.objects
         .filter(patient=patient, statut=StatutExamen.EN_ATTENTE)
-        .filter(examens__code__in=codes_significatifs)
+        .filter(examens__code__in=codes_types)
         .distinct()
         .order_by('-date_prescription')
     )
@@ -122,103 +182,72 @@ def _sauvegarder_resultat(*, laborantin, prescription, donnees, statut, date_lec
     return resultat
 
 
-def enregistrer_resultats(*, laborantin, prescription, donnees, valider):
-    """Sauvegarde les résultats d'une demande de laboratoire.
+def enregistrer_resultats(*, laborantin, prescription, donnees):
+    """Sauvegarde et valide les résultats d'une demande de laboratoire.
 
-    - Entrée simple : modifie la dernière entrée existante (brouillon le plus
-      récent, sinon le résultat validé affiché au médecin).
-    - Validation : si un résultat validé existe déjà, une nouvelle entrée est
-      créée (version précédente conservée pour traçabilité) ; sinon l'entrée
-      courante est promue au statut VALIDE. Le statut de la demande passe à
-      « Résultats disponibles » et une notification est envoyée au médecin.
+    La gestion des brouillons est supprimée : chaque saisie est directement
+    validée. Si un résultat validé existe déjà, une nouvelle entrée est
+    créée (version précédente conservée pour traçabilité) ; sinon l'entrée
+    courante est promue au statut VALIDE. Le statut de la demande passe à
+    « Résultats disponibles » et une notification est envoyée au médecin.
     """
     with transaction.atomic():
-        if valider:
-            deja_valide = ResultatLabo.objects.filter(
-                prescription=prescription, statut=StatutResultat.VALIDE
-            ).exists()
-            if deja_valide:
-                resultat = ResultatLabo(
-                    prescription=prescription,
-                    laborantin=laborantin,
-                    statut=StatutResultat.VALIDE,
-                    date_lecture=timezone.now(),
-                    **donnees,
-                )
-                resultat.save()
-            else:
-                resultat = _sauvegarder_resultat(
-                    laborantin=laborantin,
-                    prescription=prescription,
-                    donnees=donnees,
-                    statut=StatutResultat.VALIDE,
-                    date_lecture=timezone.now(),
-                )
-            prescription.statut = StatutExamen.RESULTATS_DISPONIBLES
-            prescription.save(update_fields=['statut'])
-            Notification.objects.create(
-                destinataire=prescription.medecin,
-                message=(
-                    f"Résultats disponibles : {prescription.numero_demande} — "
-                    f"{prescription.patient.full_name} ({prescription.types_libelles})."
-                ),
-                url=f"/patients/{prescription.patient.pk}/",
+        deja_valide = ResultatLabo.objects.filter(
+            prescription=prescription, statut=StatutResultat.VALIDE
+        ).exists()
+        if deja_valide:
+            resultat = ResultatLabo(
+                prescription=prescription,
+                laborantin=laborantin,
+                statut=StatutResultat.VALIDE,
+                date_lecture=timezone.now(),
+                **donnees,
             )
-            return resultat
-
-        return _sauvegarder_resultat(
-            laborantin=laborantin,
-            prescription=prescription,
-            donnees=donnees,
-            statut=StatutResultat.BROUILLON,
-            date_lecture=None,
+            resultat.save()
+        else:
+            resultat = _sauvegarder_resultat(
+                laborantin=laborantin,
+                prescription=prescription,
+                donnees=donnees,
+                statut=StatutResultat.VALIDE,
+                date_lecture=timezone.now(),
+            )
+        prescription.statut = StatutExamen.RESULTATS_DISPONIBLES
+        prescription.save(update_fields=['statut'])
+        Notification.objects.create(
+            destinataire=prescription.medecin,
+            message=(
+                f"Résultats disponibles : {prescription.numero_demande} — "
+                f"{prescription.patient.full_name} ({prescription.types_libelles})."
+            ),
+            url=f"/patients/{prescription.patient.pk}/",
         )
+        return resultat
 
 
 def enregistrer_interpretation(*, medecin, prescription, donnees):
-    """Enregistre l'analyse médicale du médecin et applique la décision.
+    """Enregistre l'analyse médicale du médecin et la décision de diagnostic.
 
-    L'enregistrement déclenche le point d'extension « Décision de
-    diagnostic » :
-    - Tuberculose confirmée (UC7) : le dossier passe au statut « Confirmé ».
-    - Tuberculose infirmée (UC8) : le dossier passe au statut « Non confirmé ».
-    Une seule interprétation est conservée par prescription.
+    La décision (confirmée / infirmée) est conservée au dossier à titre
+    médical : elle ne modifie plus le statut du patient, l'admission étant
+    validée par l'infirmier. Une seule interprétation est conservée par
+    prescription.
     """
     donnees = dict(donnees)
     decision = donnees.get('decision')
     if decision not in (DecisionDiagnostic.CONFIRMEE, DecisionDiagnostic.INFIRMEE):
         raise ValueError("Décision de diagnostic invalide.")
 
-    with transaction.atomic():
-        interpretation, _ = InterpretationResultat.objects.update_or_create(
-            prescription=prescription,
-            defaults={
-                'medecin': medecin,
-                'observations': donnees.get('observations', ''),
-                'interpretation': donnees.get('interpretation', ''),
-                'decision': decision,
-            },
-        )
-        patient = prescription.patient
-        patient.statut = (
-            StatutDossier.CONFIRME
-            if decision == DecisionDiagnostic.CONFIRMEE
-            else StatutDossier.NON_CONFIRME
-        )
-        patient.save(update_fields=['statut'])
-        infirmiers = CustomUser.objects.filter(
-            is_active=True, role=UserRole.INFIRMIER
-        )
-        for infirmier in infirmiers:
-            Notification.objects.create(
-                destinataire=infirmier,
-                message=(
-                    f"Dossier {patient.ndp} ({patient.full_name}) "
-                    f"{'confirmé — admission à finaliser' if decision == DecisionDiagnostic.CONFIRMEE else 'non confirmé — admission annulée'}."
-                ),
-                url=f"/patients/{patient.pk}/",
-            )
-        return interpretation
+    interpretation, _ = InterpretationResultat.objects.update_or_create(
+        prescription=prescription,
+        defaults={
+            'medecin': medecin,
+            'observations': donnees.get('observations', ''),
+            'interpretation': donnees.get('interpretation', ''),
+            'decision': decision,
+        },
+    )
+    return interpretation
 
 
 # ---------------------------------------------------------------------------
@@ -240,26 +269,13 @@ CHAMPS_ADMINISTRATIFS = (
 )
 
 
-def admission_est_finalisable(patient):
-    """Garde-fou métier (Fonction 3).
-
-    L'infirmier ne peut compléter et finaliser l'admission que si le
-    diagnostic a été confirmé et les résultats de laboratoire saisis.
-    """
-    if patient.statut != StatutDossier.CONFIRME:
-        return False
-    return ResultatLabo.objects.filter(
-        prescription__patient=patient,
-        statut=StatutResultat.VALIDE,
-    ).exists()
-
-
 def finaliser_admission(*, infirmier, patient, donnees):
     """US3.1 / UC1 — Finalise l'admission administrative du patient.
 
-    Complète les données administratives obligatoires, contrôle les
-    doublons (Nom + Prénom + Date de naissance) puis marque l'admission
-    comme finalisée avec l'horodatage et l'infirmier auteur.
+    L'infirmier complète les données administratives obligatoires, contrôle
+    les doublons (Nom + Prénom + Date de naissance) puis valide
+    l'admission : le dossier passe au statut « En traitement » — le schéma
+    thérapeutique ayant déjà été prescrit à la création du dossier.
     """
     from django.core.exceptions import ValidationError
 
@@ -298,6 +314,7 @@ def finaliser_admission(*, infirmier, patient, donnees):
                 setattr(patient, champ, valeur)
         patient.date_admission = timezone.now()
         patient.admise_par = infirmier
+        patient.statut = StatutDossier.EN_TRAITEMENT
         patient.save()
     return patient, False
 
@@ -445,68 +462,6 @@ def mois_traitement_libelle(traitement, mois):
     return f"Mois {mois} — {mois_cal:02d}/{annee}"
 
 
-def creer_traitement(*, medecin, patient, donnees):
-    """US4.1 — Crée la fiche de traitement antituberculeux du patient.
-
-    Une seule fiche de traitement par patient. Le schéma est choisi
-    automatiquement selon le type de cas (nouveau cas → 2 RHZE / 4 RH ;
-    rechute → retraitement Catégorie II) et la posologie journalière est
-    calculée à partir du poids.
-    """
-    from django.core.exceptions import ValidationError
-
-    if hasattr(patient, 'traitement'):
-        raise ValidationError("Ce patient a déjà une fiche de traitement.")
-
-    type_cas = donnees.get('type_cas')
-    if type_cas not in TypeCasTraitement.values:
-        raise ValidationError("Type de cas de tuberculose invalide.")
-
-    categorie = (
-        CategorieSchemaTraitement.RETRAITEMENT
-        if type_cas == TypeCasTraitement.RECHUTE
-        else CategorieSchemaTraitement.NOUVEAU_CAS
-    )
-    schema = (
-        SchemaTraitement.objects
-        .filter(categorie=categorie, actif=True)
-        .order_by('ordre')
-        .first()
-    )
-    if schema is None:
-        raise ValidationError("Aucun schéma thérapeutique applicable n'est disponible.")
-
-    poids = donnees.get('poids_initial')
-    if poids in (None, ''):
-        poids = patient.poids
-    posologie = calculer_posologie(poids)
-
-    with transaction.atomic():
-        traitement = Traitement(
-            patient=patient,
-            schema=schema,
-            type_cas=type_cas,
-            date_debut=donnees['date_debut'],
-            poids_initial=poids,
-            posologie_jour=posologie,
-            unite_traitement=donnees.get('unite_traitement') or 'HGR Makala',
-            notes=donnees.get('notes', ''),
-            cree_par=medecin,
-        )
-        traitement.save()
-
-    for infirmier in CustomUser.objects.filter(is_active=True, role=UserRole.INFIRMIER):
-        Notification.objects.create(
-            destinataire=infirmier,
-            message=(
-                f"Traitement débuté : {patient.ndp} ({patient.full_name}) — "
-                f"{schema.code}, posologie {posologie or 'à adapter'} c/j."
-            ),
-            url=f"/patients/{patient.pk}/traitement/",
-        )
-    return traitement
-
-
 def enregistrer_observance(*, utilisateur, traitement, mois, statuts_par_jour):
     """US4.1 — Enregistre la grille d'observance d'un mois (codes X, -, O, ↑).
 
@@ -560,6 +515,18 @@ def enregistrer_visite(*, auteur, traitement, donnees):
             patient = traitement.patient
             patient.poids = visite.poids
             patient.save(update_fields=['poids'])
+        # Notifier le médecin prescripteur de chaque visite de contrôle (point 13)
+        medecin = traitement.cree_par
+        if medecin and medecin.is_active:
+            Notification.objects.create(
+                destinataire=medecin,
+                message=(
+                    f"Visite de contrôle enregistrée : {traitement.patient.ndp} "
+                    f"({traitement.patient.full_name}) le {visite.date:%d/%m/%Y} "
+                    f"par {auteur.titled_name}."
+                ),
+                url=f"/patients/{traitement.patient.pk}/traitement/",
+            )
     return visite
 
 
@@ -716,10 +683,11 @@ def detecter_perdus_de_vue(aujourdhui=None):
 
 
 def cloturer_traitement(*, medecin, traitement, issue_finale, date_issue=None):
-    """Registre de cas — Issue finale et clôture (archive en lecture seule).
+    """Clôture du dossier — issue finale évaluée par le médecin.
 
-    La fiche devient en lecture seule ; ni observance, ni visite ni rendez-vous
-    ne peuvent plus être modifiés.
+    La fiche devient en lecture seule ; ni observance, ni visite ni
+    rendez-vous ne peuvent plus être modifiés. Le statut du patient est
+    synchronisé : « Guéri » si l'issue est la guérison, sinon « Clôturé ».
     """
     from django.core.exceptions import ValidationError
 
@@ -734,6 +702,13 @@ def cloturer_traitement(*, medecin, traitement, issue_finale, date_issue=None):
         traitement.issue_decision_date = date_issue or timezone.localdate()
         traitement.cloture_par = medecin
         traitement.save()
+        patient = traitement.patient
+        patient.statut = (
+            StatutDossier.GUERI
+            if issue_finale == IssueFinale.GUERI
+            else StatutDossier.CLOTURE
+        )
+        patient.save(update_fields=['statut'])
 
     for infirmier in CustomUser.objects.filter(is_active=True, role=UserRole.INFIRMIER):
         Notification.objects.create(
@@ -795,26 +770,3 @@ def resultat_controle(patient, code_mois):
     if prescription is None:
         return None, None
     return prescription, prescription.resultat_valide
-
-
-def statut_vih_patient(patient):
-    """Retourne (libellé, est_positif) du statut VIH le plus récent du patient."""
-    resultat = (
-        ResultatLabo.objects
-        .filter(prescription__patient=patient, statut=StatutResultat.VALIDE)
-        .exclude(resultat_vih='')
-        .order_by('-cree_le')
-        .first()
-    )
-    if resultat is not None and resultat.resultat_vih:
-        return resultat.get_resultat_vih_display(), resultat.resultat_vih == 'POSITIF'
-    prescription = (
-        ExamenPrescription.objects
-        .filter(patient=patient)
-        .exclude(statut_vih='')
-        .order_by('-date_prescription')
-        .first()
-    )
-    if prescription is not None and prescription.statut_vih:
-        return prescription.get_statut_vih_display(), prescription.statut_vih == StatutVihConnu.POSITIF
-    return 'Inconnu', None

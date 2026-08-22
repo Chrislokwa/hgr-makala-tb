@@ -1,4 +1,3 @@
-import csv
 import json
 import time
 
@@ -7,8 +6,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import HttpResponse, StreamingHttpResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.http import StreamingHttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.generic import DetailView, FormView, ListView, View
 
@@ -23,7 +22,6 @@ from .forms import (
     PrescriptionExamenForm,
     RendezVousForm,
     SaisieResultatForm,
-    TraitementForm,
     VisiteSuiviForm,
 )
 from .models import (
@@ -42,7 +40,6 @@ from .models import (
     StatutResultat,
     StatutTraitement,
     Traitement,
-    TypeExamen,
 )
 from .permissions import (
     InfirmierRequiredMixin,
@@ -51,14 +48,11 @@ from .permissions import (
     PersonnelAutoriseMixin,
 )
 from .services import (
-    admission_est_finalisable,
     acquerir_verrou,
     bande_posologie_libelle,
     cloturer_traitement,
-    cohorte_guerison,
     creer_dossier_provisoire,
     creer_prescription_examen,
-    creer_traitement,
     derniere_prise,
     detecter_perdus_de_vue,
     enregistrer_interpretation,
@@ -71,9 +65,7 @@ from .services import (
     modifier_traitement,
     mois_traitement_libelle,
     programmer_rendez_vous,
-    resultat_controle,
     statut_rendez_vous,
-    statut_vih_patient,
     trouver_controle_en_attente,
     trouver_prescriptions_en_attente,
 )
@@ -86,7 +78,7 @@ class PatientListView(PersonnelAutoriseMixin, ListView):
     paginate_by = 8
 
     def get_queryset(self):
-        queryset = Patient.objects.all().order_by('-cree_le')
+        queryset = Patient.objects.select_related('cree_par').prefetch_related('traitement').all().order_by('-cree_le')
         q = self.request.GET.get('q', '').strip()
         if q:
             queryset = queryset.filter(
@@ -120,8 +112,8 @@ class PatientListView(PersonnelAutoriseMixin, ListView):
         context['patients_provisoires'] = Patient.objects.filter(
             statut=StatutDossier.PROVISOIRE
         ).count()
-        context['patients_confirmes'] = Patient.objects.filter(
-            statut=StatutDossier.CONFIRME
+        context['patients_en_traitement'] = Patient.objects.filter(
+            statut=StatutDossier.EN_TRAITEMENT
         ).count()
         return context
 
@@ -136,7 +128,8 @@ class PatientCreateView(MedecinRequiredMixin, FormView):
         return context
 
     def form_valid(self, form):
-        donnees = form.cleaned_data
+        donnees = dict(form.cleaned_data)
+        notes_traitement = donnees.pop('notes_traitement', '')
         doublon = Patient.trouver_doublon(
             donnees['nom'], donnees['prenom'], donnees['date_naissance']
         )
@@ -145,7 +138,10 @@ class PatientCreateView(MedecinRequiredMixin, FormView):
             context['doublon'] = doublon
             return self.render_to_response(context)
 
-        patient = creer_dossier_provisoire(medecin=self.request.user, donnees=donnees)
+        patient = creer_dossier_provisoire(
+            medecin=self.request.user,
+            donnees={**donnees, 'notes': notes_traitement},
+        )
         if self.request.POST.get('action') == 'prescrire':
             messages.success(
                 self.request,
@@ -163,9 +159,9 @@ class AdmissionFinaliserView(InfirmierRequiredMixin, FormView):
     """US3.1 / UC1 — Finaliser l'admission administrative d'un patient.
 
     L'infirmier complète les données administratives (Nom, Post-nom,
-    Prénom, Sexe, Date de naissance, Adresse, etc.) pour finaliser
-    l'admission définitive. Garde-fou : diagnostic confirmé ET résultats
-    de laboratoire saisis (Fonction 3).
+    Prénom, Sexe, Date de naissance, Adresse, etc.) puis valide
+    l'admission : le dossier passe au statut « En traitement », le schéma
+    thérapeutique ayant déjà été prescrit à la création du dossier.
     """
 
     template_name = 'patients/admission_confirm.html'
@@ -177,13 +173,6 @@ class AdmissionFinaliserView(InfirmierRequiredMixin, FormView):
             messages.info(
                 self.request,
                 f"L'admission du dossier {self.patient.ndp} est déjà finalisée.",
-            )
-            return redirect('patient_detail', pk=self.patient.pk)
-        if not admission_est_finalisable(self.patient):
-            messages.error(
-                self.request,
-                "L'admission ne peut être finalisée qu'une fois le diagnostic "
-                "confirmé et les résultats de laboratoire saisis.",
             )
             return redirect('patient_detail', pk=self.patient.pk)
         return super().dispatch(request, *args, **kwargs)
@@ -241,6 +230,12 @@ class PatientAdminUpdateView(InfirmierRequiredMixin, FormView):
 
     def dispatch(self, request, *args, **kwargs):
         self.patient = get_object_or_404(Patient, pk=self.kwargs['pk'])
+        if self.patient.statut == StatutDossier.PROVISOIRE:
+            messages.error(
+                request,
+                "Dossier provisoire : finalisez l'admission avant toute modification.",
+            )
+            return redirect('patient_detail', pk=self.patient.pk)
         verrou = acquerir_verrou(self.patient, request.user)
         if verrou is not None:
             messages.error(
@@ -314,10 +309,9 @@ class PatientDetailView(PersonnelAutoriseMixin, DetailView):
         # interprétation) ne sont visibles que du médecin.
         context['peut_voir_rapport_medical'] = role == 'MEDECIN'
         context['peut_finaliser_admission'] = (
-            role == 'INFIRMIER'
-            and not self.object.admission_finalisee
-            and admission_est_finalisable(self.object)
+            role == 'INFIRMIER' and not self.object.admission_finalisee
         )
+        context['is_provisoire'] = self.object.statut == StatutDossier.PROVISOIRE
         context['modifications'] = ModificationPatient.objects.filter(
             patient=self.object
         ).select_related('auteur')[:10]
@@ -326,7 +320,7 @@ class PatientDetailView(PersonnelAutoriseMixin, DetailView):
 
 
 class PrescriptionExamenCreateView(MedecinRequiredMixin, FormView):
-    template_name = 'patients/prescription_create.html'
+    template_name = 'examens/prescription_create.html'
     form_class = PrescriptionExamenForm
 
     def dispatch(self, request, *args, **kwargs):
@@ -344,14 +338,13 @@ class PrescriptionExamenCreateView(MedecinRequiredMixin, FormView):
         symptomes_respiratoires = (
             self.patient.signe_toux_persistante or self.patient.signe_hemoptysie
         )
-        vih = TypeExamen.objects.filter(code='VIH').first()
         return {
             'nature_echantillon': (
                 NatureEchantillon.PULMONAIRE if symptomes_respiratoires
                 else NatureEchantillon.EXTRA_PULMONAIRE
             ),
             'motif': MotifExamen.DIAGNOSTIC,
-            'examens': [vih.pk] if vih else [],
+            'examens': [],
             'date_prelevement': timezone.localdate(),
         }
 
@@ -373,7 +366,6 @@ class PrescriptionExamenCreateView(MedecinRequiredMixin, FormView):
                 'motif': donnees['motif'],
                 'mois_controle': donnees['mois_controle'],
                 'date_prelevement': donnees['date_prelevement'],
-                'statut_vih': donnees['statut_vih'],
                 'observations': donnees['observations'],
             },
             types_examens=donnees['examens'],
@@ -388,7 +380,7 @@ class PrescriptionExamenCreateView(MedecinRequiredMixin, FormView):
 
 class ExamenListView(LaborantinRequiredMixin, ListView):
     model = ExamenPrescription
-    template_name = 'patients/examen_list.html'
+    template_name = 'examens/examen_list.html'
     context_object_name = 'examens'
     paginate_by = 8
 
@@ -415,8 +407,8 @@ class ExamenListView(LaborantinRequiredMixin, ListView):
     def get_template_names(self):
         # Requête HTMX (recherche / filtrage asynchrones) : fragment uniquement.
         if self.request.headers.get('HX-Request') == 'true':
-            return ['patients/examen_list_results.html']
-        return ['patients/examen_list.html']
+            return ['examens/examen_list_results.html']
+        return ['examens/examen_list.html']
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -435,7 +427,7 @@ class ExamenListView(LaborantinRequiredMixin, ListView):
 
 class ExamenDetailView(LaborantinRequiredMixin, DetailView):
     model = ExamenPrescription
-    template_name = 'patients/examen_detail.html'
+    template_name = 'examens/examen_detail.html'
     context_object_name = 'demande'
 
     def get_context_data(self, **kwargs):
@@ -452,7 +444,7 @@ class ExamenDetailView(LaborantinRequiredMixin, DetailView):
 
 
 class SaisieResultatView(LaborantinRequiredMixin, FormView):
-    template_name = 'patients/resultat_form.html'
+    template_name = 'examens/resultat_form.html'
     form_class = SaisieResultatForm
 
     def dispatch(self, request, *args, **kwargs):
@@ -487,26 +479,17 @@ class SaisieResultatView(LaborantinRequiredMixin, FormView):
         }
 
     def form_valid(self, form):
-        valider = self.request.POST.get('action') == 'valider'
         donnees = form.cleaned_data
         enregistrer_resultats(
             laborantin=self.request.user,
             prescription=self.demande,
             donnees=donnees,
-            valider=valider,
         )
-        if valider:
-            messages.success(
-                self.request,
-                f"Résultats validés et mis à disposition du médecin "
-                f"({self.demande.numero_demande}).",
-            )
-        else:
-            messages.info(
-                self.request,
-                f"Résultats enregistrés en brouillon "
-                f"({self.demande.numero_demande}).",
-            )
+        messages.success(
+            self.request,
+            f"Résultats validés et mis à disposition du médecin "
+            f"({self.demande.numero_demande}).",
+        )
         return redirect('examen_detail', pk=self.demande.pk)
 
 
@@ -519,7 +502,7 @@ class ConsultationResultatView(MedecinRequiredMixin, DetailView):
     """
 
     model = ExamenPrescription
-    template_name = 'patients/consultation_resultat.html'
+    template_name = 'examens/consultation_resultat.html'
     context_object_name = 'demande'
 
     def dispatch(self, request, *args, **kwargs):
@@ -550,7 +533,7 @@ class InterpretationResultatView(MedecinRequiredMixin, FormView):
     d'extension « Décision de diagnostic » (UC7 / UC8 selon la décision).
     """
 
-    template_name = 'patients/interpretation_form.html'
+    template_name = 'examens/interpretation_form.html'
     form_class = InterpretationForm
 
     def dispatch(self, request, *args, **kwargs):
@@ -614,9 +597,52 @@ class InterpretationResultatView(MedecinRequiredMixin, FormView):
                         prescription_pk=self.demande.pk)
 
 
+class NotificationOpenView(LoginRequiredMixin, View):
+    """Ouvre une notification et la marque comme lue directement au clic."""
+
+    def get(self, request, *args, **kwargs):
+        notification = get_object_or_404(
+            Notification, pk=self.kwargs['pk'], destinataire=request.user
+        )
+        if not notification.lu:
+            notification.lu = True
+            notification.save(update_fields=['lu'])
+        target = notification.url or '/notification/'
+        return redirect(target)
+
+
 class NotificationMarquerLuesView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         request.user.notifications.filter(lu=False).update(lu=True)
+        return redirect('notification')
+
+
+class NotificationSupprimerView(LoginRequiredMixin, View):
+    """Supprime une seule notification de l'utilisateur connecté."""
+
+    def post(self, request, *args, **kwargs):
+        notification = get_object_or_404(
+            Notification, pk=self.kwargs['pk'], destinataire=request.user
+        )
+        notification.delete()
+        messages.success(request, "Notification supprimée.")
+        return redirect('notification')
+
+
+class NotificationViderView(LoginRequiredMixin, View):
+    """Vide toutes les notifications après confirmation explicite."""
+
+    template_name = 'authentication/notifications_vider.html'
+
+    def get(self, request, *args, **kwargs):
+        return render(request, self.template_name, {
+            'active_nav': 'notifications',
+            'total': request.user.notifications.count(),
+        })
+
+    def post(self, request, *args, **kwargs):
+        request.user.notifications.all().delete()
+        messages.success(request, "Toutes vos notifications ont été supprimées.")
         return redirect('notification')
 
 
@@ -656,6 +682,7 @@ class NotificationSseView(LoginRequiredMixin, View):
                     'url': notif.url or '/notification/',
                     'cree_le': notif.cree_le.isoformat(),
                     'non_lues': user.notifications.filter(lu=False).count(),
+                    'total': user.notifications.count(),
                 }
                 yield f"event: notification\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
                 dernier_id = notif.pk
@@ -664,53 +691,8 @@ class NotificationSseView(LoginRequiredMixin, View):
 
 
 # ---------------------------------------------------------------------------
-# Epic 4 — Suivi thérapeutique (US4.1, US4.2, US4.3)
+# Epic 4 — Suivi thérapeutique (US4.1 / US4.2 / US4.3)
 # ---------------------------------------------------------------------------
-
-
-class TraitementCreateView(MedecinRequiredMixin, FormView):
-    """US4.1 — Crée la fiche de traitement antituberculeux du patient."""
-
-    template_name = 'patients/traitement_create.html'
-    form_class = TraitementForm
-
-    def dispatch(self, request, *args, **kwargs):
-        self.patient = get_object_or_404(Patient, pk=self.kwargs['pk'])
-        if hasattr(self.patient, 'traitement'):
-            messages.info(
-                self.request,
-                f"Le dossier {self.patient.ndp} a déjà une fiche de traitement.",
-            )
-            return redirect('traitement_fiche', pk=self.patient.pk)
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['patient'] = self.patient
-        return kwargs
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['active_nav'] = 'patients'
-        context['patient'] = self.patient
-        return context
-
-    def form_valid(self, form):
-        try:
-            traitement = creer_traitement(
-                medecin=self.request.user,
-                patient=self.patient,
-                donnees=form.cleaned_data,
-            )
-        except ValidationError as exc:
-            form.add_error(None, exc.message)
-            return self.form_invalid(form)
-        messages.success(
-            self.request,
-            f"Fiche de traitement créée · {traitement.schema.code} — "
-            f"posologie {traitement.posologie_jour or '≤ адаптер'} c/j.",
-        )
-        return redirect('traitement_fiche', pk=self.patient.pk)
 
 
 class FicheTraitementView(PersonnelAutoriseMixin, DetailView):
@@ -718,8 +700,15 @@ class FicheTraitementView(PersonnelAutoriseMixin, DetailView):
     suivi clinique et historique des modifications (Zone 3)."""
 
     model = Traitement
-    template_name = 'patients/traitement_fiche.html'
+    template_name = 'treatment/traitement_fiche.html'
     context_object_name = 'traitement'
+
+    def dispatch(self, request, *args, **kwargs):
+        traitement = get_object_or_404(Traitement, patient_id=self.kwargs['pk'])
+        if traitement.patient.statut == StatutDossier.PROVISOIRE:
+            messages.error(request, "Dossier provisoire : finalisez l'admission avant d'accéder à la fiche de traitement.")
+            return redirect('patient_detail', pk=traitement.patient_id)
+        return super().dispatch(request, *args, **kwargs)
 
     def get_object(self, queryset=None):
         return get_object_or_404(Traitement, patient_id=self.kwargs['pk'])
@@ -738,7 +727,6 @@ class FicheTraitementView(PersonnelAutoriseMixin, DetailView):
         context['observ_form'] = ObservanceMoisForm(
             traitement=traitement, mois=mois,
         )
-        context['visite_form'] = VisiteSuiviForm()
         context['derniere_prise'] = derniere_prise(traitement)
         context['bande_posologie'] = bande_posologie_libelle(traitement.poids_initial)
         context['visites'] = traitement.visites.select_related('cree_par')[:8]
@@ -756,14 +744,20 @@ class FicheTraitementView(PersonnelAutoriseMixin, DetailView):
         return context
 
 
-class ObservanceSaisieView(PersonnelAutoriseMixin, FormView):
-    """US4.1 — Enregistre la grille d'observance mensuelle (codes X/-/O/↑)."""
+class ObservanceSaisieView(InfirmierRequiredMixin, FormView):
+    """US4.1 — Enregistre la grille d'observance mensuelle (codes X/-/O/↑).
+
+    Le suivi thérapeutique (observance, visites) est réservé à l'infirmier.
+    """
 
     form_class = ObservanceMoisForm
     http_method_names = ['post']
 
     def dispatch(self, request, *args, **kwargs):
         self.traitement = get_object_or_404(Traitement, patient_id=self.kwargs['pk'])
+        if self.traitement.patient.statut == StatutDossier.PROVISOIRE:
+            messages.error(request, "Dossier provisoire : finalisez l'admission avant de saisir l'observance.")
+            return redirect('patient_detail', pk=self.traitement.patient_id)
         return super().dispatch(request, *args, **kwargs)
 
     def get_form_kwargs(self):
@@ -801,15 +795,31 @@ class ObservanceSaisieView(PersonnelAutoriseMixin, FormView):
         return redirect('traitement_fiche', pk=self.traitement.patient_id)
 
 
-class VisiteSuiviCreateView(PersonnelAutoriseMixin, FormView):
-    """US4.1 — Zone 3 : ajoute une visite de suivi (poids, signes d'alerte)."""
+class VisiteSuiviCreateView(InfirmierRequiredMixin, FormView):
+    """US4.1 — Visite de contrôle dans sa propre interface (point 9).
+
+    GET affiche le formulaire dédié ; POST enregistre la visite.
+    """
 
     form_class = VisiteSuiviForm
-    http_method_names = ['post']
+    template_name = 'treatment/visite_form.html'
 
     def dispatch(self, request, *args, **kwargs):
         self.traitement = get_object_or_404(Traitement, patient_id=self.kwargs['pk'])
+        if self.traitement.patient.statut == StatutDossier.PROVISOIRE:
+            messages.error(request, "Dossier provisoire : finalisez l'admission avant d'enregistrer une visite.")
+            return redirect('patient_detail', pk=self.traitement.patient_id)
+        if self.traitement.statut != StatutTraitement.EN_COURS:
+            messages.error(request, "Ce traitement est clôturé : aucune visite ne peut être ajoutée.")
+            return redirect('traitement_fiche', pk=self.traitement.patient_id)
         return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['active_nav'] = 'patients'
+        context['patient'] = self.traitement.patient
+        context['traitement'] = self.traitement
+        return context
 
     def form_valid(self, form):
         try:
@@ -836,7 +846,7 @@ class ModifierTraitementView(MedecinRequiredMixin, FormView):
     """US4.1 — Modification du traitement (Catégorie II, suspension,
     posologie) avec motif médical obligatoire et traçabilité."""
 
-    template_name = 'patients/modifier_traitement.html'
+    template_name = 'treatment/modifier_traitement.html'
     form_class = ModifierTraitementForm
 
     def dispatch(self, request, *args, **kwargs):
@@ -877,7 +887,7 @@ class BonControleView(MedecinRequiredMixin, FormView):
     """US4.2 — Bon de demande d'examen de laboratoire de contrôle
     (C2, C3, C4, C5, C6, fin de traitement)."""
 
-    template_name = 'patients/bon_controle.html'
+    template_name = 'examens/bon_controle.html'
     form_class = BonControleForm
 
     def dispatch(self, request, *args, **kwargs):
@@ -915,7 +925,6 @@ class BonControleView(MedecinRequiredMixin, FormView):
                 'motif': MotifExamen.SUIVI_CONTROLE,
                 'mois_controle': mois_controle,
                 'date_prelevement': timezone.localdate(),
-                'statut_vih': '',
                 'observations': donnees.get('observations_cliniques', ''),
             },
             types_examens=donnees['examens'],
@@ -931,12 +940,21 @@ class BonControleView(MedecinRequiredMixin, FormView):
         return self.render_to_response(self.get_context_data(form=form))
 
 
-class CarteDuMaladeView(PersonnelAutoriseMixin, DetailView):
-    """US4.3 — Carte du malade : identité, rendez-vous, résultats simples."""
+class CarteDuMaladeView(InfirmierRequiredMixin, DetailView):
+    """US4.3 — Carte du malade : identité, rendez-vous, résultats simples.
+
+    Réservée à l'infirmier (gestion des rendez-vous et carte)."""
 
     model = Patient
-    template_name = 'patients/carte_malade.html'
+    template_name = 'appointments/carte_malade.html'
     context_object_name = 'patient'
+
+    def dispatch(self, request, *args, **kwargs):
+        patient = get_object_or_404(Patient, pk=self.kwargs['pk'])
+        if patient.statut == StatutDossier.PROVISOIRE:
+            messages.error(request, "Dossier provisoire : finalisez l'admission avant d'accéder à la carte du malade.")
+            return redirect('patient_detail', pk=patient.pk)
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         detecter_perdus_de_vue()
@@ -946,7 +964,6 @@ class CarteDuMaladeView(PersonnelAutoriseMixin, DetailView):
         context['traitement'] = getattr(patient, 'traitement', None)
         context['rendez_vous'] = patient.rendez_vous.all()[:15]
         context['rdv_form'] = RendezVousForm()
-        context['statut_vih'], context['vih_positif'] = statut_vih_patient(patient)
         resultats = (
             ExamenPrescription.objects
             .filter(patient=patient, statut=StatutExamen.RESULTATS_DISPONIBLES)
@@ -958,14 +975,20 @@ class CarteDuMaladeView(PersonnelAutoriseMixin, DetailView):
         return context
 
 
-class RendezVousCreateView(PersonnelAutoriseMixin, FormView):
-    """US4.3 — Planifie un rendez-vous (agenda partagé, sans conflit)."""
+class RendezVousCreateView(InfirmierRequiredMixin, FormView):
+    """US4.3 — Planifie un rendez-vous (agenda partagé, sans conflit).
+
+    La carte du malade et ses rendez-vous sont édités par l'infirmier.
+    """
 
     form_class = RendezVousForm
     http_method_names = ['post']
 
     def dispatch(self, request, *args, **kwargs):
         self.patient = get_object_or_404(Patient, pk=self.kwargs['pk'])
+        if self.patient.statut == StatutDossier.PROVISOIRE:
+            messages.error(request, "Dossier provisoire : finalisez l'admission avant de planifier un rendez-vous.")
+            return redirect('patient_detail', pk=self.patient.pk)
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -994,8 +1017,8 @@ class RendezVousCreateView(PersonnelAutoriseMixin, FormView):
         return redirect('carte_malade', pk=self.patient.pk)
 
 
-class RendezVousStatutView(PersonnelAutoriseMixin, View):
-    """US4.3 — Marque un rendez-vous comme effectué ou annulé."""
+class RendezVousStatutView(InfirmierRequiredMixin, View):
+    """US4.3 — Marque un rendez-vous comme effectué ou annulé (infirmier)."""
 
     def post(self, request, *args, **kwargs):
         rendez_vous = get_object_or_404(RendezVous, pk=self.kwargs['pk'])
@@ -1022,168 +1045,10 @@ class RendezVousStatutView(PersonnelAutoriseMixin, View):
         return redirect('carte_malade', pk=rendez_vous.patient_id)
 
 
-class RegistreView(PersonnelAutoriseMixin, ListView):
-    """Registre de cas de tuberculose : suivi, issues et cohorte."""
-
-    model = Traitement
-    template_name = 'patients/registre.html'
-    context_object_name = 'registre'
-    paginate_by = 12
-
-    def get_queryset(self):
-        detecter_perdus_de_vue()
-        queryset = (
-            Traitement.objects.all()
-            .select_related('patient', 'schema', 'cree_par', 'cloture_par')
-        )
-        q = self.request.GET.get('q', '').strip()
-        if q:
-            queryset = queryset.filter(
-                Q(patient__ndp__icontains=q) |
-                Q(patient__nom__icontains=q) |
-                Q(patient__post_nom__icontains=q) |
-                Q(patient__prenom__icontains=q)
-            )
-        unite = self.request.GET.get('unite', '').strip()
-        if unite:
-            queryset = queryset.filter(unite_traitement=unite)
-        date_debut = self.request.GET.get('date_debut', '').strip()
-        if date_debut:
-            queryset = queryset.filter(date_debut=date_debut)
-        statut = self.request.GET.get('statut', '').strip()
-        if statut in dict(StatutTraitement.choices):
-            queryset = queryset.filter(statut=statut)
-        if statut == 'PERDU_DE_VUE':
-            queryset = queryset.filter(perdu_de_vue__isnull=False)
-        return queryset.order_by('-date_debut', '-cree_le')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        detecter_perdus_de_vue()
-        context['active_nav'] = 'registre'
-        context['q'] = self.request.GET.get('q', '').strip()
-        context['unite_filter'] = self.request.GET.get('unite', '').strip()
-        context['date_debut'] = self.request.GET.get('date_debut', '').strip()
-        context['statut_filter'] = self.request.GET.get('statut', '').strip()
-        context['statut_choices'] = [('', 'Tous les statuts')] + list(StatutTraitement.choices) + [
-            ('PERDU_DE_VUE', 'Perdu de vue (à récupérer)'),
-        ]
-        context['unites'] = (
-            Traitement.objects.values_list('unite_traitement', flat=True)
-            .distinct().order_by('unite_traitement')
-        )
-        annee = int(self.request.GET.get('annee', '') or timezone.localdate().year)
-        trimestre = int(self.request.GET.get('trimestre', '1') or 1)
-        context['cohorte'] = cohorte_guerison(annee, max(1, min(trimestre, 4)))
-        context['cohorte_annee'] = annee
-        context['cohorte_trimestre'] = max(1, min(trimestre, 4))
-
-        def _libelle_resultat(prescription, resultat):
-            if resultat is None:
-                return 'En attente'
-            parties = []
-            if resultat.echantillon_1:
-                parties.append(f"É1 {resultat.get_echantillon_1_display()}")
-            if resultat.echantillon_2:
-                parties.append(f"É2 {resultat.get_echantillon_2_display()}")
-            if resultat.resultat_genexpert:
-                parties.append(f"GX {resultat.get_resultat_genexpert_display()}")
-            return ' · '.join(parties) or resultat.get_statut_display()
-
-        resultats = {}
-        statuts_vih = {}
-        for traitement in context['registre']:
-            for code in ('C2', 'C5'):
-                prescription, resultat = resultat_controle(traitement.patient, code)
-                resultats[(traitement.pk, code)] = (
-                    prescription, _libelle_resultat(prescription, resultat)
-                )
-            statuts_vih[traitement.pk] = statut_vih_patient(traitement.patient)
-        context['resultats_controle'] = resultats
-        context['statuts_vih'] = statuts_vih
-        return context
-
-    def get_template_names(self):
-        if self.request.headers.get('HX-Request') == 'true':
-            return ['patients/registre_results.html']
-        return ['patients/registre.html']
-
-
-class RegistreExportView(PersonnelAutoriseMixin, View):
-    """Registre de cas — Export CSV (compatible tableur)."""
-
-    def get(self, request, *args, **kwargs):
-        queryset = (
-            Traitement.objects.all()
-            .select_related('patient', 'schema', 'cloture_par')
-            .order_by('-date_debut', '-cree_le')
-        )
-        q = self.request.GET.get('q', '').strip()
-        if q:
-            queryset = queryset.filter(
-                Q(patient__ndp__icontains=q) |
-                Q(patient__nom__icontains=q) |
-                Q(patient__post_nom__icontains=q) |
-                Q(patient__prenom__icontains=q)
-            )
-        unite = self.request.GET.get('unite', '').strip()
-        if unite:
-            queryset = queryset.filter(unite_traitement=unite)
-        date_debut = self.request.GET.get('date_debut', '').strip()
-        if date_debut:
-            queryset = queryset.filter(date_debut=date_debut)
-        statut = self.request.GET.get('statut', '').strip()
-        if statut in dict(StatutTraitement.choices):
-            queryset = queryset.filter(statut=statut)
-        if statut == 'PERDU_DE_VUE':
-            queryset = queryset.filter(perdu_de_vue__isnull=False)
-
-        response = HttpResponse(content_type='text/csv; charset=utf-8')
-        response['Content-Disposition'] = (
-            f'attachment; filename="registre_cas_{timezone.localdate():%Y%m%d}.csv"'
-        )
-        response.write('\ufeff')
-        writer = csv.writer(response, delimiter=';')
-        writer.writerow([
-            'NDP', 'Patient', 'Sexe', 'Âge', 'Date début', 'Type de cas',
-            'Schéma', 'Posologie (c/j)', 'Unité de traitement',
-            'Poids actuel (kg)', 'Statut VIH', 'Résultat C2', 'Résultat C5',
-            'Issue finale', 'Date issue', 'Statut', 'Date dernière prise',
-        ])
-        for traitement in queryset:
-            patient = traitement.patient
-            presc_c2, res_c2 = resultat_controle(patient, 'C2')
-            presc_c5, res_c5 = resultat_controle(patient, 'C5')
-            _lib = lambda r: (
-                'En attente' if r is None else (
-                    ' · '.join(filter(None, [
-                        f"É1 {r.get_echantillon_1_display()}" if r.echantillon_1 else '',
-                        f"É2 {r.get_echantillon_2_display()}" if r.echantillon_2 else '',
-                        f"GX {r.get_resultat_genexpert_display()}" if r.resultat_genexpert else '',
-                    ])) or r.get_statut_display()
-                )
-            )
-            vih, _ = statut_vih_patient(patient)
-            derniere = derniere_prise(traitement)
-            writer.writerow([
-                patient.ndp, patient.full_name, patient.get_sexe_display(),
-                patient.age or '', traitement.date_debut,
-                traitement.get_type_cas_display(), traitement.schema.code,
-                traitement.posologie_jour or '', traitement.unite_traitement,
-                traitement.poids_actuel or '', vih,
-                _lib(res_c2), _lib(res_c5),
-                traitement.get_issue_finale_display() if traitement.issue_finale else '',
-                f"{traitement.issue_decision_date:%d/%m/%Y}" if traitement.issue_decision_date else '',
-                traitement.get_statut_display(),
-                f"{derniere:%d/%m/%Y}" if derniere else '',
-            ])
-        return response
-
-
 class TraitementCloturerView(MedecinRequiredMixin, FormView):
-    """Registre de cas — Issue finale et clôture (archive en lecture seule)."""
+    """Issue finale et clôture du dossier (évaluées par le médecin)."""
 
-    template_name = 'patients/traitement_cloture.html'
+    template_name = 'treatment/traitement_cloture.html'
     form_class = CloturerTraitementForm
 
     def dispatch(self, request, *args, **kwargs):
@@ -1195,7 +1060,7 @@ class TraitementCloturerView(MedecinRequiredMixin, FormView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['active_nav'] = 'registre'
+        context['active_nav'] = 'patients'
         context['patient'] = self.traitement.patient
         context['traitement'] = self.traitement
         return context

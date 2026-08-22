@@ -39,7 +39,6 @@
     <div class="fcard">
         <div class="fcard-h"><h2><i class="user outline icon"></i>Patient et nature de l'échantillon</h2></div>
         <div class="ro-zone">
-            <span class="avatar lg" style="{{ patient.avatar_style }}">{{ patient.initiales }}</span>
             <div class="ro-id">
                 <strong>{{ patient.full_name }}</strong>
                 <span>{{ patient.get_sexe_display() }} · {{ patient.age }} ans</span>
@@ -90,20 +89,13 @@
                 {{ form.examens }}
             </div>
             {% if form.examens.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.examens.errors[0] }}</div>{% endif %}
-            <div class="form-note" style="margin-top:8px"><i class="info circle icon"></i>La bacilloscopie comprend 2 échantillons. Le test VIH est pré-coché pour tout patient suspect (politique nationale).</div>
+            <div class="form-note" style="margin-top:8px"><i class="info circle icon"></i>La bacilloscopie comprend 2 échantillons : un prélevé le jour J, un le lendemain matin.</div>
         </div>
 
-        <div class="grid three">
-            <div class="field {% if form.date_prelevement.errors %}error{% endif %}">
-                <label for="id_date_prelevement">{{ form.date_prelevement.label }} *</label>
-                {{ form.date_prelevement }}
-                {% if form.date_prelevement.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.date_prelevement.errors[0] }}</div>{% endif %}
-            </div>
-            <div class="field">
-                <label for="id_statut_vih">{{ form.statut_vih.label }}</label>
-                {{ form.statut_vih }}
-                {% if form.statut_vih.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.statut_vih.errors[0] }}</div>{% endif %}
-            </div>
+        <div class="field {% if form.date_prelevement.errors %}error{% endif %}" style="max-width:300px">
+            <label for="id_date_prelevement">{{ form.date_prelevement.label }} *</label>
+            {{ form.date_prelevement }}
+            {% if form.date_prelevement.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.date_prelevement.errors[0] }}</div>{% endif %}
         </div>
     </div>
 

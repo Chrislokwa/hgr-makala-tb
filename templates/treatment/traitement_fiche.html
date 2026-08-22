@@ -10,11 +10,14 @@
         <p class="vsub">{{ patient.ndp }} · {{ patient.full_name }} — {{ traitement.schema.code }}</p>
     </div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        {% if request.user.role == 'INFIRMIER' %}
         <a href="{{ url('carte_malade', pk=patient.pk) }}" class="ui basic button"><i class="id card outline icon"></i>Carte du malade</a>
+        {% endif %}
         <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic button"><i class="arrow left icon"></i>Dossier</a>
         {% if request.user.role == 'MEDECIN' and traitement.est_en_cours %}
         <a href="{{ url('bon_controle', pk=patient.pk) }}" class="ui teal button"><i class="lab icon"></i>Bon de contrôle</a>
         <a href="{{ url('traitement_modifier', pk=patient.pk) }}" class="ui primary button"><i class="edit outline icon"></i>Modifier le traitement</a>
+        <a href="{{ url('traitement_cloturer', pk=patient.pk) }}" class="ui basic button"><i class="archive icon"></i>Clôturer</a>
         {% endif %}
     </div>
 </div>
@@ -91,7 +94,7 @@
         <span style="align-self:center; font-size:13px; color:var(--ink2)">Mois {{ mois }} / {{ total_mois }}</span>
     </div>
 
-    {% if traitement.est_en_cours %}
+    {% if traitement.est_en_cours and request.user.role == 'INFIRMIER' %}
     <form method="post" action="{{ url('traitement_observance', pk=patient.pk) }}">
         {{ csrf_input }}
         <input type="hidden" name="mois" value="{{ mois }}">
@@ -134,6 +137,9 @@
             </tbody>
         </table>
     </div>
+    {% if traitement.est_en_cours and request.user.role == 'MEDECIN' %}
+    <p class="muted" style="margin-top:8px; font-size:13px"><i class="info circle icon"></i>Observance consultable — la saisie est réservée à l'infirmier.</p>
+    {% endif %}
     {% endif %}
 
     <p class="form-note" style="margin-top:10px"><i class="info circle icon"></i>Dernière prise enregistrée : {% if derniere_prise %}{{ derniere_prise|date_fr }}{% else %}aucune{% endif %}.</p>
@@ -188,43 +194,12 @@
     <p class="muted">Aucune visite de suivi enregistrée.</p>
     {% endif %}
 
-    {% if traitement.est_en_cours %}
-    <form class="ui form" method="post" action="{{ url('traitement_visite', pk=patient.pk) }}" novalidate style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line)">
-        {{ csrf_input }}
-        {% if visite_form.non_field_errors() %}
-        <div class="ui negative message">{{ visite_form.non_field_errors() }}</div>
-        {% endif %}
-        <div class="grid three">
-            <div class="field {% if visite_form.date.errors %}error{% endif %}">
-                <label for="id_date">{{ visite_form.date.label }}</label>
-                {{ visite_form.date }}
-                {% if visite_form.date.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ visite_form.date.errors[0] }}</div>{% endif %}
-            </div>
-            <div class="field {% if visite_form.poids.errors %}error{% endif %}">
-                <label for="id_poids">{{ visite_form.poids.label }}</label>
-                {{ visite_form.poids }}
-            </div>
-        </div>
-        <div class="grid four" style="margin-top:10px">
-            <div class="field"><label class="ui checkbox">{{ visite_form.troubles_visuels }}&nbsp;{{ visite_form.troubles_visuels.label }}</label></div>
-            <div class="field"><label class="ui checkbox">{{ visite_form.jaunisse }}&nbsp;{{ visite_form.jaunisse.label }}</label></div>
-            <div class="field"><label class="ui checkbox">{{ visite_form.eruption_cutanee }}&nbsp;{{ visite_form.eruption_cutanee.label }}</label></div>
-            <div class="field"><label class="ui checkbox">{{ visite_form.vertiges }}&nbsp;{{ visite_form.vertiges.label }}</label></div>
-        </div>
-        <div class="grid two" style="margin-top:10px">
-            <div class="field">
-                <label for="id_autres_effets">{{ visite_form.autres_effets.label }}</label>
-                {{ visite_form.autres_effets }}
-            </div>
-            <div class="field">
-                <label for="id_observations">{{ visite_form.observations.label }}</label>
-                {{ visite_form.observations }}
-            </div>
-        </div>
-        <div style="display:flex; justify-content:flex-end; margin-top:8px;">
-            <button type="submit" class="ui teal button"><i class="plus icon"></i>Ajouter la visite</button>
-        </div>
-    </form>
+    {% if traitement.est_en_cours and request.user.role == 'INFIRMIER' %}
+    <div style="display:flex; justify-content:flex-end; margin-top:16px; padding-top:14px; border-top:1px solid var(--line)">
+        <a href="{{ url('traitement_visite', pk=patient.pk) }}" class="ui teal button"><i class="plus icon"></i>Enregistrer une visite de contrôle</a>
+    </div>
+    {% elif traitement.est_en_cours and request.user.role == 'MEDECIN' %}
+    <p class="muted" style="margin-top:14px; font-size:13px"><i class="info circle icon"></i>Le suivi et la prise en charge sont assurés par l'infirmier.</p>
     {% endif %}
 </div>
 
@@ -273,4 +248,35 @@
     <p>{{ traitement.notes }}</p>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block app_js %}
+<script>
+(function() {
+    function colorObs(sel) {
+        sel.style.background = '';
+        sel.style.color = '';
+        sel.style.fontWeight = '600';
+        const v = sel.value;
+        if (v === 'X' || v === 'J' || v === '-') {
+            sel.style.background = '#e3f2e6';
+            sel.style.color = '#176b33';
+            sel.style.borderRadius = '4px';
+        } else if (v === 'O') {
+            sel.style.background = '#fbe9e7';
+            sel.style.color = '#b3261e';
+            sel.style.borderRadius = '4px';
+        }
+        // also color the td
+        const td = sel.closest('td');
+        if (td) {
+            td.style.background = sel.style.background;
+        }
+    }
+    document.querySelectorAll('.obs-sel').forEach(function(sel) {
+        colorObs(sel);
+        sel.addEventListener('change', function() { colorObs(sel); });
+    });
+})();
+</script>
 {% endblock %}

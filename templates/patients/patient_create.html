@@ -7,8 +7,9 @@
     <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
     <div style="flex:1">
         <h1 class="vtitle">Nouveau dossier patient</h1>
-        <p class="vsub">Ouverture d'un dossier provisoire avant confirmation du diagnostic</p>
+        <p class="vsub">Ouverture d'un dossier provisoire avec prescription du traitement</p>
     </div>
+    <a href="{{ url('patient_list') }}" class="ui basic button"><i class="arrow left icon"></i>Retour à la liste</a>
 </div>
 
 {% if doublon %}
@@ -102,8 +103,8 @@
                     {% endif %}
                     {% endfor %}
                 </div>
-                <div class="field" style="margin-top:10px">
-                    <label for="id_autres_comorbidites">{{ form.autres_comorbidites.label }}</label>
+                <div class="field" id="field_autres_comorbidites" style="margin-top:10px" {% if not form.comorb_autre.value() %}hidden{% endif %}>
+                    <label for="id_autres_comorbidites">{{ form.autres_comorbidites.label }} *</label>
                     {{ form.autres_comorbidites }}
                     {% if form.autres_comorbidites.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.autres_comorbidites.errors[0] }}</div>{% endif %}
                 </div>
@@ -116,10 +117,62 @@
         </div>
     </div>
 
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="pills icon"></i>Traitement antituberculeux</h2></div>
+        <div class="form-note" style="margin-bottom:12px"><i class="info circle icon"></i>Le schéma thérapeutique est prescrit dès la création du dossier ; la posologie (comprimés/jour) est calculée automatiquement selon le poids.</div>
+        <div class="grid three">
+            <div class="field {% if form.type_cas.errors %}error{% endif %}">
+                <label>{{ form.type_cas.label }}</label>
+                <div class="radio-list">
+                    {{ form.type_cas }}
+                </div>
+                {% if form.type_cas.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.type_cas.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field {% if form.date_debut.errors %}error{% endif %}">
+                <label for="id_date_debut">{{ form.date_debut.label }}</label>
+                {{ form.date_debut }}
+                {% if form.date_debut.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.date_debut.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field {% if form.unite_traitement.errors %}error{% endif %}">
+                <label for="id_unite_traitement">{{ form.unite_traitement.label }}</label>
+                {{ form.unite_traitement }}
+                {% if form.unite_traitement.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.unite_traitement.errors[0] }}</div>{% endif %}
+            </div>
+        </div>
+        <div class="field">
+            <label for="id_notes_traitement">{{ form.notes_traitement.label }}</label>
+            {{ form.notes_traitement }}
+            {% if form.notes_traitement.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.notes_traitement.errors[0] }}</div>{% endif %}
+        </div>
+    </div>
+
     <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; margin-top:18px;">
         <a href="{{ url('patient_list') }}" class="ui basic button">Annuler</a>
         <button type="submit" class="ui primary button"><i class="save icon"></i>Enregistrer le dossier</button>
         <button type="submit" name="action" value="prescrire" class="ui teal button"><i class="clipboard list icon"></i>Enregistrer et prescrire l'examen</button>
     </div>
 </form>
+{% endblock %}
+
+{% block app_js %}
+<script>
+(function() {
+    const cb = document.getElementById('id_comorb_autre');
+    const field = document.getElementById('field_autres_comorbidites');
+    const input = document.getElementById('id_autres_comorbidites');
+    if (!cb || !field || !input) return;
+    function toggle() {
+        if (cb.checked) {
+            field.hidden = false;
+            input.required = true;
+        } else {
+            field.hidden = true;
+            input.required = false;
+            input.value = '';
+        }
+    }
+    cb.addEventListener('change', toggle);
+    toggle();
+})();
+</script>
 {% endblock %}

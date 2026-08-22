@@ -12,7 +12,11 @@
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <a href="{{ url('patient_detail', pk=demande.patient.pk) }}" class="ui basic button"><i class="folder open icon"></i>Dossier</a>
         {% if resultat %}
-        <a href="{{ url('interpretation_resultat', pk=demande.patient.pk, prescription_pk=demande.pk) }}" class="ui primary button"><i class="stethoscope icon"></i>Interpréter les résultats</a>
+            {% if interpretation %}
+            <a href="{{ url('interpretation_resultat', pk=demande.patient.pk, prescription_pk=demande.pk) }}" class="ui primary button"><i class="edit outline icon"></i>Modifier l'interprétation</a>
+            {% else %}
+            <a href="{{ url('interpretation_resultat', pk=demande.patient.pk, prescription_pk=demande.pk) }}" class="ui primary button"><i class="stethoscope icon"></i>Interpréter les résultats</a>
+            {% endif %}
         {% endif %}
     </div>
 </div>
@@ -21,7 +25,6 @@
 <div class="fcard">
     <div class="fcard-h"><h2><i class="clipboard list icon"></i>Demande du médecin</h2></div>
     <div class="ro-zone">
-        <span class="avatar lg" style="{{ demande.patient.avatar_style }}">{{ demande.patient.initiales }}</span>
         <div class="ro-id">
             <strong>{{ demande.patient.full_name }}</strong>
             <span>{{ demande.patient.get_sexe_display() }} · {{ demande.patient.age }} ans · {{ demande.patient.ndp }}</span>
@@ -43,10 +46,6 @@
             <div class="ro-t">Motif</div>
             <div class="ro-s">{{ demande.get_motif_display() }}{% if demande.mois_controle %} · {{ demande.get_mois_controle_display() }}{% endif %}</div>
         </div>
-        <div class="robox">
-            <div class="ro-t">Statut VIH connu</div>
-            <div class="ro-s">{{ demande.get_statut_vih_display()|default('Non renseigné') }}</div>
-        </div>
     </div>
 </div>
 
@@ -61,19 +60,16 @@
             {% if resultat.date_lecture %}<span>Lecture des lames : {{ resultat.date_lecture|date_fr }}</span>{% endif %}
         </div>
         {% if resultat.date_reception %}
-        <div class="result-grid">
-            <div class="result-cell"><span>Date de réception</span><strong>{{ resultat.date_reception|date_fr }}</strong></div>
-            <div class="result-cell"><span>Apparence</span><strong>{{ resultat.get_apparence_display() }}</strong></div>
+        <div class="spec-list">
+            <div class="spec-row"><span class="spec-t">Date de réception</span><strong class="spec-v">{{ resultat.date_reception|date_fr }}</strong></div>
+            <div class="spec-row"><span class="spec-t">Apparence</span><strong class="spec-v">{{ resultat.get_apparence_display() }}</strong></div>
             {% if resultat.echantillon_1 or resultat.echantillon_2 %}
-            <div class="result-cell"><span>Échantillon 1 (jour J)</span><strong class="{% if resultat.echantillon_1 in resultat.BAAR_POSITIFS %}pos{% endif %}">{{ resultat.get_echantillon_1_display() }}</strong></div>
-            <div class="result-cell"><span>Échantillon 2 (lendemain)</span><strong class="{% if resultat.echantillon_2 in resultat.BAAR_POSITIFS %}pos{% endif %}">{{ resultat.get_echantillon_2_display() }}</strong></div>
-            <div class="result-cell"><span>Coloration</span><strong>{{ resultat.get_technique_coloration_display() }}</strong></div>
+            <div class="spec-row"><span class="spec-t">Échantillon 1 (jour J)</span><strong class="spec-v {% if resultat.echantillon_1 in resultat.BAAR_POSITIFS %}pos{% endif %}">{{ resultat.get_echantillon_1_display() }}</strong></div>
+            <div class="spec-row"><span class="spec-t">Échantillon 2 (lendemain)</span><strong class="spec-v {% if resultat.echantillon_2 in resultat.BAAR_POSITIFS %}pos{% endif %}">{{ resultat.get_echantillon_2_display() }}</strong></div>
+            <div class="spec-row"><span class="spec-t">Coloration</span><strong class="spec-v">{{ resultat.get_technique_coloration_display() }}</strong></div>
             {% endif %}
             {% if resultat.resultat_genexpert %}
-            <div class="result-cell"><span>GeneXpert</span><strong class="{% if resultat.resultat_genexpert == 'MTB_PLUS_RIF_PLUS' or resultat.resultat_genexpert == 'MTB_PLUS_RIF_MOINS' or resultat.resultat_genexpert == 'MTB_MOINS_RIF_PLUS' %}pos{% endif %}">{{ resultat.get_resultat_genexpert_display() }}</strong></div>
-            {% endif %}
-            {% if resultat.resultat_vih %}
-            <div class="result-cell"><span>Test VIH</span><strong class="{% if resultat.resultat_vih == 'POSITIF' %}pos{% endif %}">{{ resultat.get_resultat_vih_display() }}</strong></div>
+            <div class="spec-row"><span class="spec-t">GeneXpert</span><strong class="spec-v {% if resultat.resultat_genexpert == 'MTB_PLUS_RIF_PLUS' or resultat.resultat_genexpert == 'MTB_PLUS_RIF_MOINS' or resultat.resultat_genexpert == 'MTB_MOINS_RIF_PLUS' %}pos{% endif %}">{{ resultat.get_resultat_genexpert_display() }}</strong></div>
             {% endif %}
         </div>
         {% endif %}
@@ -89,7 +85,7 @@
         <i class="hourglass half icon"></i>
         <div style="flex:1;min-width:0">
             <strong>Résultats en attente</strong>
-            <p>Les analyses n'ont pas encore été validées par le laboratoire. Revenez dès que la demande indique « Résultats disponibles ».</p>
+            <p>Les analyses n'ont pas encore été validées par le laboratoire. Revenez dès que la demande indique « Disponible ».</p>
         </div>
     </div>
     {% endif %}
@@ -113,6 +109,9 @@
         <div class="robox" style="margin-top:8px">
             <div class="ro-t">Interprétation</div>
             <div class="ro-s">{{ interpretation.interpretation }}</div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin-top:10px;">
+            <a href="{{ url('interpretation_resultat', pk=demande.patient.pk, prescription_pk=demande.pk) }}" class="ui basic button"><i class="edit outline icon"></i>Modifier l'interprétation</a>
         </div>
     </div>
     {% else %}

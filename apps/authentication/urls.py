@@ -18,7 +18,7 @@ urlpatterns = [
     path('', RedirectView.as_view(pattern_name='login', permanent=False)),
     path('login/', CustomLoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(next_page='login'), name='logout'),
-    path('dashboard/', DashboardView.as_view(), name='dashboard'),
+    path('notification/', DashboardView.as_view(), name='notification'),
 
     # Phase 2 & 3 : Réinitialisation mot de passe
     path('password-reset/', PasswordResetView.as_view(
@@ -43,7 +43,7 @@ urlpatterns = [
     # Phase 4.6 : Modification mot de passe
     path('password-change/', PasswordChangeView.as_view(
         template_name='authentication/password_change.html',
-        success_url=reverse_lazy('dashboard'),
+        success_url=reverse_lazy('notification'),
         form_class=CustomPasswordChangeForm,
     ), name='password_change'),
 ]

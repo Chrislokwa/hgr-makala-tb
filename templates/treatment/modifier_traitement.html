@@ -1,0 +1,99 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Modifier le traitement — {{ patient.full_name }} · Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Modifier le traitement</h1>
+        <p class="vsub">{{ patient.ndp }} — {{ traitement.schema.code }}</p>
+    </div>
+    <a href="{{ url('traitement_fiche', pk=patient.pk) }}" class="ui basic button"><i class="arrow left icon"></i>Retour à la fiche</a>
+</div>
+
+<div class="notice">
+    <i class="info circle icon"></i>
+    <div>
+        <strong>Traitement en cours</strong>
+        <p>{{ traitement.schema.code }} · posologie {% if traitement.posologie_jour %}{{ traitement.posologie_jour }} comprimés/jour{% else %}à adapter{% endif %} · bande : {{ bande_posologie or '—' }}. Toute modification est historisée avec son motif médical.</p>
+    </div>
+</div>
+
+<form class="ui form" method="post" novalidate>
+    {{ csrf_input }}
+    {% if form.non_field_errors() %}
+    <div class="ui negative message">{{ form.non_field_errors() }}</div>
+    {% endif %}
+
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="edit outline icon"></i>Type de modification</h2></div>
+        <div class="field {% if form.type_modification.errors %}error{% endif %}">
+            <div class="radio-list">
+                {{ form.type_modification }}
+            </div>
+            {% if form.type_modification.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.type_modification.errors[0] }}</div>{% endif %}
+        </div>
+
+        <div class="field {% if form.motif_medical.errors %}error{% endif %}">
+            <label for="id_motif_medical">{{ form.motif_medical.label }}</label>
+            {{ form.motif_medical }}
+            {% if form.motif_medical.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.motif_medical.errors[0] }}</div>{% endif %}
+        </div>
+    </div>
+
+    <div class="fcard" id="blocCatII" hidden data-tipo="CATEGORIE_II">
+        <div class="fcard-h"><h2><i class="retweet icon"></i>Passage en Catégorie II</h2></div>
+        <div class="field {% if form.nouveau_schema.errors %}error{% endif %}" style="max-width:420px">
+            <label for="id_nouveau_schema">{{ form.nouveau_schema.label }}</label>
+            {{ form.nouveau_schema }}
+            <div class="form-note">Le schéma de retraitement sera appliqué et la posologie recalculée selon le poids actuel.</div>
+        </div>
+    </div>
+
+    <div class="fcard" id="blocSuspension" hidden data-tipo="SUSPENSION">
+        <div class="fcard-h"><h2><i class="ban icon"></i>Suspension d'un médicament</h2></div>
+        <div class="field {% if form.medicament_suspendu.errors %}error{% endif %}" style="max-width:320px">
+            <label for="id_medicament_suspendu">{{ form.medicament_suspendu.label }}</label>
+            {{ form.medicament_suspendu }}
+        </div>
+    </div>
+
+    <div class="fcard" id="blocPosologie" hidden data-tipo="POSOLOGIE">
+        <div class="fcard-h"><h2><i class="weight icon"></i>Changement de posologie</h2></div>
+        <div class="field {% if form.nouvelle_posologie_jour.errors %}error{% endif %}" style="max-width:320px">
+            <label for="id_nouvelle_posologie_jour">{{ form.nouvelle_posologie_jour.label }}</label>
+            {{ form.nouvelle_posologie_jour }}
+            <div class="form-note">Posologie actuelle : {% if traitement.posologie_jour %}{{ traitement.posologie_jour }} comprimés/jour{% else %}à adapter{% endif %}.</div>
+        </div>
+    </div>
+
+    <div class="fcard">
+        <div class="field">
+            <label for="id_description">{{ form.description.label }}</label>
+            {{ form.description }}
+        </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; margin-top:18px;">
+        <a href="{{ url('traitement_fiche', pk=patient.pk) }}" class="ui basic button">Annuler</a>
+        <button type="submit" class="ui primary button"><i class="save icon"></i>Enregistrer la modification</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block app_js %}
+<script>
+(function() {
+    const radios = document.querySelectorAll('input[name="type_modification"]');
+    function toggleBlocs() {
+        const checked = document.querySelector('input[name="type_modification"]:checked');
+        document.querySelectorAll('[data-tipo]').forEach(b => {
+            b.hidden = !(checked && checked.value === b.dataset.tipo);
+        });
+    }
+    radios.forEach(r => r.addEventListener('change', toggleBlocs));
+    toggleBlocs();
+})();
+</script>
+{% endblock %}

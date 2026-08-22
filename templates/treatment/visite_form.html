@@ -1,0 +1,62 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Nouvelle visite de contrôle — {{ patient.full_name }} · Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Enregistrer une visite de contrôle</h1>
+        <p class="vsub">{{ patient.ndp }} · {{ patient.full_name }} — {{ traitement.schema.code }}</p>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a href="{{ url('traitement_fiche', pk=patient.pk) }}" class="ui basic button"><i class="arrow left icon"></i>Fiche de traitement</a>
+        <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic button"><i class="folder open icon"></i>Dossier</a>
+    </div>
+</div>
+
+<div class="fcard">
+    <div class="fcard-h"><h2><i class="weight icon"></i>Visite de suivi clinique</h2></div>
+    <p class="muted" style="margin-bottom:14px">Renseignez le poids actuel et les éventuels signes d'alerte (troubles visuels, jaunisse, éruptions, vertiges).</p>
+    <form class="ui form" method="post" novalidate>
+        {{ csrf_input }}
+        {% if form.non_field_errors() %}
+        <div class="ui negative message">{{ form.non_field_errors() }}</div>
+        {% endif %}
+        <div class="grid three">
+            <div class="field {% if form.date.errors %}error{% endif %}">
+                <label for="id_date">{{ form.date.label }}</label>
+                {{ form.date }}
+                {% if form.date.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.date.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field {% if form.poids.errors %}error{% endif %}">
+                <label for="id_poids">{{ form.poids.label }}</label>
+                {{ form.poids }}
+                {% if form.poids.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.poids.errors[0] }}</div>{% endif %}
+            </div>
+        </div>
+        <div class="grid two" style="margin-top:10px">
+            <div class="field"><label class="chk">{{ form.troubles_visuels }} <span>{{ form.troubles_visuels.label }}</span></label></div>
+            <div class="field"><label class="chk">{{ form.jaunisse }} <span>{{ form.jaunisse.label }}</span></label></div>
+            <div class="field"><label class="chk">{{ form.eruption_cutanee }} <span>{{ form.eruption_cutanee.label }}</span></label></div>
+            <div class="field"><label class="chk">{{ form.vertiges }} <span>{{ form.vertiges.label }}</span></label></div>
+        </div>
+        <div class="grid two" style="margin-top:10px">
+            <div class="field">
+                <label for="id_autres_effets">{{ form.autres_effets.label }}</label>
+                {{ form.autres_effets }}
+                {% if form.autres_effets.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.autres_effets.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field">
+                <label for="id_observations">{{ form.observations.label }}</label>
+                {{ form.observations }}
+                {% if form.observations.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.observations.errors[0] }}</div>{% endif %}
+            </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+            <a href="{{ url('traitement_fiche', pk=patient.pk) }}" class="ui basic button">Annuler</a>
+            <button type="submit" class="ui primary button"><i class="save icon"></i>Enregistrer la visite</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -35,7 +35,7 @@ class UserAdminTests(TestCase):
     def test_user_list_non_admin_denied(self):
         self.client.login(username='testuser@hgr-makala.cd', password='password123')
         response = self.client.get(reverse('user_list'))
-        self.assertRedirects(response, reverse('dashboard'))
+        self.assertRedirects(response, reverse('notification'))
 
     # Recherche asynchrone (HTMX)
     def test_user_list_async_search_returns_fragment(self):
@@ -63,7 +63,7 @@ class UserAdminTests(TestCase):
             'q': 'admin',
         }, HTTP_HX_REQUEST='true')
         # La permission reste vérifiée côté serveur, même pour HTMX.
-        self.assertRedirects(response, reverse('dashboard'))
+        self.assertRedirects(response, reverse('notification'))
 
     # Création / modification d'utilisateur
     def test_user_create_admin(self):

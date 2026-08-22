@@ -23,28 +23,17 @@
                 <td>
                     <span class="badge {% if dem.statut == 'RESULTATS_DISPONIBLES' %}ok{% endif %}">{{ dem.get_statut_display() }}</span>
                 </td>
-                <td>
-                    {% if res %}
-                    <span class="badge ok">Disponibles</span>
-                    <div class="res-mini">
-                        {% if res.echantillon_1 or res.echantillon_2 %}
-                        <span>BAAR : <strong class="{% if res.echantillon_1 in res.BAAR_POSITIFS %}pos{% endif %}">{{ res.get_echantillon_1_display() }}{% if res.echantillon_2 %}/{{ res.get_echantillon_2_display() }}{% endif %}</strong></span>
+                <td class="res-cell-td">
+                    <div class="res-cell">
+                        {% if res %}
+                        <span class="badge ok">Disponibles</span>
+                        {% else %}
+                        <span class="badge {% if dem.statut == 'RESULTATS_DISPONIBLES' %}ok{% else %}mut{% endif %}">{{ dem.get_statut_display() if dem.statut != 'EN_ATTENTE' else 'En attente' }}</span>
                         {% endif %}
-                        {% if res.resultat_genexpert %}
-                        <span>GeneXpert : <strong class="{% if res.resultat_genexpert == 'MTB_PLUS_RIF_PLUS' or res.resultat_genexpert == 'MTB_PLUS_RIF_MOINS' or res.resultat_genexpert == 'MTB_MOINS_RIF_PLUS' %}pos{% endif %}">{{ res.get_resultat_genexpert_display() }}</strong></span>
-                        {% endif %}
-                        {% if res.resultat_vih %}
-                        <span>VIH : <strong class="{% if res.resultat_vih == 'POSITIF' %}pos{% endif %}">{{ res.get_resultat_vih_display() }}</strong></span>
+                        {% if res and peut_voir_rapport_medical %}
+                        <a href="{{ url('consultation_resultat', pk=patient.pk, prescription_pk=dem.pk) }}" class="hover-consult"><i class="eye icon"></i>Consulter les résultats</a>
                         {% endif %}
                     </div>
-                    {% set interpretation = dem.interpretation %}
-                    {% if interpretation %}
-                    <span class="badge {% if interpretation.decision == 'CONFIRMEE' %}ok{% else %}neg{% endif %}">{{ interpretation.get_decision_display() }}</span>
-                    {% endif %}
-                    <a href="{{ url('consultation_resultat', pk=patient.pk, prescription_pk=dem.pk) }}" class="ui basic teal button" style="margin-top:6px"><i class="eye icon"></i>Consulter les résultats</a>
-                    {% else %}
-                    <span class="ue">—</span>
-                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

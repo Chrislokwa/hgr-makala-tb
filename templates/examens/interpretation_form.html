@@ -6,7 +6,7 @@
 <div class="vhead">
     <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
     <div style="flex:1">
-        <h1 class="vtitle">Interpréter les résultats</h1>
+        <h1 class="vtitle">{% if interpretation %}Modifier l'interprétation{% else %}Interpréter les résultats{% endif %}</h1>
         <p class="vsub">{{ demande.numero_demande }} · {{ demande.patient.full_name }}</p>
     </div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -35,19 +35,16 @@
     <div class="fcard">
         <div class="fcard-h"><h2><i class="lab icon"></i>Résultats analysés</h2></div>
         {% if resultat %}
-        <div class="result-grid">
+        <div class="spec-list">
             {% if resultat.echantillon_1 or resultat.echantillon_2 %}
-            <div class="result-cell"><span>BAAR éch. 1 (jour J)</span><strong class="{% if resultat.echantillon_1 in resultat.BAAR_POSITIFS %}pos{% endif %}">{{ resultat.get_echantillon_1_display() }}</strong></div>
-            <div class="result-cell"><span>BAAR éch. 2 (lendemain)</span><strong class="{% if resultat.echantillon_2 in resultat.BAAR_POSITIFS %}pos{% endif %}">{{ resultat.get_echantillon_2_display() }}</strong></div>
+            <div class="spec-row"><span class="spec-t">BAAR éch. 1 (jour J)</span><strong class="spec-v {% if resultat.echantillon_1 in resultat.BAAR_POSITIFS %}pos{% endif %}">{{ resultat.get_echantillon_1_display() }}</strong></div>
+            <div class="spec-row"><span class="spec-t">BAAR éch. 2 (lendemain)</span><strong class="spec-v {% if resultat.echantillon_2 in resultat.BAAR_POSITIFS %}pos{% endif %}">{{ resultat.get_echantillon_2_display() }}</strong></div>
             {% endif %}
             {% if resultat.resultat_genexpert %}
-            <div class="result-cell"><span>GeneXpert</span><strong class="{% if resultat.resultat_genexpert == 'MTB_PLUS_RIF_PLUS' or resultat.resultat_genexpert == 'MTB_PLUS_RIF_MOINS' or resultat.resultat_genexpert == 'MTB_MOINS_RIF_PLUS' %}pos{% endif %}">{{ resultat.get_resultat_genexpert_display() }}</strong></div>
-            {% endif %}
-            {% if resultat.resultat_vih %}
-            <div class="result-cell"><span>Test VIH</span><strong class="{% if resultat.resultat_vih == 'POSITIF' %}pos{% endif %}">{{ resultat.get_resultat_vih_display() }}</strong></div>
+            <div class="spec-row"><span class="spec-t">GeneXpert</span><strong class="spec-v {% if resultat.resultat_genexpert == 'MTB_PLUS_RIF_PLUS' or resultat.resultat_genexpert == 'MTB_PLUS_RIF_MOINS' or resultat.resultat_genexpert == 'MTB_MOINS_RIF_PLUS' %}pos{% endif %}">{{ resultat.get_resultat_genexpert_display() }}</strong></div>
             {% endif %}
         </div>
-        <div class="form-note"><i class="info circle icon"></i>La décision déclenche la validation (UC7) ou l'annulation (UC8) de l'admission du dossier patient selon l'issue du diagnostic.</div>
+        <div class="form-note"><i class="info circle icon"></i>La décision de diagnostic est conservée au dossier médical ; l'admission administrative est validée séparément par l'infirmier.</div>
         {% else %}
         <div class="notice">
             <i class="hourglass half icon"></i>
@@ -88,7 +85,7 @@
 
     <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; margin-top:18px;">
         <a href="{{ url('consultation_resultat', pk=demande.patient.pk, prescription_pk=demande.pk) }}" class="ui basic button">Annuler</a>
-        <button type="submit" class="ui primary button" {% if not resultat %}disabled{% endif %}><i class="check circle icon"></i>Enregistrer l'interprétation</button>
+        <button type="submit" class="ui primary button" {% if not resultat %}disabled{% endif %}><i class="check circle icon"></i>{% if interpretation %}Modifier l'interprétation{% else %}Enregistrer l'interprétation{% endif %}</button>
     </div>
 </form>
 {% endblock %}

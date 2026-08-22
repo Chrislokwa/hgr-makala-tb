@@ -16,16 +16,11 @@
             <tr>
                 <td>
                     <span class="un">{{ dem.numero_demande }}</span><br>
-                    <span class="ue">Prescrite le {{ dem.date_prescription|date_fr }}</span>
+                    <span class="ue notif-date">Prescrite le {{ dem.date_prescription|date_fr }}</span>
                 </td>
                 <td>
-                    <div class="u-cell">
-                        <span class="avatar sm" style="{{ dem.patient.avatar_style }}">{{ dem.patient.initiales }}</span>
-                        <span>
-                            <span class="un">{{ dem.patient.full_name }}</span><br>
-                            <span class="ue">{{ dem.patient.ndp }}</span>
-                        </span>
-                    </div>
+                    <span class="un">{{ dem.patient.full_name }}</span><br>
+                    <span class="ue">{{ dem.patient.ndp }}</span>
                 </td>
                 <td class="ue">{{ dem.types_libelles }}</td>
                 <td class="ue">{{ dem.get_nature_echantillon_display() }}{% if dem.organe %} ({{ dem.organe }}){% endif %}<br>{{ dem.date_prelevement|date_fr }}</td>

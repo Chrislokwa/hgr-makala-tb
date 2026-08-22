@@ -14,7 +14,7 @@
 <div class="pstats">
     <div class="pstat"><span>Résultats trouvés</span><strong>{{ paginator.count }}</strong></div>
     <div class="pstat"><span>En attente</span><strong>{{ nb_a_traiter }}</strong></div>
-    <div class="pstat"><span>Résultats disponibles</span><strong>{{ nb_disponibles }}</strong></div>
+    <div class="pstat"><span>Disponibles</span><strong>{{ nb_disponibles }}</strong></div>
 </div>
 
 <!-- Recherche et filtrage (HTMX) -->
@@ -47,6 +47,6 @@
 <div id="examenLoading" class="hx-indicator" hidden></div>
 
 <div id="examenResults">
-    {% include 'patients/examen_list_results.html' %}
+    {% include 'examens/examen_list_results.html' %}
 </div>
 {% endblock %}

@@ -1,0 +1,30 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Vider les notifications — Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Vider les notifications</h1>
+        <p class="vsub">Confirmation requise</p>
+    </div>
+</div>
+
+<div class="fcard" style="max-width:560px">
+    <div class="fcard-h"><h2><i class="trash alternate outline icon"></i>Supprimer toutes les notifications&nbsp;?</h2></div>
+    <div class="fcard-b">
+        <p style="margin:0 0 12px;font-size:14.5px;color:#3c4043;line-height:1.6">
+            Vous avez <strong>{{ total }}</strong> notification{{ 's' if total != 1 }}.
+            Cette action supprimera définitivement toutes vos notifications et est irréversible.
+        </p>
+        <div class="row-acts">
+            <a href="{{ url('notification') }}" class="ui basic button">Annuler</a>
+            <form action="{{ url('notifications_vider') }}" method="post" style="margin:0">
+                {{ csrf_input }}
+                <button type="submit" class="ui negative button" {% if not total %}disabled{% endif %}><i class="trash alternate outline icon"></i>Vider définitivement</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

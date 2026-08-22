@@ -12,17 +12,6 @@
     <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic button"><i class="arrow left icon"></i>Retour au dossier</a>
 </div>
 
-{% if controle_en_attente %}
-<div class="notice">
-    <i class="exclamation triangle icon"></i>
-    <div style="flex:1;min-width:0">
-        <strong>Demande de contrôle déjà en attente</strong>
-        <p>Ce patient a déjà un bon <strong>{{ controle_en_attente.mois_controle }}</strong> ({{ controle_en_attente.numero_demande }}) en attente au laboratoire. Consultez le dossier avant d'en créer un nouveau.</p>
-    </div>
-    <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic tiny button">Consulter le dossier</a>
-</div>
-{% endif %}
-
 <form class="ui form" method="post" novalidate>
     {{ csrf_input }}
     {% if form.non_field_errors() %}

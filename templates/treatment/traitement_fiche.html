@@ -22,23 +22,7 @@
     </div>
 </div>
 
-{% if not traitement.est_en_cours %}
-<div class="notice ok">
-    <i class="archive icon"></i>
-    <div>
-        <strong>Dossier clôturé — lecture seule</strong>
-        <p>{{ traitement.get_issue_finale_display() }} le {{ traitement.issue_decision_date|date_fr }} par {{ traitement.cloture_par.titled_name }}. Aucune modification n'est possible.</p>
-    </div>
-</div>
-{% elif traitement.a_recuperer %}
-<div class="notice neg">
-    <i class="exclamation triangle icon"></i>
-    <div>
-        <strong>Perdu de vue — carte à récupérer</strong>
-        <p>Aucune prise enregistrée depuis le {{ traitement.perdu_de_vue|date_fr }} (plus de 2 mois).</p>
-    </div>
-</div>
-{% endif %}
+
 
 {# ---------------------------------------------------------------- Zone 1 #}
 <div class="pcard">

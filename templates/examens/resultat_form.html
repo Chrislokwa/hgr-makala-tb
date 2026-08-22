@@ -13,16 +13,6 @@
     <a href="{{ url('examen_detail', pk=demande.pk) }}" class="ui basic button"><i class="eye icon"></i>Consultation</a>
 </div>
 
-{% if deja_valide %}
-<div class="notice">
-    <i class="info circle icon"></i>
-    <div style="flex:1;min-width:0">
-        <strong>Des résultats validés existent déjà pour cette demande</strong>
-        <p>Une nouvelle validation créera une version supplémentaire ; les versions précédentes restent conservées pour traçabilité.</p>
-    </div>
-</div>
-{% endif %}
-
 <form class="ui form" method="post" novalidate>
     {{ csrf_input }}
     {% if form.non_field_errors() %}

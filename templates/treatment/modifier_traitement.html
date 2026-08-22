@@ -12,14 +12,6 @@
     <a href="{{ url('traitement_fiche', pk=patient.pk) }}" class="ui basic button"><i class="arrow left icon"></i>Retour à la fiche</a>
 </div>
 
-<div class="notice">
-    <i class="info circle icon"></i>
-    <div>
-        <strong>Traitement en cours</strong>
-        <p>{{ traitement.schema.code }} · posologie {% if traitement.posologie_jour %}{{ traitement.posologie_jour }} comprimés/jour{% else %}à adapter{% endif %} · bande : {{ bande_posologie or '—' }}. Toute modification est historisée avec son motif médical.</p>
-    </div>
-</div>
-
 <form class="ui form" method="post" novalidate>
     {{ csrf_input }}
     {% if form.non_field_errors() %}

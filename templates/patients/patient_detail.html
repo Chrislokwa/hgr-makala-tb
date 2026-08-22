@@ -35,39 +35,7 @@
     </div>
 </div>
 
-{% if patient.admission_finalisee %}
-<div class="notice ok">
-    <i class="check circle icon"></i>
-    <div>
-        <strong>Admission administrative finalisée</strong>
-        <p>Le {{ patient.date_admission|date_fr }} par {{ patient.admise_par.titled_name }}.</p>
-    </div>
-</div>
-{% elif patient.statut == 'NON_CONFIRME' %}
-<div class="notice" style="background:#fbe9e7; border-color:#e2b7b2; color:#9a4632">
-    <i class="times circle outline icon"></i>
-    <div>
-        <strong>Diagnostic infirmé – dossier négatif</strong>
-        <p>La tuberculose a été infirmée par le médecin. L'admission est annulée, aucun traitement n'est requis.</p>
-    </div>
-</div>
-{% elif patient.statut == 'CONFIRME' %}
-<div class="notice ok" style="background:#e8f1f9; border-color:#b8d0ea; color:#1a4a7a">
-    <i class="check circle icon"></i>
-    <div>
-        <strong>Diagnostic confirmé – admission à finaliser</strong>
-        <p>La tuberculose a été confirmée. L'infirmier peut finaliser l'admission administrative.</p>
-    </div>
-</div>
-{% elif patient.statut == 'PROVISOIRE' %}
-<div class="notice">
-    <i class="clock outline icon"></i>
-    <div>
-        <strong>Admission en attente de confirmation</strong>
-        <p>L'admission ne peut être finalisée qu'une fois le diagnostic confirmé et les résultats de laboratoire saisis (Fonction 3).</p>
-    </div>
-</div>
-{% endif %}
+
 
 <div class="pcard">
     <div class="pcard-top">

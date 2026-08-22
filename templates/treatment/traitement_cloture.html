@@ -12,14 +12,6 @@
     <a href="{{ url('traitement_fiche', pk=patient.pk) }}" class="ui basic button"><i class="arrow left icon"></i>Retour à la fiche</a>
 </div>
 
-<div class="notice">
-    <i class="archive icon"></i>
-    <div>
-        <strong>Clôture du dossier</strong>
-        <p>Une fois clôturée, la fiche passe en lecture seule : plus aucune observation, observance, rendez-vous ou modification ne sera possible. Le dossier reste consultable dans le registre.</p>
-    </div>
-</div>
-
 <form class="ui form" method="post" novalidate>
     {{ csrf_input }}
     {% if form.non_field_errors() %}

@@ -16,16 +16,6 @@
     </div>
 </div>
 
-{% if traitement and traitement.a_recuperer %}
-<div class="notice neg">
-    <i class="exclamation triangle icon"></i>
-    <div>
-        <strong>A récupérer — perdu de vue</strong>
-        <p>Dernière prise : {{ traitement.perdu_de_vue|date_fr }}. Contact manqué, visites à reprendre.</p>
-    </div>
-</div>
-{% endif %}
-
 <div class="pcard carte-print">
     <div class="carte-head">
         <div>

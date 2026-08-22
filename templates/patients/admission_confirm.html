@@ -14,17 +14,6 @@
     </div>
 </div>
 
-{% if doublon %}
-<div class="notice">
-    <i class="exclamation triangle icon"></i>
-    <div>
-        <strong>Dossier potentiellement en double</strong>
-        <p>Un dossier <strong>{{ doublon.ndp }}</strong> existe déjà pour <strong>{{ doublon.full_name }}</strong> ({{ doublon.get_sexe_display() }}, né(e) le {{ doublon.date_naissance|date_fr }}). Vérifiez avant de finaliser une admission en double.</p>
-        <p style="margin-top:6px"><a href="{{ url('patient_detail', pk=doublon.pk) }}" class="ui basic button btn-sm"><i class="external icon"></i>Consulter le dossier existant</a></p>
-    </div>
-</div>
-{% endif %}
-
 <form class="ui form" method="post" novalidate>
     {{ csrf_input }}
     {% if form.non_field_errors() %}

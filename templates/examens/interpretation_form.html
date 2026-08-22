@@ -15,16 +15,6 @@
     </div>
 </div>
 
-{% if interpretation %}
-<div class="notice">
-    <i class="info circle icon"></i>
-    <div style="flex:1;min-width:0">
-        <strong>Interprétation déjà enregistrée</strong>
-        <p>Une décision a déjà été posée pour cette demande. La soumettre à nouveau remplacera l'interprétation existante et, le cas échéant, le statut du dossier.</p>
-    </div>
-</div>
-{% endif %}
-
 <form class="ui form" method="post" novalidate>
     {{ csrf_input }}
     {% if form.non_field_errors() %}
@@ -46,13 +36,6 @@
         </div>
         <div class="form-note"><i class="info circle icon"></i>La décision de diagnostic est conservée au dossier médical ; l'admission administrative est validée séparément par l'infirmier.</div>
         {% else %}
-        <div class="notice">
-            <i class="hourglass half icon"></i>
-            <div style="flex:1;min-width:0">
-                <strong>Résultats indisponibles</strong>
-                <p>Vous ne pouvez pas interpréter cette demande tant que les résultats n'ont pas été validés par le laboratoire.</p>
-            </div>
-        </div>
         {% endif %}
     </div>
 

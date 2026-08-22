@@ -12,16 +12,6 @@
     <a href="{{ url('patient_list') }}" class="ui basic button"><i class="arrow left icon"></i>Retour à la liste</a>
 </div>
 
-{% if doublon %}
-<div class="notice">
-    <i class="exclamation triangle icon"></i>
-    <div>
-        <strong>Dossier potentiellement en double</strong>
-        <p>Un dossier <strong>{{ doublon.ndp }}</strong> existe déjà pour <strong>{{ doublon.full_name }}</strong> ({{ doublon.get_sexe_display() }}, né(e) le {{ doublon.date_naissance|date_fr }}). Vérifiez avant de créer un doublon.</p>
-    </div>
-</div>
-{% endif %}
-
 <form class="ui form" method="post" novalidate>
     {{ csrf_input }}
     {% if form.non_field_errors() %}

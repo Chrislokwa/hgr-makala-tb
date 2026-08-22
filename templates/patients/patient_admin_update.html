@@ -14,14 +14,6 @@
     </div>
 </div>
 
-<div class="notice">
-    <i class="lock icon"></i>
-    <div>
-        <strong>Dossier verrouillé en édition</strong>
-        <p>Vous êtes en train de modifier ce dossier. Un autre utilisateur ne pourra pas le modifier tant que l'édition est en cours (verrou d'une durée maximale de 15 minutes).</p>
-    </div>
-</div>
-
 <form class="ui form" method="post" novalidate>
     {{ csrf_input }}
     {% if form.non_field_errors() %}

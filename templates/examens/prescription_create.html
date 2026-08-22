@@ -12,23 +12,6 @@
     <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic button"><i class="arrow left icon"></i>Retour au dossier</a>
 </div>
 
-{% if doublon_prescriptions %}
-<div class="notice">
-    <i class="exclamation triangle icon"></i>
-    <div style="flex:1;min-width:0">
-        <strong>Demande(s) identique(s) déjà en cours</strong>
-        <p>Ce patient a déjà une ou des demandes « en attente » avec les mêmes examens :</p>
-        <ul class="dup-list">
-            {% for demande in doublon_prescriptions %}
-            <li><strong>{{ demande.numero_demande }}</strong> — {{ demande.types_libelles }} · prescrite le {{ demande.date_prescription|date_fr }}</li>
-            {% endfor %}
-        </ul>
-        <p style="margin-top:6px">Consultez le dossier avant de créer une nouvelle demande.</p>
-    </div>
-    <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic tiny button">Consulter le dossier</a>
-</div>
-{% endif %}
-
 <form class="ui form" method="post" novalidate>
     {{ csrf_input }}
     {% if form.non_field_errors() %}

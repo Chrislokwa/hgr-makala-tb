@@ -86,9 +86,11 @@ def creer_dossier_provisoire(*, medecin, donnees):
     traitement_donnees = {
         'type_cas': donnees.pop('type_cas', None) or TypeCasTraitement.NOUVEAU,
         'date_debut': donnees.pop('date_debut', None) or timezone.localdate(),
-        'unite_traitement': donnees.pop('unite_traitement', ''),
+        'unite_traitement': 'HGR Makala',
         'notes': donnees.pop('notes', ''),
     }
+    # Forcer unité mono-site : ignorer toute valeur soumise
+    donnees.pop('unite_traitement', None)
     donnees['statut'] = StatutDossier.PROVISOIRE
     schema = _schema_pour_type_cas(traitement_donnees['type_cas'])
     posologie = calculer_posologie(donnees.get('poids'))

@@ -43,13 +43,9 @@
         </select>
     </div>
     <div class="field" style="min-width:160px">
-        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Unité (CDT/CT)</label>
-        <select name="unite" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
-            <option value="">Toutes</option>
-            {% for u in unites %}
-            <option value="{{ u }}" {% if u == unite %}selected{% endif %}>{{ u }}</option>
-            {% endfor %}
-        </select>
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Unité</label>
+        <input type="hidden" name="unite" value="HGR Makala">
+        <div style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--bg2); color:var(--ink);">HGR Makala</div>
     </div>
     <button type="submit" class="ui primary button"><i class="filter icon"></i>Filtrer</button>
     <a href="{{ url('statistics_dashboard') }}" class="ui basic button">Réinit.</a>
@@ -63,7 +59,6 @@
         <div class="info-box"><h3>Retraitement</h3><p>{{ ep.nb_retraitement }}</p><span class="muted" style="font-size:12px">Rechute / Échec / Reprise</span></div>
         <div class="info-box"><h3>Nouveaux TPM+</h3><p style="color:#b3261e">{{ ep.nb_nouveaux_tpm_plus }}</p><span class="muted" style="font-size:12px">Nouveau + BAAR+</span></div>
         <div class="info-box"><h3>Nouveaux TPM-</h3><p>{{ ep.nb_nouveaux_tpm_moins }}</p><span class="muted" style="font-size:12px">Nouveau + BAAR- clinique</span></div>
-        <div class="info-box"><h3>Taux notification /100k</h3><p class="muted">N/A</p><span class="muted" style="font-size:12px">Population non modélisée</span></div>
     </div>
     <div style="height:240px; margin-top:18px"><canvas id="chartEpi"></canvas></div>
 </div>

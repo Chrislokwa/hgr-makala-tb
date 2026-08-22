@@ -42,35 +42,22 @@
 </div>
 
 {% if page_obj.paginator.num_pages > 1 %}
-<div class="pager">
-    <span class="pg-info">{{ page_obj.start_index() }} – {{ page_obj.end_index() }} sur {{ page_obj.paginator.count }}</span>
-    <div class="pg-btns">
-        {% if page_obj.has_previous() %}
-        <a href="?tab=examens&page={{ page_obj.previous_page_number() }}"
-           hx-get="{{ url('patient_detail', pk=patient.pk) }}?tab=examens&page={{ page_obj.previous_page_number() }}"
-           hx-target="#prescriptionsTab" hx-swap="innerHTML" class="pg-btn" aria-label="Page précédente"><i class="chevron left icon"></i></a>
-        {% else %}
-        <button class="pg-btn" disabled aria-label="Page précédente"><i class="chevron left icon"></i></button>
-        {% endif %}
-
-        {% for num in page_obj.paginator.page_range %}
-            {% if page_obj.number == num %}
-            <button class="pg-btn active">{{ num }}</button>
-            {% else %}
-            <a href="?tab=examens&page={{ num }}"
-               hx-get="{{ url('patient_detail', pk=patient.pk) }}?tab=examens&page={{ num }}"
-               hx-target="#prescriptionsTab" hx-swap="innerHTML" class="pg-btn">{{ num }}</a>
-            {% endif %}
-        {% endfor %}
-
-        {% if page_obj.has_next() %}
-        <a href="?tab=examens&page={{ page_obj.next_page_number() }}"
-           hx-get="{{ url('patient_detail', pk=patient.pk) }}?tab=examens&page={{ page_obj.next_page_number() }}"
-           hx-target="#prescriptionsTab" hx-swap="innerHTML" class="pg-btn" aria-label="Page suivante"><i class="chevron right icon"></i></a>
-        {% else %}
-        <button class="pg-btn" disabled aria-label="Page suivante"><i class="chevron right icon"></i></button>
-        {% endif %}
-    </div>
+<div class="pager" style="display:flex; justify-content:center; align-items:center; gap:14px; margin-top:16px;">
+    {% if page_obj.has_previous() %}
+    <a href="?tab=examens&page={{ page_obj.previous_page_number() }}"
+       hx-get="{{ url('patient_detail', pk=patient.pk) }}?tab=examens&page={{ page_obj.previous_page_number() }}"
+       hx-target="#prescriptionsTab" hx-swap="innerHTML" class="pg-btn" aria-label="Page précédente">&lt; Précédent</a>
+    {% else %}
+    <button class="pg-btn" disabled>&lt; Précédent</button>
+    {% endif %}
+    <span class="pg-info">{{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next() %}
+    <a href="?tab=examens&page={{ page_obj.next_page_number() }}"
+       hx-get="{{ url('patient_detail', pk=patient.pk) }}?tab=examens&page={{ page_obj.next_page_number() }}"
+       hx-target="#prescriptionsTab" hx-swap="innerHTML" class="pg-btn" aria-label="Page suivante">Suivant &gt;</a>
+    {% else %}
+    <button class="pg-btn" disabled>Suivant &gt;</button>
+    {% endif %}
 </div>
 {% endif %}
 

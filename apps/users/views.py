@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.db.models import Q
 
-from .models import CustomUser, UserRole
+from .models import CustomUser, UserRole, AuditLog, audit_log
 from .forms import UserAdminCreateForm, UserAdminUpdateForm
 from .permissions import AdminRequiredMixin
 
@@ -57,6 +57,7 @@ class UserCreateView(AdminRequiredMixin, CreateView):
         user.set_password(temp_password)
         user.is_active = True
         user.save()
+        audit_log(self.request.user, AuditLog.Action.CREATE_USER, f"Création utilisateur {user.titled_name} ({user.get_role_display()})", request=self.request, target=user)
         messages.success(self.request, f"Compte créé : {user.username} · Mot de passe temporaire : {temp_password}")
         return redirect(self.success_url)
 
@@ -74,6 +75,7 @@ class UserUpdateView(AdminRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
+        audit_log(self.request.user, AuditLog.Action.UPDATE_USER, f"Modification utilisateur {self.object.titled_name}", request=self.request, target=self.object)
         messages.success(self.request, f"Utilisateur « {self.object.display_name} » mis à jour avec succès.")
         return response
 
@@ -102,6 +104,7 @@ class UserToggleView(AdminRequiredMixin, View):
         user_to_toggle.is_active = not user_to_toggle.is_active
         user_to_toggle.save()
         status_str = "activé" if user_to_toggle.is_active else "désactivé"
+        audit_log(request.user, AuditLog.Action.TOGGLE_USER, f"Compte {user_to_toggle.titled_name} {status_str}", request=request, target=user_to_toggle, extra={'is_active': user_to_toggle.is_active})
         messages.success(request, f"Le compte de {user_to_toggle.display_name} a été {status_str}.")
         return redirect('user_list')
 
@@ -122,7 +125,64 @@ class UserSetRoleView(AdminRequiredMixin, View):
                 messages.error(request, "Impossible de retirer le rôle du dernier administrateur actif.")
                 return redirect('user_list')
 
+        ancien = user_to_update.get_role_display()
         user_to_update.role = new_role
         user_to_update.save()
+        audit_log(request.user, AuditLog.Action.CHANGE_ROLE, f"Rôle {user_to_update.titled_name} : {ancien} → {user_to_update.get_role_display()}", request=request, target=user_to_update, extra={'ancien_role': ancien, 'nouveau_role': new_role})
         messages.success(request, f"Rôle de {user_to_update.display_name} mis à jour : {user_to_update.get_role_display()}.")
         return redirect('user_list')
+
+
+class AuditLogListView(AdminRequiredMixin, ListView):
+    model = AuditLog
+    template_name = 'users/audit_log_list.html'
+    context_object_name = 'logs'
+    paginate_by = 10
+
+    def get_queryset(self):
+        qs = AuditLog.objects.select_related('user').all()
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(
+                Q(description__icontains=q) |
+                Q(username_snapshot__icontains=q) |
+                Q(target_model__icontains=q) |
+                Q(action__icontains=q)
+            )
+        user_id = self.request.GET.get('user', '').strip()
+        if user_id.isdigit():
+            qs = qs.filter(user_id=int(user_id))
+        action = self.request.GET.get('action', '').strip()
+        if action in dict(AuditLog.Action.choices):
+            qs = qs.filter(action=action)
+        date_from = self.request.GET.get('date_from', '').strip()
+        date_to = self.request.GET.get('date_to', '').strip()
+        from django.utils.dateparse import parse_date
+        if date_from:
+            d = parse_date(date_from)
+            if d:
+                qs = qs.filter(timestamp__date__gte=d)
+        if date_to:
+            d = parse_date(date_to)
+            if d:
+                qs = qs.filter(timestamp__date__lte=d)
+        return qs
+
+    def get_template_names(self):
+        if self.request.headers.get('HX-Request') == 'true':
+            return ['users/audit_log_results.html']
+        return ['users/audit_log_list.html']
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['active_nav'] = 'audit_logs'
+        context['q'] = self.request.GET.get('q', '').strip()
+        context['filter_user'] = self.request.GET.get('user', '').strip()
+        context['filter_action'] = self.request.GET.get('action', '').strip()
+        context['filter_date_from'] = self.request.GET.get('date_from', '').strip()
+        context['filter_date_to'] = self.request.GET.get('date_to', '').strip()
+        context['action_choices'] = AuditLog.Action.choices
+        context['users_choices'] = CustomUser.objects.order_by('username').values_list('id', 'username')
+        # For display names, fetch users
+        context['users_map'] = {u.id: u.titled_name for u in CustomUser.objects.all()}
+        return context

@@ -133,10 +133,10 @@
                 {{ form.date_debut }}
                 {% if form.date_debut.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.date_debut.errors[0] }}</div>{% endif %}
             </div>
-            <div class="field {% if form.unite_traitement.errors %}error{% endif %}">
-                <label for="id_unite_traitement">{{ form.unite_traitement.label }}</label>
-                {{ form.unite_traitement }}
-                {% if form.unite_traitement.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.unite_traitement.errors[0] }}</div>{% endif %}
+            {{ form.unite_traitement }}
+            <div class="field">
+                <label>Unité de traitement</label>
+                <div style="border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--bg2);">HGR Makala</div>
             </div>
         </div>
         <div class="field">

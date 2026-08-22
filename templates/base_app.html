@@ -13,6 +13,7 @@
         <nav class="sidenav" aria-label="Navigation principale">
             {% if request.user.role == 'ADMIN' %}
             <a class="nitem {% if active_nav == 'users' %}active{% endif %}" href="{{ url('user_list') }}"><i class="users icon"></i>Utilisateurs</a>
+            <a class="nitem {% if active_nav == 'audit_logs' %}active{% endif %}" href="{{ url('audit_logs') }}"><i class="history icon"></i>Journaux</a>
             {% elif request.user.role == 'STATISTICIEN' %}
             <a class="nitem {% if active_nav == 'statistics_consultations' %}active{% endif %}" href="{{ url('statistics_consultations') }}"><i class="dashboard icon"></i>Tableau de bord</a>
             <a class="nitem {% if active_nav == 'statistics' %}active{% endif %}" href="{{ url('statistics_dashboard') }}"><i class="search icon"></i>Épidémiologie</a>

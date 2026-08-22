@@ -121,7 +121,8 @@ class DossierProvisoireForm(NoClientValidationMixin, forms.ModelForm):
         label='Unité de traitement',
         max_length=120,
         initial='HGR Makala',
-        widget=forms.TextInput(attrs={'placeholder': 'ex. TS Makala, HGR Makala…'}),
+        required=False,
+        widget=forms.HiddenInput(),
     )
     notes_traitement = forms.CharField(
         label='Notes sur le traitement',

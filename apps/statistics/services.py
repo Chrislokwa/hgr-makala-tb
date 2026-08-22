@@ -267,7 +267,8 @@ def indicateurs_population_risque(debut, fin, unite=None):
 
 
 def liste_unites():
-    return list(Traitement.objects.values_list('unite_traitement', flat=True).distinct().order_by('unite_traitement'))
+    # Application mono-site HGR-Makala : seule unité autorisée
+    return ["HGR Makala"]
 
 
 def build_dashboard_context(debut, fin, unite=None):

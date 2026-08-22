@@ -47,6 +47,8 @@ from .permissions import (
     MedecinRequiredMixin,
     PersonnelAutoriseMixin,
 )
+from apps.users.models import AuditLog, audit_log
+
 from .services import (
     acquerir_verrou,
     bande_posologie_libelle,
@@ -142,6 +144,7 @@ class PatientCreateView(MedecinRequiredMixin, FormView):
             medecin=self.request.user,
             donnees={**donnees, 'notes': notes_traitement},
         )
+        audit_log(self.request.user, AuditLog.Action.CREATE_PATIENT, f"Création dossier {patient.ndp} — {patient.full_name}", request=self.request, target=patient)
         if self.request.POST.get('action') == 'prescrire':
             messages.success(
                 self.request,
@@ -216,6 +219,7 @@ class AdmissionFinaliserView(InfirmierRequiredMixin, FormView):
             self.request,
             f"Admission du dossier {patient.ndp} finalisée · {patient.full_name}.",
         )
+        audit_log(self.request.user, AuditLog.Action.FINALIZE_ADMISSION, f"Admission finalisée {patient.ndp}", request=self.request, target=patient)
         return redirect('patient_detail', pk=patient.pk)
 
     def form_invalid(self, form):
@@ -271,6 +275,7 @@ class PatientAdminUpdateView(InfirmierRequiredMixin, FormView):
             donnees=form.cleaned_data,
         )
         liberer_verrou(self.patient, self.request.user)
+        audit_log(self.request.user, AuditLog.Action.UPDATE_PATIENT, f"Mise à jour infos {self.patient.ndp}", request=self.request, target=self.patient)
         messages.success(
             self.request,
             f"Informations du dossier {self.patient.ndp} mises à jour.",
@@ -378,6 +383,7 @@ class PrescriptionExamenCreateView(MedecinRequiredMixin, FormView):
             },
             types_examens=donnees['examens'],
         )
+        audit_log(self.request.user, AuditLog.Action.PRESCRIPTION, f"Prescription {prescription.numero_demande} pour {self.patient.ndp}", request=self.request, target=prescription)
         messages.success(
             self.request,
             f"Demande {prescription.numero_demande} transmise au laboratoire "
@@ -493,6 +499,7 @@ class SaisieResultatView(LaborantinRequiredMixin, FormView):
             prescription=self.demande,
             donnees=donnees,
         )
+        audit_log(self.request.user, AuditLog.Action.RESULTAT_SAISIE, f"Résultats saisis {self.demande.numero_demande}", request=self.request, target=self.demande)
         messages.success(
             self.request,
             f"Résultats validés et mis à disposition du médecin "
@@ -589,6 +596,7 @@ class InterpretationResultatView(MedecinRequiredMixin, FormView):
                 'decision': donnees['decision'],
             },
         )
+        audit_log(self.request.user, AuditLog.Action.INTERPRETATION, f"Interprétation {self.demande.numero_demande} : {donnees['decision']}", request=self.request, target=self.demande)
         if donnees['decision'] == DecisionDiagnostic.CONFIRMEE:
             messages.success(
                 self.request,
@@ -794,6 +802,7 @@ class ObservanceSaisieView(InfirmierRequiredMixin, FormView):
             f"Observance du mois {mois} enregistrée pour "
             f"{self.traitement.patient.ndp}.",
         )
+        audit_log(self.request.user, AuditLog.Action.OBSERVANCE, f"Observance mois {mois} pour {self.traitement.patient.ndp}", request=self.request, target=self.traitement)
         from django.urls import reverse
         return redirect(
             f"{reverse('traitement_fiche', kwargs={'pk': self.traitement.patient_id})}?mois={mois}"
@@ -832,11 +841,12 @@ class VisiteSuiviCreateView(InfirmierRequiredMixin, FormView):
 
     def form_valid(self, form):
         try:
-            enregistrer_visite(
+            visite = enregistrer_visite(
                 auteur=self.request.user,
                 traitement=self.traitement,
                 donnees=form.cleaned_data,
             )
+            audit_log(self.request.user, AuditLog.Action.VISITE, f"Visite {visite.date} pour {self.traitement.patient.ndp}", request=self.request, target=visite)
         except ValidationError as exc:
             messages.error(self.request, exc.message)
         else:
@@ -889,6 +899,7 @@ class ModifierTraitementView(MedecinRequiredMixin, FormView):
             self.request,
             "Modification du traitement enregistrée.",
         )
+        audit_log(self.request.user, AuditLog.Action.MODIFICATION_TRAITEMENT, f"Modification {form.cleaned_data.get('type_modification')} pour {self.traitement.patient.ndp}", request=self.request, target=self.traitement)
         return redirect('traitement_fiche', pk=self.traitement.patient_id)
 
 
@@ -943,6 +954,7 @@ class BonControleView(MedecinRequiredMixin, FormView):
             f"Bon de contrôle {prescription.numero_demande} transmis au "
             f"laboratoire ({prescription.types_libelles}).",
         )
+        audit_log(self.request.user, AuditLog.Action.PRESCRIPTION, f"Bon contrôle {mois_controle} {prescription.numero_demande} pour {self.patient.ndp}", request=self.request, target=prescription)
         return redirect('patient_detail', pk=self.patient.pk)
 
     def form_invalid(self, form):
@@ -1020,6 +1032,7 @@ class RendezVousCreateView(InfirmierRequiredMixin, FormView):
             f"Rendez-vous planifié le {rendez_vous.date:%d/%m/%Y} à "
             f"{rendez_vous.heure:%H:%M}.",
         )
+        audit_log(self.request.user, AuditLog.Action.RDV_CREATE, f"RDV {rendez_vous.date} {rendez_vous.heure} pour {self.patient.ndp}", request=self.request, target=rendez_vous)
         return redirect('carte_malade', pk=self.patient.pk)
 
     def form_invalid(self, form):
@@ -1052,6 +1065,7 @@ class RendezVousStatutView(InfirmierRequiredMixin, View):
                 f"Rendez-vous du {rendez_vous.date:%d/%m/%Y} "
                 f"marqué « {rendez_vous.get_statut_display()} ».",
             )
+            audit_log(request.user, AuditLog.Action.RDV_STATUS, f"RDV {rendez_vous.pk} → {rendez_vous.get_statut_display()}", request=request, target=rendez_vous)
         return redirect('carte_malade', pk=rendez_vous.patient_id)
 
 
@@ -1082,6 +1096,7 @@ class TraitementCloturerView(MedecinRequiredMixin, FormView):
             issue_finale=form.cleaned_data['issue_finale'],
             date_issue=form.cleaned_data['date_issue'],
         )
+        audit_log(self.request.user, AuditLog.Action.CLOTURE, f"Clôture {self.traitement.patient.ndp} : {self.traitement.get_issue_finale_display()}", request=self.request, target=self.traitement)
         messages.success(
             self.request,
             f"Dossier {self.traitement.patient.ndp} clôturé — "

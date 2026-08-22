@@ -1,0 +1,63 @@
+{% if logs %}
+<div class="tbl-wrap">
+    <table class="tbl">
+        <thead>
+            <tr>
+                <th>Date / Heure</th>
+                <th>Utilisateur</th>
+                <th>Action</th>
+                <th>Cible</th>
+                <th>IP</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td class="ue" style="white-space:nowrap; text-align:start; line-height:1.35;">{{ log.timestamp.strftime('%d/%m/%Y') }}<br><span style="font-size:12px; color:var(--ink2); font-weight:600;">{{ log.timestamp.strftime('%H:%M:%S') }}</span></td>
+                <td style="line-height:1.35;">
+                    {% if log.user %}
+                    <span class="un">{{ log.user.last_name }}{% if log.user.post_nom %} {{ log.user.post_nom }}{% endif %} {{ log.user.first_name }}</span><br>
+                    <span class="ue" style="font-size:12px; color:var(--ink2);">{{ log.user.get_role_display() }}</span>
+                    {% else %}
+                    <span class="un">{{ log.username_snapshot }}</span><br>
+                    <span class="ue" style="font-size:12px; color:var(--ink3);">—</span>
+                    {% endif %}
+                </td>
+                <td><span class="badge" style="background:{{ log.action_color }}; color:#fff; border-color:transparent;">{{ log.get_action_display() }}</span></td>
+                <td class="ue">{% if log.target_model %}{{ log.target_model }} {% if log.target_id %}#{{ log.target_id }}{% endif %}{% else %}—{% endif %}</td>
+                <td class="ue" style="font-size:12px;">{{ log.ip_address or "—" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if is_paginated %}
+<div class="pager" style="display:flex; justify-content:center; align-items:center; gap:14px; margin-top:16px;">
+    {% if page_obj.has_previous() %}
+    <a href="?page={{ page_obj.previous_page_number() }}&q={{ q }}&user={{ filter_user }}&action={{ filter_action }}&date_from={{ filter_date_from }}&date_to={{ filter_date_to }}"
+       hx-get="?page={{ page_obj.previous_page_number() }}&q={{ q }}&user={{ filter_user }}&action={{ filter_action }}&date_from={{ filter_date_from }}&date_to={{ filter_date_to }}"
+       hx-target="#auditResults" hx-swap="innerHTML" hx-push-url="true"
+       class="pg-btn" aria-label="Page précédente">&lt; Précédent</a>
+    {% else %}
+    <button class="pg-btn" disabled>&lt; Précédent</button>
+    {% endif %}
+    <span class="pg-info">{{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next() %}
+    <a href="?page={{ page_obj.next_page_number() }}&q={{ q }}&user={{ filter_user }}&action={{ filter_action }}&date_from={{ filter_date_from }}&date_to={{ filter_date_to }}"
+       hx-get="?page={{ page_obj.next_page_number() }}&q={{ q }}&user={{ filter_user }}&action={{ filter_action }}&date_from={{ filter_date_from }}&date_to={{ filter_date_to }}"
+       hx-target="#auditResults" hx-swap="innerHTML" hx-push-url="true"
+       class="pg-btn" aria-label="Page suivante">Suivant &gt;</a>
+    {% else %}
+    <button class="pg-btn" disabled>Suivant &gt;</button>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty">
+    <i class="history icon"></i>
+    <div class="e-t">Aucun évènement{% if q %} pour « {{ q }} »{% endif %}</div>
+    <div class="e-s">Ajustez les filtres ou effectuez une action pour générer des logs.</div>
+</div>
+{% endif %}

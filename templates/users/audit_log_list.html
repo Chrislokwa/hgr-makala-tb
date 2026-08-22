@@ -1,0 +1,54 @@
+{% extends 'base_app.html' %}
+{% block title %}Journaux d’activité — Suivi TB · HGR Makala{% endblock %}
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Journaux d’activité</h1>
+        <p class="vsub">Traçabilité — {{ page_obj.paginator.count }} évènement(s) · HGR Makala</p>
+    </div>
+</div>
+
+<form method="get" class="toolbar" style="align-items:flex-end; flex-wrap:wrap; gap:10px;" id="auditFilterForm">
+    <div class="field" style="min-width:200px; flex:1;">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Recherche</label>
+        <input type="text" name="q" value="{{ q }}" placeholder="Description, utilisateur, action…" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;"
+               hx-get="{{ url('audit_logs') }}" hx-target="#auditResults" hx-swap="innerHTML" hx-trigger="keyup changed delay:400ms" hx-include="#auditFilterForm" hx-push-url="true">
+    </div>
+    <div class="field" style="min-width:160px;">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Utilisateur</label>
+        <select name="user" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;"
+                onchange="this.form.submit()">
+            <option value="">Tous</option>
+            {% for uid, uname in users_choices %}
+            <option value="{{ uid }}" {% if filter_user == uid|string %}selected{% endif %}>{{ users_map[uid] }} ({{ uname }})</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="field" style="min-width:180px;">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Action</label>
+        <select name="action" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;"
+                onchange="this.form.submit()">
+            <option value="">Toutes</option>
+            {% for val, label in action_choices %}
+            <option value="{{ val }}" {% if filter_action == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="field" style="min-width:150px;">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Du</label>
+        <input type="date" name="date_from" value="{{ filter_date_from }}" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+    </div>
+    <div class="field" style="min-width:150px;">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Au</label>
+        <input type="date" name="date_to" value="{{ filter_date_to }}" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+    </div>
+    <button type="submit" class="ui primary button"><i class="filter icon"></i>Filtrer</button>
+    <a href="{{ url('audit_logs') }}" class="ui basic button">Réinit.</a>
+</form>
+
+<div id="auditResults">
+    {% include 'users/audit_log_results.html' %}
+</div>
+
+{% endblock %}

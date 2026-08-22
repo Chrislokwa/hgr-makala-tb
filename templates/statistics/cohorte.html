@@ -43,13 +43,9 @@
         </select>
     </div>
     <div class="field" style="min-width:160px">
-        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Unité (CDT/CT)</label>
-        <select name="unite" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
-            <option value="">Toutes</option>
-            {% for u in unites %}
-            <option value="{{ u }}" {% if u == unite %}selected{% endif %}>{{ u }}</option>
-            {% endfor %}
-        </select>
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Unité</label>
+        <input type="hidden" name="unite" value="HGR Makala">
+        <div style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--bg2); color:var(--ink);">HGR Makala</div>
     </div>
     <button type="submit" class="ui primary button"><i class="filter icon"></i>Filtrer</button>
     <a href="{{ url('statistics_cohorte') }}" class="ui basic button">Réinit.</a>

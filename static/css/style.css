@@ -569,7 +569,7 @@ i.icon {
 .tbl-wrap {
     border: 1px solid var(--line);
     border-radius: 8px;
-    overflow-x: auto
+    overflow: visible
 }
 
 table.tbl {

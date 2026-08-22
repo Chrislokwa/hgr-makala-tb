@@ -8,8 +8,8 @@
         <p class="vsub">Période {{ debut|date_fr }} – {{ fin|date_fr }} {% if unite %}· {{ unite }}{% endif %}</p>
     </div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <a href="{{ url('statistics_export_excel', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui basic button"><i class="file excel outline icon"></i>Excel</a>
-        <a href="{{ url('statistics_export_pdf', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui primary button"><i class="file pdf icon"></i>PDF</a>
+        <a href="{{ url('statistics_export_excel', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui basic button"><i class="file excel outline icon"></i>Exporter en Excel</a>
+        <a href="{{ url('statistics_export_pdf', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui primary button"><i class="file pdf icon"></i>Exporter en PDF</a>
     </div>
 </div>
 
@@ -74,8 +74,8 @@
     <h3 class="pcard-h"><i class="download icon"></i>Export PNT – Dépistage</h3>
     <p class="muted" style="font-size:13px">Rapport trimestriel de dépistage (répartition des cas).</p>
     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px">
-        <a href="{{ url('statistics_export_excel', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui basic button"><i class="file excel outline icon"></i>Excel</a>
-        <a href="{{ url('statistics_export_pdf', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui primary button"><i class="file pdf outline icon"></i>PDF</a>
+        <a href="{{ url('statistics_export_excel', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui basic button"><i class="file excel outline icon"></i>Exporter en Excel</a>
+        <a href="{{ url('statistics_export_pdf', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui primary button"><i class="file pdf outline icon"></i>Exporter en PDF</a>
     </div>
 </div>
 {% endblock %}

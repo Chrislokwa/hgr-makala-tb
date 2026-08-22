@@ -23,7 +23,7 @@
             <a class="nitem {% if active_nav == 'examens' %}active{% endif %}" href="{{ url('examen_list') }}"><i class="lab icon"></i>Examens</a>
             {% endif %}
             {% endif %}
-            {% if request.user.role != 'ADMIN' %}
+            {% if request.user.role in ('MEDECIN','INFIRMIER','LABORANTIN') %}
             {% set non_lues = request.user.notifications.filter(lu=False).count() %}
             <a class="nitem {% if active_nav == 'notifications' %}active{% endif %}" href="{{ url('notification') }}"><i class="bell outline icon"></i>Notifications<span class="nav-badge" id="notifBadge" {% if not non_lues %}style="display:none"{% endif %}>{{ non_lues }}</span></a>
             {% endif %}

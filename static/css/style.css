@@ -1429,7 +1429,7 @@ tr.off td {
     gap: 10px;
     margin-top: 16px;
     padding-top: 16px;
-    border-top: 1px solid var(--line2)
+    /* border-top: 1px solid var(--line2) */
 }
 
 .info-box {

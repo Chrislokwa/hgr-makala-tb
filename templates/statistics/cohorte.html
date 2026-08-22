@@ -57,7 +57,6 @@
 
 <!-- Cohorte -->
 <div class="fcard">
-    <div class="fcard-h"><h2><i class="chart bar icon"></i>2. Résultats de traitement – Cohorte trimestrielle</h2><span class="muted" style="font-size:12px">Cible succès ≥90% (vert) / &lt;80% rouge · Échec/Décès &lt;5%</span></div>
     {% set total = cohorte.total %}
     <div class="info-grid">
         <div class="info-box" style="border-left:3px solid {% if cohorte.taux_succes >=90 %}#188038{% elif cohorte.taux_succes <80 %}#c5221f{% else %}#e37400{% endif %}"><h3>Succès thérapeutique</h3><p style="font-size:22px; color:{% if cohorte.taux_succes >=90 %}#188038{% elif cohorte.taux_succes <80 %}#c5221f{% else %}#e37400{% endif %}">{{ cohorte.taux_succes }}%</p><span class="muted" style="font-size:12px">{{ cohorte.gueris + cohorte.termines }}/{{ total }} (Guéris + Terminé / total)</span></div>

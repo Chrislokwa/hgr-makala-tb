@@ -1,0 +1,119 @@
+{% extends 'base_app.html' %}
+{% block title %}Tableau de bord — Consultations — Suivi TB · HGR Makala{% endblock %}
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Tableau de bord – Patients consultés</h1>
+        <p class="vsub">{{ periode_label }} {% if debut and fin and debut != fin %}· {{ debut|date_fr }} – {{ fin|date_fr }}{% endif %}</p>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a href="{{ url('statistics_consultations_export_excel') }}?jour={{ filtre_jour }}&semaine={{ filtre_semaine }}&mois={{ filtre_mois }}&annee={{ filtre_annee }}" class="ui basic button"><i class="file excel outline icon"></i>Exporter en Excel</a>
+        <a href="{{ url('statistics_consultations_export_pdf') }}?jour={{ filtre_jour }}&semaine={{ filtre_semaine }}&mois={{ filtre_mois }}&annee={{ filtre_annee }}" class="ui primary button"><i class="file pdf icon"></i>Exporter en PDF</a>
+    </div>
+</div>
+
+<!-- Stat grid -->
+<div class="pstats">
+    <div class="pstat"><span>Total patient consulté / jour</span><strong>{{ total_jour }}</strong><span style="font-size:11px; color:var(--ink3)">Aujourd'hui {{ total_jour }} (filtré: {{ total_periode }})</span></div>
+    <div class="pstat"><span>Total patient</span><strong>{{ total_global }}</strong><span style="font-size:11px; color:var(--ink3)">Tous les dossiers</span></div>
+    <div class="pstat"><span>Résultats filtrés</span><strong>{{ page_obj.paginator.count if page_obj else total_periode }}</strong><span style="font-size:11px; color:var(--ink3)">{{ periode_label }}</span></div>
+</div>
+
+<!-- Filtres jour / semaine / mois / année -->
+<form method="get" class="toolbar" style="align-items:flex-end;">
+    <div class="field" style="min-width:160px">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Jour</label>
+        <input type="date" name="jour" value="{{ filtre_jour }}" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+    </div>
+    <div class="field" style="min-width:160px">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Semaine</label>
+        <input type="week" name="semaine" value="{{ filtre_semaine }}" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+    </div>
+    <div class="field" style="min-width:160px">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Mois</label>
+        <input type="month" name="mois" value="{{ filtre_mois }}" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+    </div>
+    <div class="field" style="min-width:120px">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Année</label>
+        <input type="number" name="annee" value="{{ filtre_annee }}" placeholder="2026" min="2000" max="2100" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+    </div>
+    <button type="submit" class="ui primary button"><i class="filter icon"></i>Filtrer</button>
+    <a href="{{ url('statistics_consultations') }}" class="ui basic button">Réinit.</a>
+</form>
+
+<div class="fcard">
+    <div class="fcard-h"><h2><i class="users icon"></i>Liste des patients consultés</h2><span class="muted" style="font-size:12px">{{ page_obj.paginator.count }} dossier(s)</span></div>
+    {% if page_obj.object_list %}
+    <div class="tbl-wrap">
+        <table class="tbl">
+            <thead>
+                <tr>
+                    <th>N° Fiche</th>
+                    <th>Nom</th>
+                    <th>Postnom</th>
+                    <th>Prénom</th>
+                    <th>Sexe</th>
+                    <th>Date de naissance</th>
+                    <th>Date de consultation</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in page_obj.object_list %}
+                <tr>
+                    <td><span class="un">{{ p.ndp }}</span></td>
+                    <td class="ue">{{ p.nom }}</td>
+                    <td class="ue">{{ p.post_nom or "—" }}</td>
+                    <td class="ue">{{ p.prenom }}</td>
+                    <td><span class="badge {% if p.sexe == 'M' %}info{% else %}mut{% endif %}">{{ p.get_sexe_display() }}</span></td>
+                    <td class="ue">{{ p.date_naissance|date_fr }}</td>
+                    <td class="ue">{{ p.cree_le|date_fr }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="pager">
+        <span class="pg-info">{{ page_obj.start_index() }} – {{ page_obj.end_index() }} sur {{ page_obj.paginator.count }}</span>
+        <div class="pg-btns">
+            {% if page_obj.has_previous() %}
+            <a href="?page={{ page_obj.previous_page_number() }}&jour={{ filtre_jour }}&semaine={{ filtre_semaine }}&mois={{ filtre_mois }}&annee={{ filtre_annee }}" class="pg-btn" aria-label="Page précédente"><i class="chevron left icon"></i></a>
+            {% else %}
+            <button class="pg-btn" disabled aria-label="Page précédente"><i class="chevron left icon"></i></button>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <button class="pg-btn active">{{ num }}</button>
+                {% else %}
+                <a href="?page={{ num }}&jour={{ filtre_jour }}&semaine={{ filtre_semaine }}&mois={{ filtre_mois }}&annee={{ filtre_annee }}" class="pg-btn">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next() %}
+            <a href="?page={{ page_obj.next_page_number() }}&jour={{ filtre_jour }}&semaine={{ filtre_semaine }}&mois={{ filtre_mois }}&annee={{ filtre_annee }}" class="pg-btn" aria-label="Page suivante"><i class="chevron right icon"></i></a>
+            {% else %}
+            <button class="pg-btn" disabled aria-label="Page suivante"><i class="chevron right icon"></i></button>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty">
+        <i class="users icon"></i>
+        <div class="e-t">Aucune consultation {% if filtre_jour or filtre_semaine or filtre_mois or filtre_annee %}pour cette période{% endif %}</div>
+        <div class="e-s">Ajustez les filtres ou vérifiez les dossiers.</div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="fcard">
+    <h3 class="pcard-h"><i class="download icon"></i>Exportations</h3>
+    <p class="muted" style="font-size:13px">Exportez la liste filtrée pour transmission.</p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px">
+        <a href="{{ url('statistics_consultations_export_excel') }}?jour={{ filtre_jour }}&semaine={{ filtre_semaine }}&mois={{ filtre_mois }}&annee={{ filtre_annee }}" class="ui basic button"><i class="file excel outline icon"></i>Exporter en Excel</a>
+        <a href="{{ url('statistics_consultations_export_pdf') }}?jour={{ filtre_jour }}&semaine={{ filtre_semaine }}&mois={{ filtre_mois }}&annee={{ filtre_annee }}" class="ui primary button"><i class="file pdf outline icon"></i>Exporter en PDF</a>
+    </div>
+</div>
+{% endblock %}

@@ -46,7 +46,7 @@ class AuthenticationTests(TestCase):
             'username': 'testuser@hgr-makala.cd',
             'password': 'password123'
         })
-        self.assertRedirects(response, reverse('dashboard'))
+        self.assertRedirects(response, reverse('notification'))
 
     def test_login_invalid_password(self):
         response = self.client.post(reverse('login'), {
@@ -84,14 +84,14 @@ class AuthenticationTests(TestCase):
 
     def test_no_cache_headers(self):
         self.client.login(username='testuser@hgr-makala.cd', password='password123')
-        response = self.client.get(reverse('dashboard'))
+        response = self.client.get(reverse('notification'))
         self.assertEqual(response['Cache-Control'], 'no-cache, no-store, must-revalidate')
         self.assertEqual(response['Pragma'], 'no-cache')
         self.assertEqual(response['Expires'], '0')
 
     def test_dashboard_requires_login(self):
-        response = self.client.get(reverse('dashboard'))
-        self.assertRedirects(response, f"{reverse('login')}?next={reverse('dashboard')}")
+        response = self.client.get(reverse('notification'))
+        self.assertRedirects(response, f"{reverse('login')}?next={reverse('notification')}")
 
     # Phase 2 — Mot de passe oublié
     def test_password_reset_page_renders(self):
@@ -119,4 +119,4 @@ class AuthenticationTests(TestCase):
             'new_password1': 'newsecret123',
             'new_password2': 'newsecret123'
         })
-        self.assertRedirects(post_resp, reverse('dashboard'))
+        self.assertRedirects(post_resp, reverse('notification'))

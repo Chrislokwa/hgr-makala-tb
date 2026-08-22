@@ -1,0 +1,90 @@
+{% extends 'base_app.html' %}
+{% block title %}Statistiques — Épidémiologie — Suivi TB · HGR Makala{% endblock %}
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Épidémiologie – Dépistage</h1>
+        <p class="vsub">Période {{ debut|date_fr }} – {{ fin|date_fr }} {% if unite %}· {{ unite }}{% endif %}</p>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a href="{{ url('statistics_export_excel', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui basic button"><i class="file excel outline icon"></i>Exporter en Excel</a>
+        <a href="{{ url('statistics_export_pdf', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui primary button"><i class="file pdf icon"></i>Exporter en PDF</a>
+    </div>
+</div>
+
+<!-- Filtres -->
+<form method="get" class="toolbar" style="align-items:flex-end;">
+    <div class="field" style="min-width:110px">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Année</label>
+        <select name="annee" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+            {% for y in annee_choices %}
+            <option value="{{ y }}" {% if y|string == annee %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="field" style="min-width:130px">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Trimestre</label>
+        <select name="trimestre" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+            <option value="">— Tous —</option>
+            <option value="1" {% if trimestre == '1' %}selected{% endif %}>T1 (Jan-Mar)</option>
+            <option value="2" {% if trimestre == '2' %}selected{% endif %}>T2 (Avr-Juin)</option>
+            <option value="3" {% if trimestre == '3' %}selected{% endif %}>T3 (Jul-Sep)</option>
+            <option value="4" {% if trimestre == '4' %}selected{% endif %}>T4 (Oct-Déc)</option>
+        </select>
+    </div>
+    <div class="field" style="min-width:120px">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Mois</label>
+        <select name="mois" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+            <option value="">— Tous —</option>
+            {% for m in range(1,13) %}
+            <option value="{{ m }}" {% if mois|string == m|string %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="field" style="min-width:160px">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Unité (CDT/CT)</label>
+        <select name="unite" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+            <option value="">Toutes</option>
+            {% for u in unites %}
+            <option value="{{ u }}" {% if u == unite %}selected{% endif %}>{{ u }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="ui primary button"><i class="filter icon"></i>Filtrer</button>
+    <a href="{{ url('statistics_dashboard') }}" class="ui basic button">Réinit.</a>
+</form>
+
+<!-- Indicateurs épidémiologiques -->
+<div class="fcard">
+    <div class="info-grid" style="grid-template-columns: repeat(3,1fr)">
+        <div class="info-box"><h3>Suspects TB</h3><p style="font-size:22px; color:var(--primary)">{{ ep.nb_suspects }}</p><span class="muted" style="font-size:12px">Patients testés au labo</span></div>
+        <div class="info-box"><h3>Taux positivité</h3><p style="font-size:22px; color:{% if ep.taux_positivite >= 10 %}var(--ok){% else %}var(--ink){% endif %}">{{ ep.taux_positivite }}%</p><span class="muted" style="font-size:12px">{{ ep.nb_suspects }} suspects</span></div>
+        <div class="info-box"><h3>Retraitement</h3><p>{{ ep.nb_retraitement }}</p><span class="muted" style="font-size:12px">Rechute / Échec / Reprise</span></div>
+        <div class="info-box"><h3>Nouveaux TPM+</h3><p style="color:#b3261e">{{ ep.nb_nouveaux_tpm_plus }}</p><span class="muted" style="font-size:12px">Nouveau + BAAR+</span></div>
+        <div class="info-box"><h3>Nouveaux TPM-</h3><p>{{ ep.nb_nouveaux_tpm_moins }}</p><span class="muted" style="font-size:12px">Nouveau + BAAR- clinique</span></div>
+        <div class="info-box"><h3>Taux notification /100k</h3><p class="muted">N/A</p><span class="muted" style="font-size:12px">Population non modélisée</span></div>
+    </div>
+    <div style="height:240px; margin-top:18px"><canvas id="chartEpi"></canvas></div>
+</div>
+
+<div class="fcard">
+    <h3 class="pcard-h"><i class="download icon"></i>Export PNT – Dépistage</h3>
+    <p class="muted" style="font-size:13px">Rapport trimestriel de dépistage (répartition des cas).</p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px">
+        <a href="{{ url('statistics_export_excel', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui basic button"><i class="file excel outline icon"></i>Exporter en Excel</a>
+        <a href="{{ url('statistics_export_pdf', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui primary button"><i class="file pdf outline icon"></i>Exporter en PDF</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block app_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  const ep = { suspects: {{ ep.nb_suspects }}, tpmPlus: {{ ep.nb_nouveaux_tpm_plus }}, tpmMoins: {{ ep.nb_nouveaux_tpm_moins }}, retr: {{ ep.nb_retraitement }} };
+  const ctxEpi = document.getElementById('chartEpi');
+  if (ctxEpi) new Chart(ctxEpi, { type:'bar', data:{ labels:['TPM+','TPM-','Retraitement'], datasets:[{label:'Cas', data:[ep.tpmPlus, ep.tpmMoins, ep.retr], backgroundColor:['#c5221f','#1a6fb0','#7a5a1f']}]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }});
+})();
+</script>
+{% endblock %}

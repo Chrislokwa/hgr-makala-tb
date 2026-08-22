@@ -402,7 +402,8 @@ i.icon {
 .toolbar {
     display: flex;
     gap: 12px;
-    margin-bottom: 6px;
+    margin-top: 18px;
+    margin-bottom: 14px;
     flex-wrap: wrap
 }
 
@@ -569,7 +570,7 @@ i.icon {
 .tbl-wrap {
     border: 1px solid var(--line);
     border-radius: 8px;
-    overflow-x: auto
+    overflow: visible
 }
 
 table.tbl {
@@ -750,6 +751,9 @@ tr.off td {
 .ui.form input[type=text],
 .ui.form input[type=password],
 .ui.form input[type=email],
+.ui.form input[type=date],
+.ui.form input[type=tel],
+.ui.form input[type=number],
 .ui.form textarea,
 .ui.form select {
     border: 1px solid var(--line);
@@ -760,6 +764,11 @@ tr.off td {
     color: var(--ink);
     background: #fff;
     width: 100%
+}
+
+.ui.form ::placeholder {
+    color: var(--ink3);
+    opacity: 1
 }
 
 .ui.form textarea {
@@ -1052,4 +1061,1457 @@ tr.off td {
     to {
         transform: rotate(360deg)
     }
+}
+
+/* ---------- Patients : cartes de formulaire ----------------------------------- */
+.fcard {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin-top: 16px;
+}
+
+.fcard-h h2 {
+    font-size: 15.5px;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line2)
+}
+
+.fcard-h h2 i.icon {
+    color: var(--primary);
+    margin-right: 6px;
+    font-size: 16px
+}
+
+.grid.two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px
+}
+
+.grid.three {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px
+}
+
+.grid.four {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px
+}
+
+.lbl-sec {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink2);
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    background: var(--bg-soft);
+    border-radius: 6px;
+    border-left: 3px solid var(--primary)
+}
+
+.symptomes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px
+}
+
+.chk {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--ink);
+    cursor: pointer
+}
+
+.chk input[type=checkbox],
+.radio-card input[type=radio] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+    cursor: pointer;
+    flex: none
+}
+
+.radio-list {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap
+}
+
+.radio-list #id_motif,
+.radio-list #id_sexe {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap
+}
+
+.radio-list #id_motif > div,
+.radio-list #id_sexe > div {
+    display: contents
+}
+
+.radio-list #id_motif label,
+.radio-list #id_sexe label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--ink);
+    background: #fff;
+    transition: border-color .12s ease, background .12s ease
+}
+
+.radio-list #id_motif label:hover,
+.radio-list #id_sexe label:hover {
+    border-color: var(--primary)
+}
+
+.radio-list #id_motif label:has(input:checked),
+.radio-list #id_sexe label:has(input:checked) {
+    border-color: var(--primary);
+    background: var(--primary-l)
+}
+
+.radio-list label input[type=radio] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+    cursor: pointer;
+    flex: none
+}
+
+.examens-list #id_examens {
+    display: flex;
+    flex-direction: column;
+    gap: 8px
+}
+
+.examens-list #id_examens > div {
+    display: contents
+}
+
+.examens-list #id_examens label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--ink);
+    background: #fff;
+    transition: border-color .12s ease, background .12s ease
+}
+
+.examens-list #id_examens label:hover {
+    border-color: var(--primary)
+}
+
+.examens-list #id_examens label:has(input:checked) {
+    border-color: var(--primary);
+    background: var(--primary-l)
+}
+
+.examens-list #id_examens label input[type=checkbox] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+    margin-top: 2px;
+    flex: none;
+    cursor: pointer
+}
+
+/* ---------- Patients : liste ------------------------------------------------ */
+.pstats {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    margin-bottom: 8px
+}
+
+.pstat {
+    flex: 1;
+    min-width: 130px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px
+}
+
+.pstat span {
+    font-size: 12.5px;
+    color: var(--ink2)
+}
+
+.pstat strong {
+    font-size: 22px;
+    color: var(--primary)
+}
+
+.plist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px
+}
+
+.prow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 16px;
+    text-decoration: none;
+    transition: border-color .12s ease, box-shadow .12s ease
+}
+
+.prow:hover {
+    border-color: var(--primary);
+    box-shadow: 0 1px 6px rgba(26, 111, 176, .12)
+}
+
+.prow i.icon {
+    margin-left: auto;
+    color: var(--ink3)
+}
+
+.avatar.lg {
+    width: 48px;
+    height: 48px;
+    font-size: 16px
+}
+
+.prow-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px
+}
+
+.prow-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.prow-meta {
+    font-size: 13px;
+    color: var(--ink2)
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    background: #eef0f2;
+    color: #5f6368;
+    white-space: nowrap
+}
+
+.badge.ok {
+    background: #e3f2e6;
+    color: #176b33
+}
+
+.badge.neg {
+    background: #fbe9e7;
+    color: #b3261e
+}
+
+.empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+    padding: 44px 20px;
+    color: var(--ink2);
+    background: #fff;
+    border: 1px dashed var(--line);
+    border-radius: 10px
+}
+
+.empty i.icon {
+    font-size: 34px;
+    color: var(--ink3)
+}
+
+.empty p {
+    margin: 0 0 6px;
+    font-size: 14.5px
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 18px
+}
+
+.pg-info {
+    font-size: 13.5px;
+    color: var(--ink2)
+}
+
+/* ---------- Patients : fiche détail ------------------------------------------ */
+.pcard {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-top: 16px
+}
+
+.pcard-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px
+}
+
+.pcard-id {
+    flex: 1;
+    min-width: 0
+}
+
+.pcard-id h2 {
+    margin: 0;
+    font-size: 19px;
+    color: var(--ink)
+}
+
+.pcard-ndp {
+    margin: 4px 0 2px;
+    font-size: 13.5px;
+    color: var(--ink2)
+}
+
+.pcard-adr {
+    margin: 2px 0;
+    font-size: 13.5px;
+    color: var(--ink2)
+}
+
+.pcard-adr i.icon {
+    font-size: 13px;
+    width: 16px
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 16px;
+    /* border-top: 1px solid var(--line2) */
+}
+
+.info-box {
+    background: var(--bg-soft);
+    border-radius: 8px;
+    padding: 12px 14px
+}
+
+.info-box h3 {
+    margin: 0 0 4px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink2)
+}
+
+.info-box h3 i.icon {
+    font-size: 13px;
+    color: var(--primary);
+    width: 17px
+}
+
+.info-box p {
+    margin: 0;
+    font-size: 14.5px;
+    color: var(--ink)
+}
+
+.pcard-h {
+    margin: 0 0 12px;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 8px
+}
+
+.pcard-h i.icon {
+    color: var(--primary);
+    font-size: 15px
+}
+
+.pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    list-style: none;
+    margin: 0;
+    padding: 0
+}
+
+.pills li {
+    padding: 6px 12px;
+    background: var(--primary-l);
+    color: var(--primary-d);
+    border-radius: 6px;
+    font-size: 13.5px
+}
+
+.muted {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--ink3)
+}
+
+.drow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 16px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 18px
+}
+
+.drow-tx {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px
+}
+
+.drow-tx i.icon {
+    font-size: 20px;
+    color: var(--primary);
+    margin-top: 2px
+}
+
+.drow-tx strong {
+    display: block;
+    font-size: 14.5px;
+    color: var(--ink)
+}
+
+.drow-tx span {
+    display: block;
+    font-size: 13px;
+    color: var(--ink2);
+    margin-top: 2px
+}
+
+.notice {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: #fdf3e3;
+    border: 1px solid #f2d7a7;
+    color: #7a5a1f
+}
+
+.notice i.icon {
+    font-size: 18px;
+    margin-top: 2px;
+    flex: none
+}
+
+.notice strong {
+    font-size: 14px
+}
+
+.notice p {
+    margin: 4px 0 0;
+    font-size: 13.5px
+}
+
+.notice .dup-list {
+    margin: 6px 0 0;
+    padding-left: 18px;
+    font-size: 13.5px
+}
+
+/* ---------- Patients : prescription d'examen ---------------------------------- */
+.ro-zone {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    background: var(--bg-soft);
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    margin-bottom: 16px
+}
+
+.ro-id {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1
+}
+
+.ro-id strong {
+    font-size: 16px;
+    color: var(--ink)
+}
+
+.ro-id span {
+    font-size: 13.5px;
+    color: var(--ink2)
+}
+
+.ro-ndp strong {
+    font-size: 13.5px;
+    color: var(--primary)
+}
+
+.ro-poids {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+    padding-left: 16px;
+    border-left: 1px solid var(--line)
+}
+
+.ro-poids span {
+    font-size: 12px;
+    color: var(--ink3);
+    text-transform: uppercase;
+    letter-spacing: .4px
+}
+
+.ro-poids strong {
+    font-size: 18px;
+    color: var(--ink)
+}
+
+.pres-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px
+}
+
+.pres-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--line2);
+    border-radius: 8px;
+    background: var(--bg-soft)
+}
+
+.pres-tx {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0
+}
+
+.pres-tx strong {
+    font-size: 14px;
+    color: var(--primary)
+}
+
+.pres-tx span {
+    font-size: 13px;
+    color: var(--ink2)
+}
+
+.examens-list .chk em {
+    display: block;
+    font-style: normal;
+    font-size: 12px;
+    color: var(--ink3);
+    margin-top: 1px
+}
+
+@media (max-width:860px) {
+    .grid.three,
+    .grid.two {
+        grid-template-columns: 1fr 1fr
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr 1fr
+    }
+
+    .pcard-top {
+        flex-wrap: wrap
+    }
+
+    .ro-zone {
+        flex-wrap: wrap
+    }
+}
+
+@media (max-width:560px) {
+    .grid.three,
+    .grid.two,
+    .grid.four,
+    .info-grid {
+        grid-template-columns: 1fr
+    }
+
+    .drow {
+        flex-direction: column;
+        align-items: flex-start
+    }
+}
+
+/* ---------- Laboratoire : listes et saisie des résultats ------------------- */
+.fcard-h {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line2);
+    margin-bottom: 14px
+}
+
+.fcard-h h2 {
+    margin: 0;
+    padding: 0;
+    border: 0
+}
+
+.fcard-h > form {
+    margin: 0
+}
+
+.result-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px
+}
+
+.result-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--line2);
+    border-radius: 8px;
+    background: var(--bg-soft);
+    flex-wrap: wrap
+}
+
+.result-row.unread {
+    background: #fff8f5;
+    border-color: #efd9d3
+}
+
+.result-row .result-tx {
+    flex: 1;
+    min-width: 220px
+}
+
+.result-tx {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0
+}
+
+.result-tx strong {
+    font-size: 14px;
+    color: var(--primary)
+}
+
+.result-tx span {
+    font-size: 13px;
+    color: var(--ink2)
+}
+
+.result-row i.icon {
+    color: var(--ink3)
+}
+
+.result-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line2)
+}
+
+.res-item {
+    font-size: 12.5px;
+    color: var(--ink2)
+}
+
+.res-note {
+    font-style: italic;
+    flex-basis: 100%
+}
+
+.result-summary strong.pos,
+.spec-v.pos {
+    color: #b3261e;
+    font-weight: 700
+}
+
+/* Résultats de laboratoire — liste de spécifications (pas de grille) */
+.spec-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff
+}
+
+.spec-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line)
+}
+
+.spec-row:last-child {
+    border-bottom: none
+}
+
+.spec-t {
+    font-size: 12px;
+    color: var(--ink3);
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    flex: none
+}
+
+.spec-v {
+    font-size: 14px;
+    color: var(--ink);
+    text-align: right
+}
+
+.result-entries {
+    display: flex;
+    flex-direction: column;
+    gap: 12px
+}
+
+.result-entry {
+    border: 1px solid var(--line2);
+    border-radius: 8px;
+    padding: 12px 14px;
+    background: var(--bg-soft)
+}
+
+.result-entry-h {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    margin-bottom: 10px;
+    font-size: 12.5px;
+    color: var(--ink2)
+}
+
+.result-radios {
+    display: flex
+}
+
+.result-radios > div {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap
+}
+
+.result-radios label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--ink);
+    background: #fff;
+    transition: border-color .12s ease, background .12s ease
+}
+
+.result-radios label:hover {
+    border-color: var(--primary)
+}
+
+.result-radios label:has(input:checked) {
+    border-color: var(--primary);
+    background: var(--primary-l)
+}
+
+.result-radios label:has(input[value="1_9"]),
+.result-radios label:has(input[value="+"]),
+.result-radios label:has(input[value="++"]),
+.result-radios label:has(input[value="+++"]),
+.result-radios label:has(input[value="1_9"]:checked),
+.result-radios label:has(input[value="+"]:checked),
+.result-radios label:has(input[value="++"]:checked),
+.result-radios label:has(input[value="+++"]:checked) {
+    border-color: #e2b7b2;
+    background: #fdf1f0;
+    color: #b3261e;
+    font-weight: 600
+}
+
+/* ---------- Barre latérale : badge de notifications ------------------------- */
+.nav-badge {
+    margin-left: auto;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #d93025;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center
+}
+
+/* ---------- Onglets (dossier patient) --------------------------------------- */
+.tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 16px
+}
+
+.tab-btn {
+    border: none;
+    background: none;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--ink2);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: color .12s ease, border-color .12s ease
+}
+
+.tab-btn i.icon {
+    font-size: 15px
+}
+
+.tab-btn:hover {
+    color: var(--ink)
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    font-weight: 500
+}
+
+.tab-panel {
+    min-height: 80px
+}
+
+/* ---------- Notifications ---------------------------------------------------- */
+.notif-link.strong {
+    font-weight: 500;
+    color: var(--ink)
+}
+
+.notif-link {
+    color: var(--ink2)
+}
+
+.notif-date {
+    white-space: nowrap;
+    color: var(--ink2);
+    font-size: 13px
+}
+
+.table tbody tr.unread,
+.tbl tbody tr.unread {
+    background: #fff8f5
+}
+
+.tbl tbody tr.unread:hover td {
+    background: #fdf0ed
+}
+
+.res-mini {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--ink2)
+}
+
+.res-mini strong.pos {
+    color: #b3261e;
+    font-weight: 700
+}
+
+/* ---------- Barre d'outils des listes ---------------------------------------- */
+.toolbar select {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--ink);
+    background: #fff;
+    cursor: pointer;
+    min-width: 190px
+}
+
+.toolbar select:focus {
+    border-color: var(--primary);
+    outline: none
+}
+
+.hx-indicator.htmx-request {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    animation: hxbar 1.2s ease-in-out infinite;
+    margin-top: 10px;
+    border-radius: 2px;
+    opacity: 1
+}
+
+@keyframes hxbar {
+    0%,
+    100% {
+        opacity: .25
+    }
+
+    50% {
+        opacity: 1
+    }
+}
+
+/* ---------- Epic 4 · Fiche de traitement ---------- */
+.schema-bloc {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 12px
+}
+
+.schema-card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: #fbfbfc
+}
+
+.schema-card .sc-phase {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink)
+}
+
+.schema-card .sc-role {
+    font-size: 12px;
+    color: var(--ink2);
+    margin-top: 2px
+}
+
+.schema-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    margin-top: 10px
+}
+
+.schema-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px
+}
+
+.schema-stat span {
+    font-size: 12px;
+    color: var(--ink2)
+}
+
+.schema-stat strong {
+    font-size: 17px;
+    color: var(--ink)
+}
+
+.obs-conv {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    font-size: 12px;
+    color: var(--ink2);
+    flex-wrap: wrap
+}
+
+.mois-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 10px
+}
+
+.mois-chip {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: var(--ink);
+    background: #fff;
+    text-decoration: none
+}
+
+.mois-chip.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+    font-weight: 500
+}
+
+.obs-wrap {
+    overflow-x: auto;
+    margin-top: 8px
+}
+
+.obs-grid {
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff
+}
+
+.obs-grid th,
+.obs-grid td {
+    border-bottom: 1px solid #edf0f3;
+    border-right: 1px solid #edf0f3;
+    text-align: center;
+    padding: 2px;
+    min-width: 34px
+}
+
+.obs-grid th:last-child,
+.obs-grid td:last-child {
+    border-right: none
+}
+
+.obs-grid thead th {
+    background: #f4f7fa;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink2);
+    padding: 8px 2px
+}
+
+.obs-grid thead th.first-col {
+    background: #eff3f7;
+    text-align: left;
+    padding-left: 10px;
+    font-weight: 600;
+    color: var(--ink);
+    min-width: 90px
+}
+
+.obs-sel {
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: center;
+    width: 100%;
+    padding: 4px
+}
+
+.obs-sel:focus {
+    outline: 2px solid var(--primary);
+    border-radius: 4px
+}
+
+.visite-tag {
+    display: inline-block;
+    background: #fdeef4;
+    color: #c2185b;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 5px;
+    padding: 2px 6px;
+    margin-right: 4px
+}
+
+.signe-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px
+}
+
+/* ---------- Epic 4 · Carte du malade ---------- */
+.carte-print {
+    max-width: 760px;
+    margin: 0 auto
+}
+
+.carte-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px
+}
+
+.rdv-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #edf0f3;
+    flex-wrap: wrap
+}
+
+.rdv-row:last-child {
+    border-bottom: none
+}
+
+.rdv-date {
+    font-weight: 600;
+    color: var(--ink);
+    min-width: 96px
+}
+
+@media print {
+    .sidebar,
+    .vhead .icon-btn,
+    .vhead .ui.button,
+    .no-print {
+        display: none !important
+    }
+
+    .main {
+        padding: 0
+    }
+
+    body {
+        background: #fff
+    }
+
+    .carte-print {
+        max-width: 100%
+    }
+}
+
+/* ---------- Epic 4 · Registre de cas ---------- */
+.res-cell {
+    font-size: 12px;
+    color: var(--ink2);
+    line-height: 1.4
+}
+
+.res-cell a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600
+}
+
+.res-cell.ok {
+    color: #2e7d32
+}
+
+.res-cell.neg {
+    color: #c62828
+}
+
+.issue-pill {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap
+}
+
+.issue-pill.positif {
+    background: #e8f5e9;
+    color: #1b5e20
+}
+
+.issue-pill.neutre {
+    background: #e3f2fd;
+    color: #0d47a1
+}
+
+.issue-pill.negatif {
+    background: #fdecea;
+    color: #b3261e
+}
+
+.cohorte-card {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap
+}
+
+.cohorte-num {
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--primary)
+}
+
+.cohorte-sub {
+    font-size: 13px;
+    color: var(--ink2)
+}
+
+/* ===================== Menu 3 points (listes) ===================== */
+.row-menu {
+    position: relative;
+    display: inline-block
+}
+
+.row-menu-btn {
+    list-style: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    color: var(--ink2);
+    border: 1px solid transparent
+}
+
+.row-menu-btn::-webkit-details-marker {
+    display: none
+}
+
+.row-menu-btn:hover,
+.row-menu[open] .row-menu-btn {
+    background: #f1f3f7;
+    color: var(--ink);
+    border-color: var(--line)
+}
+
+.row-menu-pop {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    min-width: 210px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, .14);
+    padding: 6px;
+    z-index: 40
+}
+
+.row-menu-pop a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    color: var(--ink);
+    text-decoration: none
+}
+
+.row-menu-pop a:hover {
+    background: #f4f6fa;
+    color: var(--primary)
+}
+
+.row-menu-pop a i.icon {
+    margin: 0;
+    opacity: .7
+}
+
+/* ===================== Badges supplementaires ===================== */
+.badge.info {
+    background: #e8f0fe;
+    color: #0b57d0
+}
+
+.badge.warn {
+    background: #fef3e2;
+    color: #b06000
+}
+
+.badge.mut {
+    background: #f1f3f7;
+    color: var(--ink2)
+}
+
+/* ============ Examens : résultats en survol ============ */
+.res-cell-td { position: relative; }
+.res-cell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: 32px;
+}
+.hover-consult {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: rgba(255,255,255,.98);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(15,23,42,.12);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(2px);
+    transition: opacity .16s ease, transform .16s ease;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+    z-index: 3;
+    padding: 6px 8px;
+}
+.hover-consult i.icon { color: var(--primary); margin:0; }
+.tbl tbody tr:hover .hover-consult { opacity: 1; pointer-events: auto; transform: none; }
+
+/* ===================== Liste des notifications ===================== */
+.notif-list {
+    display: flex;
+    flex-direction: column
+}
+
+.notif-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line)
+}
+
+.notif-item:last-child {
+    border-bottom: none
+}
+
+.notif-item.unread {
+    background: #f5f9ff
+}
+
+.notif-dot {
+    width: 8px;
+    height: 8px;
+    margin-top: 7px;
+    border-radius: 50%;
+    background: transparent;
+    flex: none
+}
+
+.notif-item.unread .notif-dot {
+    background: #0b57d0
+}
+
+.notif-ic {
+    margin: 0 !important;
+    color: var(--ink2);
+    margin-top: 2px !important
+}
+
+.notif-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px
+}
+
+.notif-msg {
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.45;
+    text-decoration: none
+}
+
+.notif-msg:hover {
+    color: var(--primary)
+}
+
+.notif-item.unread .notif-msg {
+    font-weight: 600
+}
+
+.notif-date {
+    font-size: 12px;
+    color: var(--ink3)
+}
+
+.notif-del {
+    margin: 0
+}
+
+.notif-del .icon-btn {
+    opacity: .55
+}
+
+.notif-del .icon-btn:hover {
+    opacity: 1;
+    color: #b3261e
 }

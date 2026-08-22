@@ -1,0 +1,87 @@
+{% if examens %}
+<div class="tbl-wrap">
+    <table class="tbl">
+        <thead>
+            <tr>
+                <th>Demande</th>
+                <th>Patient</th>
+                <th>Examens</th>
+                <th>Prélèvement</th>
+                <th>Statut</th>
+                <th style="text-align:right">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for dem in examens %}
+            <tr>
+                <td>
+                    <span class="un">{{ dem.numero_demande }}</span><br>
+                    <span class="ue notif-date">Prescrite le {{ dem.date_prescription|date_fr }}</span>
+                </td>
+                <td>
+                    <span class="un">{{ dem.patient.full_name }}</span><br>
+                    <span class="ue">{{ dem.patient.ndp }}</span>
+                </td>
+                <td class="ue">{{ dem.types_libelles }}</td>
+                <td class="ue">{{ dem.get_nature_echantillon_display() }}{% if dem.organe %} ({{ dem.organe }}){% endif %}<br>{{ dem.date_prelevement|date_fr }}</td>
+                <td>
+                    <span class="badge {% if dem.statut == 'RESULTATS_DISPONIBLES' %}ok{% endif %}">{{ dem.get_statut_display() }}</span>
+                </td>
+                <td>
+                    <div class="row-acts">
+                        {% if dem.statut == 'RESULTATS_DISPONIBLES' %}
+                        <a href="{{ url('examen_detail', pk=dem.pk) }}" class="ui primary button btn-sm"><i class="eye icon"></i>Consulter</a>
+                        {% else %}
+                        <a href="{{ url('resultat_saisie', pk=dem.pk) }}" class="ui teal button btn-sm"><i class="lab icon"></i>Saisir</a>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if is_paginated %}
+<div class="pager">
+    <span class="pg-info">{{ page_obj.start_index() }} – {{ page_obj.end_index() }} sur {{ page_obj.paginator.count }}</span>
+    <div class="pg-btns">
+        {% if page_obj.has_previous() %}
+        <a href="?page={{ page_obj.previous_page_number() }}{% if q %}&q={{ q }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}"
+           hx-get="?page={{ page_obj.previous_page_number() }}{% if q %}&q={{ q }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}"
+           hx-target="#examenResults" hx-swap="innerHTML" hx-push-url="true" hx-indicator="#examenLoading"
+           class="pg-btn" aria-label="Page précédente"><i class="chevron left icon"></i></a>
+        {% else %}
+        <button class="pg-btn" disabled aria-label="Page précédente"><i class="chevron left icon"></i></button>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <button class="pg-btn active">{{ num }}</button>
+            {% else %}
+            <a href="?page={{ num }}{% if q %}&q={{ q }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}"
+               hx-get="?page={{ num }}{% if q %}&q={{ q }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}"
+               hx-target="#examenResults" hx-swap="innerHTML" hx-push-url="true" hx-indicator="#examenLoading"
+               class="pg-btn">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next() %}
+        <a href="?page={{ page_obj.next_page_number() }}{% if q %}&q={{ q }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}"
+           hx-get="?page={{ page_obj.next_page_number() }}{% if q %}&q={{ q }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}"
+           hx-target="#examenResults" hx-swap="innerHTML" hx-push-url="true" hx-indicator="#examenLoading"
+           class="pg-btn" aria-label="Page suivante"><i class="chevron right icon"></i></a>
+        {% else %}
+        <button class="pg-btn" disabled aria-label="Page suivante"><i class="chevron right icon"></i></button>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty">
+    <i class="lab icon"></i>
+    <div class="e-t">Aucune demande{% if q %} pour « {{ q }} »{% endif %}</div>
+    <div class="e-s">Vérifiez la recherche ou le filtre appliqué.</div>
+</div>
+{% endif %}

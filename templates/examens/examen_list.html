@@ -1,0 +1,52 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Examens de laboratoire — Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Examens de laboratoire</h1>
+        <p class="vsub">Demandes transmises par les médecins traitants</p>
+    </div>
+</div>
+
+<div class="pstats">
+    <div class="pstat"><span>Résultats trouvés</span><strong>{{ paginator.count }}</strong></div>
+    <div class="pstat"><span>En attente</span><strong>{{ nb_a_traiter }}</strong></div>
+    <div class="pstat"><span>Disponibles</span><strong>{{ nb_disponibles }}</strong></div>
+</div>
+
+<!-- Recherche et filtrage (HTMX) -->
+<div class="toolbar">
+    <div class="search_" style="flex:1;min-width:220px">
+        <i class="search icon"></i>
+        <input type="text" name="q" value="{{ q }}"
+               hx-get="{{ url('examen_list') }}"
+               hx-trigger="input changed delay:300ms"
+               hx-target="#examenResults"
+               hx-swap="innerHTML"
+               hx-push-url="true"
+               hx-include="[name='statut']"
+               hx-indicator="#examenLoading"
+               placeholder="Rechercher (n° de demande, patient, NDP)" aria-label="Recherche examens">
+    </div>
+    <select id="examenStatut" name="statut"
+            hx-get="{{ url('examen_list') }}"
+            hx-target="#examenResults"
+            hx-swap="innerHTML"
+            hx-push-url="true"
+            hx-include="[name='q']"
+            hx-indicator="#examenLoading"
+            aria-label="Filtrer par statut">
+        {% for val, label in statut_choices %}
+        <option value="{{ val }}" {% if statut_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+</div>
+<div id="examenLoading" class="hx-indicator" hidden></div>
+
+<div id="examenResults">
+    {% include 'examens/examen_list_results.html' %}
+</div>
+{% endblock %}

@@ -1,0 +1,159 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Carte du malade — {{ patient.full_name }} · Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Carte du malade</h1>
+        <p class="vsub">{{ patient.ndp }}</p>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a href="{{ url('traitement_fiche', pk=patient.pk) }}" class="ui basic button"><i class="stethoscope icon"></i>Fiche de traitement</a>
+        <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic button"><i class="arrow left icon"></i>Dossier</a>
+        <button type="button" class="ui teal button no-print" onclick="window.print()"><i class="print icon"></i>Imprimer</button>
+    </div>
+</div>
+
+{% if traitement and traitement.a_recuperer %}
+<div class="notice neg">
+    <i class="exclamation triangle icon"></i>
+    <div>
+        <strong>A récupérer — perdu de vue</strong>
+        <p>Dernière prise : {{ traitement.perdu_de_vue|date_fr }}. Contact manqué, visites à reprendre.</p>
+    </div>
+</div>
+{% endif %}
+
+<div class="pcard carte-print">
+    <div class="carte-head">
+        <div>
+            <h2 style="margin:0">{{ patient.full_name }}</h2>
+            <p class="pcard-ndp" style="margin:2px 0">{{ patient.get_sexe_display() }} · {{ patient.age }} ans · {{ patient.ndp }}</p>
+            <p class="pcard-adr"><i class="map marker alternate icon"></i>{{ patient.adresse_complete or 'Adresse non renseignée' }}</p>
+            {% if patient.telephone %}<p class="pcard-adr"><i class="phone icon"></i>{{ patient.telephone }}</p>{% endif %}
+        </div>
+        <div style="text-align:right">
+            {% if traitement %}
+            <span class="issue-pill neutre">{{ traitement.schema.code }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-box">
+            <h3><i class="weight icon"></i>Poids actuel</h3>
+            <p>{% if traitement and traitement.poids_actuel %}{{ traitement.poids_actuel }} kg{% else %}—{% endif %}</p>
+        </div>
+        <div class="info-box">
+            <h3><i class="calendar alternate outline icon"></i>Début du traitement</h3>
+            <p>{% if traitement %}{{ traitement.date_debut|date_fr }}{% else %}—{% endif %}</p>
+        </div>
+        <div class="info-box">
+            <h3><i class="hourglass half icon"></i>Fin prévue</h3>
+            <p>{% if traitement %}{{ traitement.date_fin_prevue|date_fr }}{% else %}—{% endif %}</p>
+        </div>
+        <div class="info-box">
+            <h3><i class="pills icon"></i>Posologie</h3>
+            <p>{% if traitement %}{% if traitement.posologie_jour %}{{ traitement.posologie_jour }} c/j{% else %}à adapter{% endif %}{% else %}—{% endif %}</p>
+        </div>
+    </div>
+</div>
+
+<div class="pcard">
+    <h3 class="pcard-h"><i class="calendar check outline icon"></i>Rendez-vous programmés</h3>
+    {% if rendez_vous %}
+    <div class="rdv-list">
+        {% for rdv in rendez_vous %}
+        <div class="rdv-row">
+            <span class="rdv-date">{{ rdv.date|date_fr }} · {{ rdv.heure.strftime('%H:%M') }}</span>
+            <span class="badge {% if rdv.statut == 'PLANIFIE' %}ok{% elif rdv.statut == 'ANNULE' %}neg{% endif %}">{{ rdv.get_statut_display() }}</span>
+            <span style="flex:1; color:var(--ink)">{{ rdv.get_type_display() }}</span>
+            {% if rdv.motif %}<span class="muted" style="font-size:13px">{{ rdv.motif }}</span>{% endif %}
+            {% if rdv.statut == 'PLANIFIE' %}
+            <form method="post" action="{{ url('rendez_vous_statut', pk=rdv.pk) }}" style="margin:0" class="no-print">
+                {{ csrf_input }}
+                <button type="submit" name="action" value="effectuer" class="ui tiny basic primary button"><i class="check icon"></i>Effectué</button>
+                <button type="submit" name="action" value="annuler" class="ui tiny basic button"><i class="times icon"></i>Annuler</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">Aucun rendez-vous planifié.</p>
+    {% endif %}
+</div>
+
+<div class="pcard no-print">
+    <h3 class="pcard-h"><i class="plus circle icon"></i>Planifier un rendez-vous</h3>
+    <form class="ui form" method="post" action="{{ url('rendez_vous_create', pk=patient.pk) }}" novalidate>
+        {{ csrf_input }}
+        {% if rdv_form.non_field_errors() %}
+        <div class="ui negative message">{{ rdv_form.non_field_errors() }}</div>
+        {% endif %}
+        <div class="grid four">
+            <div class="field {% if rdv_form.date.errors %}error{% endif %}">
+                <label for="id_date">{{ rdv_form.date.label }}</label>
+                {{ rdv_form.date }}
+                {% if rdv_form.date.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ rdv_form.date.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field {% if rdv_form.heure.errors %}error{% endif %}">
+                <label for="id_heure">{{ rdv_form.heure.label }}</label>
+                {{ rdv_form.heure }}
+            </div>
+            <div class="field {% if rdv_form.type.errors %}error{% endif %}">
+                <label for="id_type">{{ rdv_form.type.label }}</label>
+                {{ rdv_form.type }}
+            </div>
+            <div class="field">
+                <label for="id_motif">{{ rdv_form.motif.label }}</label>
+                {{ rdv_form.motif }}
+            </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+            <button type="submit" class="ui primary button"><i class="calendar plus outline icon"></i>Planifier</button>
+        </div>
+    </form>
+</div>
+
+<div class="pcard">
+    <h3 class="pcard-h"><i class="clipboard check icon"></i>Résultats récents</h3>
+    {% if resultats_recents %}
+    <div class="tbl-wrap">
+        <table class="tbl">
+            <thead>
+                <tr>
+                    <th>Demande</th>
+                    <th>Examens</th>
+                    <th>Date de prélèvement</th>
+                    <th>Résultats</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dem in resultats_recents %}
+                {% set r = dem.resultat_valide %}
+                <tr>
+                    <td class="un">{{ dem.numero_demande }}</td>
+                    <td>{{ dem.types_libelles }}</td>
+                    <td class="ue">{{ dem.date_prelevement|date_fr }}</td>
+                    <td>
+                        {% if r %}
+                        <div class="res-mini">
+                            {% if r.echantillon_1 or r.echantillon_2 %}<span>Bacilloscopie : É1 {{ r.get_echantillon_1_display() or '—' }} · É2 {{ r.get_echantillon_2_display() or '—' }}</span>{% endif %}
+                            {% if r.resultat_genexpert %}<span {% if r.resultat_genexpert in ('MTB_PLUS_RIF_PLUS', 'MTB_PLUS_RIF_MOINS', 'MTB_MOINS_RIF_PLUS') %}class="pos"{% endif %}>GeneXpert : {{ r.get_resultat_genexpert_display() }}</span>{% endif %}
+                            {% if not r.echantillon_1 and not r.echantillon_2 and not r.resultat_genexpert %}<span class="muted">{{ r.get_statut_display() }}</span>{% endif %}
+                        </div>
+                        {% else %}<span class="muted">En attente</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="muted">Aucun résultat de laboratoire disponible.</p>
+    {% endif %}
+</div>
+{% endblock %}

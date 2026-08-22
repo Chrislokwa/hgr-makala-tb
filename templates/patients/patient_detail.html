@@ -1,0 +1,209 @@
+{% extends 'base_app.html' %}
+
+{% block title %}{{ patient.full_name }} — Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Dossier patient</h1>
+        <p class="vsub">{{ patient.ndp }}</p>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a href="{{ url('patient_list') }}" class="ui basic button"><i class="users icon"></i>Liste</a>
+        {% if is_negatif %}
+            {# Dossier négatif : diagnostic infirmé, aucune action clinique #}
+        {% elif is_provisoire %}
+            {# Statut provisoire/confirmé : seules Finaliser l'admission et Prescrire un examen sont autorisées #}
+            {% if request.user.role == 'INFIRMIER' and peut_finaliser_admission %}
+            <a href="{{ url('admission_finaliser', pk=patient.pk) }}" class="ui teal button"><i class="check circle outline icon"></i>Finaliser l'admission</a>
+            {% endif %}
+        {% else %}
+            {% if request.user.role == 'INFIRMIER' %}
+            <a href="{{ url('carte_malade', pk=patient.pk) }}" class="ui basic button"><i class="id card outline icon"></i>Carte du malade</a>
+            {% endif %}
+            {% if traitement %}
+            <a href="{{ url('traitement_fiche', pk=patient.pk) }}" class="ui teal button"><i class="stethoscope icon"></i>Fiche de traitement</a>
+            {% endif %}
+            {% if request.user.role == 'INFIRMIER' %}
+            <a href="{{ url('patient_admin_update', pk=patient.pk) }}" class="ui primary button"><i class="edit outline icon"></i>Modifier les informations</a>
+            {% endif %}
+        {% endif %}
+        {% if request.user.role == 'MEDECIN' %}
+        <a href="{{ url('patient_create') }}" class="ui primary button"><i class="plus icon"></i>Nouveau dossier</a>
+        {% endif %}
+    </div>
+</div>
+
+{% if patient.admission_finalisee %}
+<div class="notice ok">
+    <i class="check circle icon"></i>
+    <div>
+        <strong>Admission administrative finalisée</strong>
+        <p>Le {{ patient.date_admission|date_fr }} par {{ patient.admise_par.titled_name }}.</p>
+    </div>
+</div>
+{% elif patient.statut == 'NON_CONFIRME' %}
+<div class="notice" style="background:#fbe9e7; border-color:#e2b7b2; color:#9a4632">
+    <i class="times circle outline icon"></i>
+    <div>
+        <strong>Diagnostic infirmé – dossier négatif</strong>
+        <p>La tuberculose a été infirmée par le médecin. L'admission est annulée, aucun traitement n'est requis.</p>
+    </div>
+</div>
+{% elif patient.statut == 'CONFIRME' %}
+<div class="notice ok" style="background:#e8f1f9; border-color:#b8d0ea; color:#1a4a7a">
+    <i class="check circle icon"></i>
+    <div>
+        <strong>Diagnostic confirmé – admission à finaliser</strong>
+        <p>La tuberculose a été confirmée. L'infirmier peut finaliser l'admission administrative.</p>
+    </div>
+</div>
+{% elif patient.statut == 'PROVISOIRE' %}
+<div class="notice">
+    <i class="clock outline icon"></i>
+    <div>
+        <strong>Admission en attente de confirmation</strong>
+        <p>L'admission ne peut être finalisée qu'une fois le diagnostic confirmé et les résultats de laboratoire saisis (Fonction 3).</p>
+    </div>
+</div>
+{% endif %}
+
+<div class="pcard">
+    <div class="pcard-top">
+        <div class="pcard-id">
+            <h2>{{ patient.full_name }}</h2>
+            <p class="pcard-ndp">{{ patient.ndp }} · {{ patient.get_sexe_display() }} · {{ patient.age }} ans</p>
+            <p class="pcard-adr"><i class="map marker alternate icon"></i>{{ patient.adresse_complete or 'Adresse non renseignée' }}</p>
+            {% if patient.telephone %}<p class="pcard-adr"><i class="phone icon"></i>{{ patient.telephone }}</p>{% endif %}
+        </div>
+        {% if traitement and traitement.issue_finale %}
+        <span class="badge {% if traitement.issue_finale == 'GUERI' %}ok{% elif traitement.issue_finale == 'TERMINE' %}ok{% elif traitement.issue_finale == 'ECHEC' %}neg{% elif traitement.issue_finale == 'DECEDE' %}neg{% else %}mut{% endif %}">{{ traitement.get_issue_finale_display() }}</span>
+        {% else %}
+        <span class="badge {% if patient.statut == 'PROVISOIRE' %}warn{% elif patient.statut == 'CONFIRME' %}info{% elif patient.statut == 'NON_CONFIRME' %}neg{% elif patient.statut == 'EN_TRAITEMENT' %}info{% elif patient.statut == 'GUERI' %}ok{% else %}mut{% endif %}">{{ patient.get_statut_display() }}</span>
+        {% endif %}
+    </div>
+    <div class="info-grid">
+        <div class="info-box">
+            <h3><i class="weight icon"></i>Poids</h3>
+            <p>{% if patient.poids is not none %}{{ patient.poids }} kg{% else %}Non renseigné{% endif %}</p>
+        </div>
+        <div class="info-box">
+            <h3><i class="birthday cake icon"></i>Date de naissance</h3>
+            <p>{{ patient.date_naissance|date_fr }}</p>
+        </div>
+        <div class="info-box">
+            <h3><i class="calendar check outline icon"></i>Créé le</h3>
+            <p>{{ patient.cree_le|date_fr }}</p>
+        </div>
+        <div class="info-box">
+            <h3><i class="user md icon"></i>Créé par</h3>
+            <p>{{ patient.cree_par.titled_name }}</p>
+        </div>
+    </div>
+</div>
+
+<div class="pcard">
+    <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn {% if tab == 'signes' %}active{% endif %}" data-tab="signes" role="tab"><i class="stethoscope icon"></i>Signes et symptômes</button>
+        <button type="button" class="tab-btn {% if tab == 'comorbidites' %}active{% endif %}" data-tab="comorbidites" role="tab"><i class="heartbeat icon"></i>Comorbidités</button>
+        <button type="button" class="tab-btn {% if tab == 'examens' %}active{% endif %}" data-tab="examens" role="tab"><i class="clipboard list icon"></i>Examens prescrits</button>
+    </div>
+
+    <div class="tab-panel" id="panel-signes" {% if tab != 'signes' %}hidden{% endif %}>
+        {% if patient.signes_presents %}
+        <ul class="pills">
+            {% for signe in patient.signes_presents %}<li>{{ signe }}</li>{% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted">Aucun signe évocateur renseigné.</p>
+        {% endif %}
+    </div>
+
+    <div class="tab-panel" id="panel-comorbidites" {% if tab != 'comorbidites' %}hidden{% endif %}>
+        {% if patient.comorbidites_presentes %}
+        <ul class="pills">
+            {% for comorb in patient.comorbidites_presentes %}<li>{{ comorb }}</li>{% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted">Aucune comorbidité renseignée.</p>
+        {% endif %}
+    </div>
+
+    <div class="tab-panel" id="panel-examens" {% if tab != 'examens' %}hidden{% endif %}>
+        <div id="prescriptionsTab">
+            {% include 'patients/_prescriptions_tab.html' %}
+        </div>
+    </div>
+</div>
+
+{% if patient.observations_cliniques %}
+<div class="pcard">
+    <h3 class="pcard-h"><i class="comments outline icon"></i>Observations cliniques</h3>
+    <p>{{ patient.observations_cliniques }}</p>
+</div>
+{% endif %}
+
+{% if request.user.role == 'MEDECIN' and not is_negatif %}
+<div class="drow">
+    <div class="drow-tx">
+        <i class="clipboard check icon"></i>
+        <div>
+            <strong>Prescription d'examen de laboratoire</strong>
+            <span>Demande de bacilloscopie, GeneXpert, culture ou DST transmise au laboratoire.</span>
+        </div>
+    </div>
+    <a href="{{ url('prescription_create', pk=patient.pk) }}" class="ui teal button"><i class="clipboard outline icon"></i>Prescrire un examen</a>
+</div>
+{% endif %}
+
+{% if modifications %}
+<div class="pcard">
+    <h3 class="pcard-h"><i class="history icon"></i>Historique des modifications administratives</h3>
+    <div class="tbl-wrap">
+        <table class="tbl">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Auteur</th>
+                    <th>Champ</th>
+                    <th>Ancienne valeur</th>
+                    <th>Nouvelle valeur</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for modif in modifications %}
+                <tr>
+                    <td class="ue">{{ modif.cree_le|date_fr }}</td>
+                    <td>{{ modif.auteur.titled_name if modif.auteur else '—' }}</td>
+                    <td class="un">{{ modif.champ }}</td>
+                    <td class="ue">{{ modif.ancienne_valeur or '—' }}</td>
+                    <td class="ue">{{ modif.nouvelle_valeur or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block app_js %}
+<script>
+(function() {
+    const btns = document.querySelectorAll('.tab-btn');
+    btns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            btns.forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            document.querySelectorAll('.tab-panel').forEach(function(p) { p.hidden = true; });
+            const panel = document.getElementById('panel-' + btn.dataset.tab);
+            if (panel) panel.hidden = false;
+            if (history.replaceState) {
+                history.replaceState(null, '', '?tab=' + btn.dataset.tab);
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

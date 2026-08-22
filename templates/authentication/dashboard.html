@@ -1,20 +1,251 @@
 {% extends 'base_app.html' %}
 
-{% block title %}Accueil — Suivi TB · HGR Makala{% endblock %}
+{% block title %}Notifications — Suivi TB · HGR Makala{% endblock %}
 
 {% block view_content %}
 <div class="vhead">
     <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
     <div style="flex:1">
-        <h1 class="vtitle">Bienvenue, {{ request.user.titled_name }}</h1>
-        <p class="vsub">Espace {{ request.user.get_role_display() }} — HGR Makala</p>
+        <h1 class="vtitle">Notifications</h1>
+        <p class="vsub">{{ request.user.titled_name }} — {{ request.user.get_role_display() }}</p>
+    </div>
+    {% if notifications %}
+    <button type="button" class="ui basic button" id="btnVider"><i class="trash alternate outline icon"></i>Vider</button>
+    {% endif %}
+    <form action="{{ url('notifications_lues') }}" method="post" style="margin:0">
+        {{ csrf_input }}
+        <button type="submit" class="ui basic button" {% if not non_lues %}disabled{% endif %}><i class="check double icon"></i>Tout marquer comme lu</button>
+    </form>
+</div>
+
+<div class="pstats">
+    <div class="pstat"><span>Total notifications</span><strong id="notifTotal">{{ notifications|length }}</strong></div>
+    <div class="pstat"><span>Non lues</span><strong id="notifNonLues">{{ non_lues }}</strong></div>
+</div>
+
+<div class="fcard">
+    <div class="fcard-h"><h2><i class="bell icon"></i>Notifications récentes</h2></div>
+    <div id="notifList" class="notif-list">
+        {% if notifications %}
+        {% for notif in notifications %}
+        <div class="notif-item {% if not notif.lu %}unread{% endif %}" id="notif-{{ notif.pk }}">
+            <span class="notif-dot" aria-hidden="true"></span>
+            <i class="bell outline icon notif-ic"></i>
+            <div class="notif-body">
+                <a class="notif-msg" href="{{ url('notifications_ouvrir', pk=notif.pk) }}">{{ notif.message }}</a>
+                <span class="notif-date">{{ notif.cree_le|date_fr }}</span>
+            </div>
+            <form action="{{ url('notifications_supprimer', pk=notif.pk) }}" method="post" class="notif-del">
+                {{ csrf_input }}
+                <button type="submit" class="icon-btn" aria-label="Supprimer cette notification" title="Supprimer"><i class="trash alternate outline icon"></i></button>
+            </form>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty">
+            <i class="bell outline icon"></i>
+            <p>Aucune notification pour le moment.</p>
+        </div>
+        {% endif %}
     </div>
 </div>
 
-<div class="robox" style="margin-top:20px;">
-    <div class="ro-t">Session active</div>
-    <div class="ro-s">
-        Vous êtes connecté en tant que <strong>{{ request.user.titled_name }}</strong> (Rôle : <strong>{{ request.user.get_role_display() }}</strong>).
+<div class="overlay" id="overlayVider">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Vider les notifications">
+        <div class="modal-h">
+            <h2>Vider les notifications</h2>
+            <button type="button" class="icon-btn" data-close aria-label="Fermer"><i class="close icon"></i></button>
+        </div>
+        <div class="modal-b">
+            <p style="margin:4px 0 0;font-size:14.5px;color:#3c4043;line-height:1.55">
+                Voulez-vous vraiment supprimer toutes vos notifications&nbsp;? Cette action est irréversible.
+            </p>
+        </div>
+        <div class="modal-f">
+            <button type="button" class="ui basic button" data-close>Annuler</button>
+            <form action="{{ url('notifications_vider') }}" method="post" style="margin:0">
+                {{ csrf_input }}
+                <button type="submit" class="ui negative button">Vider définitivement</button>
+            </form>
+        </div>
     </div>
 </div>
+{% endblock %}
+
+{% block app_js %}
+<script>
+(function() {
+    function updatePstats(total, nonLues) {
+        const totalEl = document.getElementById('notifTotal');
+        const nonLuesEl = document.getElementById('notifNonLues');
+        if (totalEl && typeof total !== 'undefined') totalEl.textContent = total;
+        if (nonLuesEl && typeof nonLues !== 'undefined') nonLuesEl.textContent = nonLues;
+    }
+    function currentCounts() {
+        const total = document.querySelectorAll('.notif-item').length;
+        const nonLues = document.querySelectorAll('.notif-item.unread').length;
+        return {total: total, nonLues: nonLues};
+    }
+    function bindNotifDelete() {
+        document.querySelectorAll('.notif-item .notif-del').forEach(function(form) {
+            if (form.dataset.bound) return;
+            form.dataset.bound = '1';
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const item = form.closest('.notif-item');
+                const wasUnread = item.classList.contains('unread');
+                fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Accept': 'application/json'
+                    },
+                    body: new FormData(form)
+                }).then(function(r) {
+                    if (r.ok) {
+                        item.style.transition = 'opacity .2s';
+                        item.style.opacity = '0';
+                        setTimeout(function() {
+                            item.remove();
+                            const c = currentCounts();
+                            updatePstats(c.total, c.nonLues);
+                            const badgeEl = document.getElementById('notifBadge');
+                            if (badgeEl) {
+                                badgeEl.textContent = c.nonLues;
+                                badgeEl.style.display = c.nonLues > 0 ? '' : 'none';
+                            }
+                            const btnMark = document.querySelector('form[action*="notifications/lues"] button');
+                            if (btnMark) btnMark.disabled = c.nonLues === 0;
+                            const btnVider = document.getElementById('btnVider');
+                            if (btnVider) btnVider.style.display = c.total > 0 ? '' : 'none';
+                            if (!document.querySelector('.notif-item')) {
+                                const list = document.getElementById('notifList');
+                                if (list) list.innerHTML = '<div class="empty"><i class="bell outline icon"></i><p>Aucune notification pour le moment.</p></div>';
+                            }
+                        }, 200);
+                    } else {
+                        window.location.reload();
+                    }
+                }).catch(function() { window.location.reload(); });
+            });
+        });
+    }
+    bindNotifDelete();
+
+    // Clic sur une notification -> marquer comme vu immédiatement (async visuel)
+    document.getElementById('notifList').addEventListener('click', function(e) {
+        const link = e.target.closest('.notif-msg');
+        if (!link) return;
+        const item = link.closest('.notif-item');
+        if (item && item.classList.contains('unread')) {
+            item.classList.remove('unread');
+            const c = currentCounts();
+            // optimistic update, serveur va aussi marquer lu via /ouvrir/
+            updatePstats(c.total, c.nonLues);
+            const badgeEl = document.getElementById('notifBadge');
+            if (badgeEl) {
+                badgeEl.textContent = c.nonLues;
+                badgeEl.style.display = c.nonLues > 0 ? '' : 'none';
+            }
+            const btnMark = document.querySelector('form[action*="notifications/lues"] button');
+            if (btnMark) btnMark.disabled = c.nonLues === 0;
+        }
+    });
+
+    // Tout marquer comme lu -> async
+    const formMarkAll = document.querySelector('form[action*="notifications/lues"]');
+    if (formMarkAll) {
+        formMarkAll.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = formMarkAll.querySelector('button');
+            fetch(formMarkAll.action, {
+                method: 'POST',
+                headers: {'X-CSRFToken': formMarkAll.querySelector('[name=csrfmiddlewaretoken]').value},
+                body: new FormData(formMarkAll)
+            }).then(function(r){
+                if (r.ok) {
+                    document.querySelectorAll('.notif-item.unread').forEach(function(el){ el.classList.remove('unread'); });
+                    const c = currentCounts();
+                    updatePstats(c.total, 0);
+                    const badgeEl = document.getElementById('notifBadge');
+                    if (badgeEl) { badgeEl.textContent = '0'; badgeEl.style.display='none'; }
+                    if (btn) btn.disabled = true;
+                } else { window.location.reload(); }
+            }).catch(function(){ window.location.reload(); });
+        });
+    }
+
+    // Confirmation avant de vider toutes les notifications
+    const btnVider = document.getElementById('btnVider');
+    const overlay = document.getElementById('overlayVider');
+    function closeModal() {
+        if (overlay) overlay.classList.remove('open');
+    }
+    if (btnVider && overlay) {
+        btnVider.addEventListener('click', function() { overlay.classList.add('open'); });
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay || e.target.closest('[data-close]')) closeModal();
+        });
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+    }
+
+    // Mise à jour en temps réel (SSE) de la page des notifications
+    const es = new EventSource("{{ url('notifications_sse') }}");
+    es.addEventListener('notification', function(e) {
+        const data = JSON.parse(e.data);
+        const list = document.getElementById('notifList');
+        if (!list || document.getElementById('notif-' + data.id)) return;
+
+        const empty = list.querySelector('.empty');
+        if (empty) empty.remove();
+
+        const item = document.createElement('div');
+        item.className = 'notif-item unread';
+        item.id = 'notif-' + data.id;
+
+        const dot = document.createElement('span');
+        dot.className = 'notif-dot';
+
+        const ic = document.createElement('i');
+        ic.className = 'bell outline icon notif-ic';
+
+        const body = document.createElement('div');
+        body.className = 'notif-body';
+        const link = document.createElement('a');
+        link.href = '/notifications/' + data.id + '/ouvrir/';
+        link.className = 'notif-msg';
+        link.textContent = data.message;
+        const date = document.createElement('span');
+        date.className = 'notif-date';
+        const d = new Date(data.cree_le);
+        date.textContent = d.toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit'});
+        body.appendChild(link);
+        body.appendChild(date);
+
+        const del = document.createElement('form');
+        del.className = 'notif-del';
+        del.action = '{{ url("notifications_supprimer", pk=0) }}'.replace('/0/', '/' + data.id + '/');
+        const token = (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '';
+        del.innerHTML =
+            '<input type="hidden" name="csrfmiddlewaretoken" value="' + token + '">' +
+            '<button type="submit" class="icon-btn" aria-label="Supprimer cette notification" title="Supprimer"><i class="trash alternate outline icon"></i></button>';
+
+        item.appendChild(dot);
+        item.appendChild(ic);
+        item.appendChild(body);
+        item.appendChild(del);
+        list.prepend(item);
+        bindNotifDelete();
+
+        updatePstats(data.total, data.non_lues);
+        const badgeEl = document.getElementById('notifBadge');
+        if (badgeEl) {
+            badgeEl.textContent = data.non_lues;
+            badgeEl.style.display = data.non_lues > 0 ? '' : 'none';
+        }
+        const btnMark = document.querySelector('form[action*="notifications/lues"] button');
+        if (btnMark) btnMark.disabled = data.non_lues === 0;
+    });
+})();
+</script>
 {% endblock %}

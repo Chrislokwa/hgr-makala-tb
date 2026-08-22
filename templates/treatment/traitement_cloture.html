@@ -1,0 +1,50 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Clôturer le dossier — {{ patient.full_name }} · Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Issue finale et clôture</h1>
+        <p class="vsub">{{ patient.ndp }} — {{ traitement.schema.code }}</p>
+    </div>
+    <a href="{{ url('traitement_fiche', pk=patient.pk) }}" class="ui basic button"><i class="arrow left icon"></i>Retour à la fiche</a>
+</div>
+
+<div class="notice">
+    <i class="archive icon"></i>
+    <div>
+        <strong>Clôture du dossier</strong>
+        <p>Une fois clôturée, la fiche passe en lecture seule : plus aucune observation, observance, rendez-vous ou modification ne sera possible. Le dossier reste consultable dans le registre.</p>
+    </div>
+</div>
+
+<form class="ui form" method="post" novalidate>
+    {{ csrf_input }}
+    {% if form.non_field_errors() %}
+    <div class="ui negative message">{{ form.non_field_errors() }}</div>
+    {% endif %}
+
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="flag checkered icon"></i>Issue finale du traitement</h2></div>
+        <div class="field {% if form.issue_finale.errors %}error{% endif %}">
+            <div class="radio-list">
+                {{ form.issue_finale }}
+            </div>
+            {% if form.issue_finale.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.issue_finale.errors[0] }}</div>{% endif %}
+        </div>
+        <div class="field {% if form.date_issue.errors %}error{% endif %}" style="max-width:260px">
+            <label for="id_date_issue">{{ form.date_issue.label }}</label>
+            {{ form.date_issue }}
+            {% if form.date_issue.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.date_issue.errors[0] }}</div>{% endif %}
+        </div>
+        <div class="form-note"><i class="info circle icon"></i>Le médecin et la date de clôture seront enregistrés automatiquement.</div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; margin-top:18px;">
+        <a href="{{ url('traitement_fiche', pk=patient.pk) }}" class="ui basic button">Annuler</a>
+        <button type="submit" class="ui negative button"><i class="archive icon"></i>Clôturer le dossier</button>
+    </div>
+</form>
+{% endblock %}

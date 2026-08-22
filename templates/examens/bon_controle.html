@@ -1,0 +1,82 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Bon de contrôle — {{ patient.full_name }} · Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Bon de demande d'examen de contrôle</h1>
+        <p class="vsub">Suivi du traitement — examens de contrôle (C2, C5, fin de traitement…)</p>
+    </div>
+    <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic button"><i class="arrow left icon"></i>Retour au dossier</a>
+</div>
+
+{% if controle_en_attente %}
+<div class="notice">
+    <i class="exclamation triangle icon"></i>
+    <div style="flex:1;min-width:0">
+        <strong>Demande de contrôle déjà en attente</strong>
+        <p>Ce patient a déjà un bon <strong>{{ controle_en_attente.mois_controle }}</strong> ({{ controle_en_attente.numero_demande }}) en attente au laboratoire. Consultez le dossier avant d'en créer un nouveau.</p>
+    </div>
+    <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic tiny button">Consulter le dossier</a>
+</div>
+{% endif %}
+
+<form class="ui form" method="post" novalidate>
+    {{ csrf_input }}
+    {% if form.non_field_errors() %}
+    <div class="ui negative message">{{ form.non_field_errors() }}</div>
+    {% endif %}
+
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="user outline icon"></i>Patient et contrôle</h2></div>
+        <div class="ro-zone">
+            <div class="ro-id">
+                <strong>{{ patient.full_name }}</strong>
+                <span>{{ patient.get_sexe_display() }} · {{ patient.age }} ans</span>
+                <span class="ro-ndp">{{ patient.ndp }}</span>
+            </div>
+            {% if traitement %}
+            <div class="ro-poids">
+                <span>Traitement</span>
+                <strong>{{ traitement.schema.code }} · depuis le {{ traitement.date_debut|date_fr }}</strong>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="grid two">
+            <div class="field {% if form.mois_controle.errors %}error{% endif %}">
+                <label for="id_mois_controle">{{ form.mois_controle.label }}</label>
+                {{ form.mois_controle }}
+                {% if form.mois_controle.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.mois_controle.errors[0] }}</div>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="lab icon"></i>Examens à réaliser</h2></div>
+        <div class="field {% if form.examens.errors %}error{% endif %}">
+            <div class="symptomes examens-list">
+                {{ form.examens }}
+            </div>
+            {% if form.examens.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.examens.errors[0] }}</div>{% endif %}
+            <div class="form-note" style="margin-top:8px"><i class="info circle icon"></i>La bacilloscopie est pré-cochée par défaut pour les contrôles de suivi ; ajoutez GeneXpert ou culture selon les indications du médecin.</div>
+        </div>
+    </div>
+
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="comments outline icon"></i>Observations cliniques</h2></div>
+        <div class="field {% if form.observations_cliniques.errors %}error{% endif %}">
+            <label for="id_observations_cliniques">{{ form.observations_cliniques.label }}</label>
+            {{ form.observations_cliniques }}
+        </div>
+        <div class="form-note">Le numéro de demande, le prescripteur et la date seront enregistrés automatiquement ; le bon sera visible dans le module laborantin avec le statut « En attente ».</div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; margin-top:18px;">
+        <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic button">Annuler</a>
+        <button type="submit" class="ui primary button"><i class="paper plane outline icon"></i>Envoyer le bon au laboratoire</button>
+    </div>
+</form>
+{% endblock %}

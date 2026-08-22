@@ -49,8 +49,7 @@ INSTALLED_APPS = [
     'apps.authentication',
     'apps.users',
     'apps.patients',
-    'apps.laboratoire',
-    'apps.stats',
+    'apps.statistics',
 ]
 
 MIDDLEWARE = [
@@ -155,7 +154,7 @@ AUTH_USER_MODEL = 'users.CustomUser'
 
 # Auth & Redirects
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'dashboard'
+LOGIN_REDIRECT_URL = 'notification'
 LOGOUT_REDIRECT_URL = 'login'
 
 # Email backend (console for development)

@@ -1,0 +1,96 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Registre des cas — Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Registre des cas</h1>
+        <p class="vsub">Dossiers patients et traitements en cours</p>
+    </div>
+    {% if request.user.role == 'MEDECIN' %}
+    <a href="{{ url('patient_create') }}" class="ui primary button"><i class="plus icon"></i>Nouveau dossier</a>
+    {% endif %}
+</div>
+
+<div class="pstats">
+    <div class="pstat"><span>Résultats trouvés</span><strong>{{ paginator.count }}</strong></div>
+    <div class="pstat"><span>Provisoires</span><strong>{{ patients_provisoires }}</strong></div>
+    <div class="pstat"><span>En traitement</span><strong>{{ patients_en_traitement }}</strong></div>
+</div>
+
+<!-- Recherche et filtrage (HTMX) -->
+<div class="toolbar">
+    <div class="search_" style="flex:1;min-width:220px">
+        <i class="search icon"></i>
+        <input type="text" name="q" value="{{ q }}"
+               hx-get="{{ url('patient_list') }}"
+               hx-trigger="input changed delay:300ms"
+               hx-target="#patientResults"
+               hx-swap="innerHTML"
+               hx-push-url="true"
+               hx-include="[name='statut'],[name='date_naissance']"
+               hx-indicator="#patientLoading"
+               placeholder="Rechercher (NDP, nom, post-nom, prénom, téléphone)" aria-label="Recherche patients">
+    </div>
+    <div class="search_" style="min-width:170px">
+        <input type="date" name="date_naissance" value="{{ date_naissance }}"
+               hx-get="{{ url('patient_list') }}"
+               hx-trigger="change"
+               hx-target="#patientResults"
+               hx-swap="innerHTML"
+               hx-push-url="true"
+               hx-include="[name='q'],[name='statut']"
+               hx-indicator="#patientLoading"
+               aria-label="Filtrer par date de naissance">
+    </div>
+    <select id="patientStatut" name="statut"
+            hx-get="{{ url('patient_list') }}"
+            hx-target="#patientResults"
+            hx-swap="innerHTML"
+            hx-push-url="true"
+            hx-include="[name='q'],[name='date_naissance']"
+            hx-indicator="#patientLoading"
+            aria-label="Filtrer par statut">
+        {% for val, label in statut_choices %}
+        <option value="{{ val }}" {% if statut_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+</div>
+<div id="patientLoading" class="hx-indicator" hidden></div>
+
+<div id="patientResults">
+    {% include 'patients/patient_list_results.html' %}
+</div>
+{% endblock %}
+
+{% block app_js %}
+<script>
+(function() {
+    function bindRowMenus(root) {
+        root = root || document;
+        root.querySelectorAll('.row-menu').forEach(function(menu) {
+            menu.addEventListener('toggle', function() {
+                if (menu.open) {
+                    document.querySelectorAll('.row-menu').forEach(function(other) {
+                        if (other !== menu) other.removeAttribute('open');
+                    });
+                }
+            });
+        });
+    }
+    bindRowMenus(document);
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.row-menu')) {
+            document.querySelectorAll('.row-menu[open]').forEach(function(m){ m.removeAttribute('open'); });
+        }
+    });
+    document.body.addEventListener('htmx:afterSwap', function(e) {
+        if (e.detail && e.detail.target && e.detail.target.id === 'patientResults') {
+            bindRowMenus(e.detail.target);
+        }
+    });
+})();
+</script>
+{% endblock %}

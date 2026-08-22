@@ -31,11 +31,17 @@ urlpatterns = [
     path('password-reset/done/', PasswordResetDoneView.as_view(
         template_name='authentication/password_reset_done.html'
     ), name='password_reset_done'),
-    path('password-reset/confirm/<uidb64>/<token>/', PasswordResetConfirmView.as_view(
+    path('reset/<uidb64>/<token>/', PasswordResetConfirmView.as_view(
         template_name='authentication/password_reset_confirm.html',
         success_url=reverse_lazy('password_reset_complete'),
         form_class=CustomSetPasswordForm,
     ), name='password_reset_confirm'),
+    # Ancien chemin conserve pour compatibilite (evite 404 sur anciens e-mails)
+    path('password-reset/confirm/<uidb64>/<token>/', PasswordResetConfirmView.as_view(
+        template_name='authentication/password_reset_confirm.html',
+        success_url=reverse_lazy('password_reset_complete'),
+        form_class=CustomSetPasswordForm,
+    ), name='password_reset_confirm_legacy'),
     path('password-reset/complete/', PasswordResetCompleteView.as_view(
         template_name='authentication/password_reset_complete.html'
     ), name='password_reset_complete'),

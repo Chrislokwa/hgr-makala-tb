@@ -161,3 +161,6 @@ LOGOUT_REDIRECT_URL = 'login'
 
 # Email backend (console for development)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'noreply@hgr-makala.cd'
+# Jeton valide 3 jours (259200s) - evite expiration immediate si horloge decalee
+PASSWORD_RESET_TIMEOUT = 259200  # secondes

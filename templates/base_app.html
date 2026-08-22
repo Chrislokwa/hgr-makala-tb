@@ -14,6 +14,7 @@
             {% if request.user.role == 'ADMIN' %}
             <a class="nitem {% if active_nav == 'users' %}active{% endif %}" href="{{ url('user_list') }}"><i class="users icon"></i>Utilisateurs</a>
             {% elif request.user.role == 'STATISTICIEN' %}
+            <a class="nitem {% if active_nav == 'statistics_consultations' %}active{% endif %}" href="{{ url('statistics_consultations') }}"><i class="dashboard icon"></i>Tableau de bord</a>
             <a class="nitem {% if active_nav == 'statistics' %}active{% endif %}" href="{{ url('statistics_dashboard') }}"><i class="search icon"></i>Épidémiologie</a>
             <a class="nitem {% if active_nav == 'statistics_cohorte' %}active{% endif %}" href="{{ url('statistics_cohorte') }}"><i class="chart bar icon"></i>Résultats de traitement</a>
             {% else %}

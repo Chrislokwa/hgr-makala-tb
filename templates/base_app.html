@@ -13,12 +13,16 @@
         <nav class="sidenav" aria-label="Navigation principale">
             {% if request.user.role == 'ADMIN' %}
             <a class="nitem {% if active_nav == 'users' %}active{% endif %}" href="{{ url('user_list') }}"><i class="users icon"></i>Utilisateurs</a>
+            {% elif request.user.role == 'STATISTICIEN' %}
+            <a class="nitem {% if active_nav == 'statistics' %}active{% endif %}" href="{{ url('statistics_dashboard') }}"><i class="chart bar icon"></i>Statistiques</a>
             {% else %}
             {% if request.user.role in ('MEDECIN', 'INFIRMIER') %}
             <a class="nitem {% if active_nav == 'patients' %}active{% endif %}" href="{{ url('patient_list') }}"><i class="user outline icon"></i>Patients</a>
             {% elif request.user.role == 'LABORANTIN' %}
             <a class="nitem {% if active_nav == 'examens' %}active{% endif %}" href="{{ url('examen_list') }}"><i class="lab icon"></i>Examens</a>
             {% endif %}
+            {% endif %}
+            {% if request.user.role != 'ADMIN' %}
             {% set non_lues = request.user.notifications.filter(lu=False).count() %}
             <a class="nitem {% if active_nav == 'notifications' %}active{% endif %}" href="{{ url('notification') }}"><i class="bell outline icon"></i>Notifications<span class="nav-badge" id="notifBadge" {% if not non_lues %}style="display:none"{% endif %}>{{ non_lues }}</span></a>
             {% endif %}

@@ -1,0 +1,164 @@
+{% extends 'base_app.html' %}
+{% block title %}Statistiques — Suivi TB · HGR Makala{% endblock %}
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Tableau de bord statistique</h1>
+        <p class="vsub">Période {{ debut|date_fr }} – {{ fin|date_fr }} {% if unite %}· {{ unite }}{% endif %}</p>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a href="{{ url('statistics_export_excel', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui basic button"><i class="file excel outline icon"></i>Excel dépistage</a>
+        <a href="{{ url('statistics_export_pdf', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui basic button"><i class="file pdf outline icon"></i>PDF dépistage</a>
+        <a href="{{ url('statistics_export_excel', rapport='cohorte') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui teal button"><i class="file excel icon"></i>Excel cohorte</a>
+        <a href="{{ url('statistics_export_pdf', rapport='cohorte') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui primary button"><i class="file pdf icon"></i>PDF cohorte</a>
+    </div>
+</div>
+
+<!-- Filtres -->
+<form method="get" class="toolbar" style="align-items:flex-end;">
+    <div class="field" style="min-width:110px">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Année</label>
+        <select name="annee" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+            {% for y in annee_choices %}
+            <option value="{{ y }}" {% if y|string == annee %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="field" style="min-width:130px">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Trimestre</label>
+        <select name="trimestre" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+            <option value="">— Tous —</option>
+            <option value="1" {% if trimestre == '1' %}selected{% endif %}>T1 (Jan-Mar)</option>
+            <option value="2" {% if trimestre == '2' %}selected{% endif %}>T2 (Avr-Juin)</option>
+            <option value="3" {% if trimestre == '3' %}selected{% endif %}>T3 (Jul-Sep)</option>
+            <option value="4" {% if trimestre == '4' %}selected{% endif %}>T4 (Oct-Déc)</option>
+        </select>
+    </div>
+    <div class="field" style="min-width:120px">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Mois</label>
+        <select name="mois" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+            <option value="">— Tous —</option>
+            {% for m in range(1,13) %}
+            <option value="{{ m }}" {% if mois|string == m|string %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="field" style="min-width:160px">
+        <label style="font-size:12px; color:var(--ink2); font-weight:500;">Unité (CDT/CT)</label>
+        <select name="unite" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+            <option value="">Toutes</option>
+            {% for u in unites %}
+            <option value="{{ u }}" {% if u == unite %}selected{% endif %}>{{ u }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="ui primary button"><i class="filter icon"></i>Filtrer</button>
+    <a href="{{ url('statistics_dashboard') }}" class="ui basic button">Réinit.</a>
+</form>
+
+<!-- Indicateurs épidémiologiques -->
+<div class="fcard">
+    <div class="fcard-h"><h2><i class="search icon"></i>1. Épidémiologie – Dépistage</h2><span class="muted" style="font-size:12px">Cible positivité non définie</span></div>
+    <div class="info-grid" style="grid-template-columns: repeat(3,1fr)">
+        <div class="info-box"><h3>Suspects TB</h3><p style="font-size:22px; color:var(--primary)">{{ ep.nb_suspects }}</p><span class="muted" style="font-size:12px">Patients testés</span></div>
+        <div class="info-box"><h3>Taux positivité</h3><p style="font-size:22px; color:{% if ep.taux_positivite >= 10 %}var(--ok){% else %}var(--ink){% endif %}">{{ ep.taux_positivite }}%</p><span class="muted" style="font-size:12px">{{ ep.nb_suspects }} suspects</span></div>
+        <div class="info-box"><h3>Retraitement</h3><p>{{ ep.nb_retraitement }}</p><span class="muted" style="font-size:12px">Rechute</span></div>
+        <div class="info-box"><h3>Nouveaux TPM+</h3><p style="color:#b3261e">{{ ep.nb_nouveaux_tpm_plus }}</p></div>
+        <div class="info-box"><h3>Nouveaux TPM-</h3><p>{{ ep.nb_nouveaux_tpm_moins }}</p></div>
+        <div class="info-box"><h3>Taux notification /100k</h3><p class="muted">N/A</p><span class="muted" style="font-size:12px">Population non modélisée</span></div>
+    </div>
+    <div style="height:220px; margin-top:16px"><canvas id="chartEpi"></canvas></div>
+</div>
+
+<!-- Cohorte -->
+<div class="fcard">
+    <div class="fcard-h"><h2><i class="chart bar icon"></i>2. Résultats de traitement – Cohorte trimestrielle</h2><span class="muted" style="font-size:12px">Cible succès ≥90% (vert) / &lt;80% rouge</span></div>
+    {% set total = cohorte.total %}
+    <div class="info-grid">
+        <div class="info-box" style="border-left:3px solid {% if cohorte.taux_succes >=90 %}#188038{% elif cohorte.taux_succes <80 %}#c5221f{% else %}#e37400{% endif %}"><h3>Succès thérapeutique</h3><p style="font-size:22px; color:{% if cohorte.taux_succes >=90 %}#188038{% elif cohorte.taux_succes <80 %}#c5221f{% else %}#e37400{% endif %}">{{ cohorte.taux_succes }}%</p><span class="muted" style="font-size:12px">{{ cohorte.gueris + cohorte.termines }}/{{ total }}</span></div>
+        <div class="info-box"><h3>Guérison</h3><p style="color:{% if cohorte.taux_guerison >=85 %}#188038{% else %}#c5221f{% endif %}">{{ cohorte.taux_guerison }}% ({{ cohorte.gueris }})</p></div>
+        <div class="info-box"><h3>Échec</h3><p style="color:{% if cohorte.taux_echec <5 %}#188038{% else %}#c5221f{% endif %}">{{ cohorte.taux_echec }}% ({{ cohorte.echecs }})</p><span class="muted" style="font-size:12px">Cible &lt;5%</span></div>
+        <div class="info-box"><h3>Abandon (PDV)</h3><p>{{ cohorte.taux_abandon }}% ({{ cohorte.pdv }})</p></div>
+        <div class="info-box"><h3>Décès</h3><p style="color:{% if cohorte.taux_deces <5 %}#188038{% else %}#c5221f{% endif %}">{{ cohorte.taux_deces }}% ({{ cohorte.decedes }})</p></div>
+        <div class="info-box"><h3>Transférés</h3><p>{{ cohorte.transferes }}</p></div>
+    </div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:16px">
+        <div style="height:220px"><canvas id="chartCohorte"></canvas></div>
+        <div style="height:220px"><canvas id="chartCohorteCam"></canvas></div>
+    </div>
+</div>
+
+<!-- Labo -->
+<div class="fcard">
+    <div class="fcard-h"><h2><i class="lab icon"></i>4. Laboratoire</h2></div>
+    <div class="info-grid">
+        <div class="info-box"><h3>Frottis diagnostic</h3><p>{{ labo.nb_frottis_diag }}</p><span class="muted" style="font-size:12px">2 lames / suspect</span></div>
+        <div class="info-box"><h3>Frottis contrôle</h3><p>{{ labo.nb_frottis_controle }}</p><span class="muted" style="font-size:12px">C2/C5/FIN</span></div>
+        <div class="info-box" style="border-left:3px solid {% if labo.taux_conversion_c2 >=85 %}#188038{% elif labo.taux_conversion_c2 <70 %}#c5221f{% else %}#e37400{% endif %}"><h3>Conversion C2</h3><p style="font-size:22px">{{ labo.taux_conversion_c2 }}%</p><span class="muted" style="font-size:12px">Cible ≥85%</span></div>
+        <div class="info-box"><h3>Cultures/DST</h3><p>{{ labo.nb_cultures_dst }}</p></div>
+        <div class="info-box"><h3>Contrôle qualité</h3><p class="muted">N/A</p></div>
+    </div>
+</div>
+
+<!-- Communautaire -->
+<div class="fcard">
+    <div class="fcard-h"><h2><i class="users icon"></i>6. DOTS communautaire</h2></div>
+    <div class="info-grid" style="grid-template-columns: repeat(3,1fr)">
+        <div class="info-box"><h3>Suspects référés ASC</h3><p class="muted">N/A</p><span class="muted" style="font-size:12px">Non modélisé</span></div>
+        <div class="info-box"><h3>DOTS communautaire (J)</h3><p>{{ commu.nb_dots_communautaire }}</p><span class="muted" style="font-size:12px">Flèche fiche</span></div>
+        <div class="info-box"><h3>Succès ASC</h3><p>{{ commu.taux_succes_asc }}%</p></div>
+    </div>
+</div>
+
+<!-- Pop risque -->
+<div class="fcard">
+    <div class="fcard-h"><h2><i class="child icon"></i>7. Populations à risque</h2></div>
+    <div class="info-grid">
+        <div class="info-box"><h3>TB pédiatrique</h3><p>{{ risque.nb_pediatrique }} ({{ risque.taux_pediatrique }}%)</p><span class="muted" style="font-size:12px">&lt;15 ans</span></div>
+        <div class="info-box"><h3>Prison</h3><p class="muted">N/A</p></div>
+        <div class="info-box"><h3>Contacts examinés</h3><p class="muted">N/A</p></div>
+        <div class="info-box"><h3>Enfants &lt;5 ans INH</h3><p class="muted">N/A</p></div>
+    </div>
+</div>
+
+<!-- VIH & Pharma placeholders -->
+<div class="fcard" style="border-left:4px solid #f2d7a7; background:#fdfaf3">
+    <h3 style="margin:0 0 8px; font-size:14px; color:#7a5a1f"><i class="info circle icon"></i>Indicateurs non modélisés (placeholders N/A)</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:13px; color:var(--ink2)">
+        <div><strong>3. VIH/TB :</strong> Couverture test VIH N/A, Co-infection N/A, CTX N/A, ARV N/A – hors périmètre modèle</div>
+        <div><strong>5. Pharmacie :</strong> Rupture stock N/A, Sécurité N/A, Périmés N/A – non géré (AGENT.md)</div>
+    </div>
+</div>
+
+<div class="fcard">
+    <h3 class="pcard-h"><i class="download icon"></i>Exportations PNT</h3>
+    <p class="muted" style="font-size:13px">Deux rapports pré-formatés compatibles PNT : <strong>Dépistage</strong> et <strong>Cohorte</strong>, filtrables par période/unité.</p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px">
+        <a href="{{ url('statistics_export_excel', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui basic button"><i class="file excel outline icon"></i>Excel – Dépistage</a>
+        <a href="{{ url('statistics_export_pdf', rapport='depistage') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui basic button"><i class="file pdf outline icon"></i>PDF – Dépistage</a>
+        <a href="{{ url('statistics_export_excel', rapport='cohorte') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui basic button"><i class="file excel outline icon"></i>Excel – Cohorte</a>
+        <a href="{{ url('statistics_export_pdf', rapport='cohorte') }}?annee={{ annee }}&trimestre={{ trimestre }}&mois={{ mois }}&unite={{ unite }}" class="ui teal button"><i class="file pdf icon"></i>PDF – Cohorte</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block app_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  const ep = { suspects: {{ ep.nb_suspects }}, tpmPlus: {{ ep.nb_nouveaux_tpm_plus }}, tpmMoins: {{ ep.nb_nouveaux_tpm_moins }}, retr: {{ ep.nb_retraitement }} };
+  const coh = { gueris: {{ cohorte.gueris }}, termines: {{ cohorte.termines }}, echecs: {{ cohorte.echecs }}, pdv: {{ cohorte.pdv }}, decedes: {{ cohorte.decedes }}, transferes: {{ cohorte.transferes }} };
+  const lab = { diag: {{ labo.nb_frottis_diag }}, ctrl: {{ labo.nb_frottis_controle }}, cult: {{ labo.nb_cultures_dst }} };
+
+  const ctxEpi = document.getElementById('chartEpi');
+  if (ctxEpi) new Chart(ctxEpi, { type:'bar', data:{ labels:['TPM+','TPM-','Retraitement'], datasets:[{label:'Cas', data:[ep.tpmPlus, ep.tpmMoins, ep.retr], backgroundColor:['#c5221f','#1a6fb0','#7a5a1f']}]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }});
+
+  const ctxCoh = document.getElementById('chartCohorte');
+  if (ctxCoh) new Chart(ctxCoh, { type:'bar', data:{ labels:['Guéris','Terminé','Échec','PDV','Décédé','Transféré'], datasets:[{label:'Effectif', data:[coh.gueris, coh.termines, coh.echecs, coh.pdv, coh.decedes, coh.transferes], backgroundColor:['#188038','#b7e1c5','#f2a8a4','#fdd663','#e37400','#dfe3e6']}]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }});
+
+  const ctxCam = document.getElementById('chartCohorteCam');
+  if (ctxCam) new Chart(ctxCam, { type:'doughnut', data:{ labels:['Guéris','Terminé','Échec','PDV','Décédé','Transféré'], datasets:[{ data:[coh.gueris, coh.termines, coh.echecs, coh.pdv, coh.decedes, coh.transferes], backgroundColor:['#188038','#81c995','#f2a8a4','#fdd663','#e37400','#e8eaed']}]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}} }});
+})();
+</script>
+{% endblock %}

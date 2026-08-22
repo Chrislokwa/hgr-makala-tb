@@ -19,6 +19,9 @@ class CustomLoginView(LoginView):
         return context
 
     def get_success_url(self):
+        user = self.request.user
+        if user.role == UserRole.STATISTICIEN:
+            return reverse_lazy('statistics_dashboard')
         return reverse_lazy('notification')
 
 
@@ -27,6 +30,8 @@ class DashboardView(LoginRequiredMixin, View):
         user = request.user
         if user.role == UserRole.ADMIN:
             return redirect('user_list')
+        if user.role == UserRole.STATISTICIEN:
+            return redirect('statistics_dashboard')
         notifications = user.notifications.all()[:20]
         return render(request, 'authentication/dashboard.html', {
             'user': user,

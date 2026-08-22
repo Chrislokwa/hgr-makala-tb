@@ -169,6 +169,12 @@ class AdmissionFinaliserView(InfirmierRequiredMixin, FormView):
 
     def dispatch(self, request, *args, **kwargs):
         self.patient = get_object_or_404(Patient, pk=self.kwargs['pk'])
+        if self.patient.statut == StatutDossier.NON_CONFIRME:
+            messages.error(
+                request,
+                "Dossier négatif : diagnostic infirmé, admission annulée.",
+            )
+            return redirect('patient_detail', pk=self.patient.pk)
         if self.patient.admission_finalisee:
             messages.info(
                 self.request,
@@ -230,10 +236,10 @@ class PatientAdminUpdateView(InfirmierRequiredMixin, FormView):
 
     def dispatch(self, request, *args, **kwargs):
         self.patient = get_object_or_404(Patient, pk=self.kwargs['pk'])
-        if self.patient.statut == StatutDossier.PROVISOIRE:
+        if self.patient.statut in (StatutDossier.PROVISOIRE, StatutDossier.CONFIRME, StatutDossier.NON_CONFIRME):
             messages.error(
                 request,
-                "Dossier provisoire : finalisez l'admission avant toute modification.",
+                "Dossier non en traitement : modification impossible.",
             )
             return redirect('patient_detail', pk=self.patient.pk)
         verrou = acquerir_verrou(self.patient, request.user)
@@ -309,9 +315,11 @@ class PatientDetailView(PersonnelAutoriseMixin, DetailView):
         # interprétation) ne sont visibles que du médecin.
         context['peut_voir_rapport_medical'] = role == 'MEDECIN'
         context['peut_finaliser_admission'] = (
-            role == 'INFIRMIER' and not self.object.admission_finalisee
+            role == 'INFIRMIER' and not self.object.admission_finalisee and self.object.statut != StatutDossier.NON_CONFIRME
         )
-        context['is_provisoire'] = self.object.statut == StatutDossier.PROVISOIRE
+        context['is_provisoire'] = self.object.statut in (StatutDossier.PROVISOIRE, StatutDossier.CONFIRME)
+        context['is_negatif'] = self.object.statut == StatutDossier.NON_CONFIRME
+        context['is_confirme'] = self.object.statut == StatutDossier.CONFIRME
         context['modifications'] = ModificationPatient.objects.filter(
             patient=self.object
         ).select_related('auteur')[:10]
@@ -705,8 +713,9 @@ class FicheTraitementView(PersonnelAutoriseMixin, DetailView):
 
     def dispatch(self, request, *args, **kwargs):
         traitement = get_object_or_404(Traitement, patient_id=self.kwargs['pk'])
-        if traitement.patient.statut == StatutDossier.PROVISOIRE:
-            messages.error(request, "Dossier provisoire : finalisez l'admission avant d'accéder à la fiche de traitement.")
+        if traitement.patient.statut in (StatutDossier.PROVISOIRE, StatutDossier.CONFIRME, StatutDossier.NON_CONFIRME):
+            msg = "Dossier négatif : aucun traitement à suivre." if traitement.patient.statut == StatutDossier.NON_CONFIRME else "Dossier provisoire : finalisez l'admission avant d'accéder à la fiche de traitement."
+            messages.error(request, msg)
             return redirect('patient_detail', pk=traitement.patient_id)
         return super().dispatch(request, *args, **kwargs)
 
@@ -755,8 +764,8 @@ class ObservanceSaisieView(InfirmierRequiredMixin, FormView):
 
     def dispatch(self, request, *args, **kwargs):
         self.traitement = get_object_or_404(Traitement, patient_id=self.kwargs['pk'])
-        if self.traitement.patient.statut == StatutDossier.PROVISOIRE:
-            messages.error(request, "Dossier provisoire : finalisez l'admission avant de saisir l'observance.")
+        if self.traitement.patient.statut in (StatutDossier.PROVISOIRE, StatutDossier.CONFIRME, StatutDossier.NON_CONFIRME):
+            messages.error(request, "Dossier non en traitement : observance impossible.")
             return redirect('patient_detail', pk=self.traitement.patient_id)
         return super().dispatch(request, *args, **kwargs)
 
@@ -806,8 +815,8 @@ class VisiteSuiviCreateView(InfirmierRequiredMixin, FormView):
 
     def dispatch(self, request, *args, **kwargs):
         self.traitement = get_object_or_404(Traitement, patient_id=self.kwargs['pk'])
-        if self.traitement.patient.statut == StatutDossier.PROVISOIRE:
-            messages.error(request, "Dossier provisoire : finalisez l'admission avant d'enregistrer une visite.")
+        if self.traitement.patient.statut in (StatutDossier.PROVISOIRE, StatutDossier.CONFIRME, StatutDossier.NON_CONFIRME):
+            messages.error(request, "Dossier non en traitement : visite impossible.")
             return redirect('patient_detail', pk=self.traitement.patient_id)
         if self.traitement.statut != StatutTraitement.EN_COURS:
             messages.error(request, "Ce traitement est clôturé : aucune visite ne peut être ajoutée.")
@@ -951,8 +960,9 @@ class CarteDuMaladeView(InfirmierRequiredMixin, DetailView):
 
     def dispatch(self, request, *args, **kwargs):
         patient = get_object_or_404(Patient, pk=self.kwargs['pk'])
-        if patient.statut == StatutDossier.PROVISOIRE:
-            messages.error(request, "Dossier provisoire : finalisez l'admission avant d'accéder à la carte du malade.")
+        if patient.statut in (StatutDossier.PROVISOIRE, StatutDossier.CONFIRME, StatutDossier.NON_CONFIRME):
+            msg = "Dossier négatif : aucun suivi à afficher." if patient.statut == StatutDossier.NON_CONFIRME else "Dossier provisoire : finalisez l'admission avant d'accéder à la carte du malade."
+            messages.error(request, msg)
             return redirect('patient_detail', pk=patient.pk)
         return super().dispatch(request, *args, **kwargs)
 
@@ -986,8 +996,8 @@ class RendezVousCreateView(InfirmierRequiredMixin, FormView):
 
     def dispatch(self, request, *args, **kwargs):
         self.patient = get_object_or_404(Patient, pk=self.kwargs['pk'])
-        if self.patient.statut == StatutDossier.PROVISOIRE:
-            messages.error(request, "Dossier provisoire : finalisez l'admission avant de planifier un rendez-vous.")
+        if self.patient.statut in (StatutDossier.PROVISOIRE, StatutDossier.CONFIRME, StatutDossier.NON_CONFIRME):
+            messages.error(request, "Dossier non en traitement : planification impossible.")
             return redirect('patient_detail', pk=self.patient.pk)
         return super().dispatch(request, *args, **kwargs)
 

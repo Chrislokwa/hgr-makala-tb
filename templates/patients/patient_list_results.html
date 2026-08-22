@@ -13,7 +13,7 @@
         </thead>
         <tbody>
             {% for patient in patients %}
-            <tr class="{% if patient.statut == 'CLOTURE' %}off{% endif %}">
+            <tr class="{% if patient.statut in ('CLOTURE','NON_CONFIRME') %}off{% endif %}">
                 <td>
                     <div class="u-cell">
                         <span class="avatar sm" style="{{ patient.avatar_style }}">{{ patient.initiales }}</span>
@@ -41,6 +41,10 @@
                     <span class="tag tg-hon">{{ patient.get_statut_display() }}</span>
                     {% elif patient.statut == 'CLOTURE' %}
                     <span class="tag tg-off">{{ patient.get_statut_display() }}</span>
+                    {% elif patient.statut == 'NON_CONFIRME' %}
+                    <span class="tag tg-off" style="background:#fbe9e7;color:#9a4632">{{ patient.get_statut_display() }}</span>
+                    {% elif patient.statut == 'CONFIRME' %}
+                    <span class="tag" style="background:#e8f1f9;color:#0b57d0">{{ patient.get_statut_display() }}</span>
                     {% elif patient.statut == 'PROVISOIRE' %}
                     <span class="tag" style="background:#fdf3e3;color:#7a5a1f">{{ patient.get_statut_display() }}</span>
                     {% elif patient.statut == 'EN_TRAITEMENT' %}
@@ -54,10 +58,10 @@
                         <summary class="row-menu-btn" aria-label="Actions"><i class="ellipsis vertical icon"></i></summary>
                         <div class="row-menu-pop">
                             <a href="{{ url('patient_detail', pk=patient.pk) }}"><i class="folder open outline icon"></i>Voir dossier patient</a>
-                            {% if patient.traitement and patient.statut != 'PROVISOIRE' %}
+                            {% if patient.traitement and patient.statut not in ('PROVISOIRE','CONFIRME','NON_CONFIRME') %}
                             <a href="{{ url('traitement_fiche', pk=patient.pk) }}"><i class="file alternate outline icon"></i>Voir fiche de traitement</a>
                             {% endif %}
-                            {% if request.user.role == 'INFIRMIER' and patient.statut != 'PROVISOIRE' %}
+                            {% if request.user.role == 'INFIRMIER' and patient.statut not in ('PROVISOIRE','CONFIRME','NON_CONFIRME') %}
                             <a href="{{ url('patient_admin_update', pk=patient.pk) }}"><i class="edit outline icon"></i>Modifier infos patient</a>
                             {% endif %}
                         </div>

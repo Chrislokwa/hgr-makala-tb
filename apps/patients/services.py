@@ -228,25 +228,45 @@ def enregistrer_resultats(*, laborantin, prescription, donnees):
 def enregistrer_interpretation(*, medecin, prescription, donnees):
     """Enregistre l'analyse médicale du médecin et la décision de diagnostic.
 
-    La décision (confirmée / infirmée) est conservée au dossier à titre
-    médical : elle ne modifie plus le statut du patient, l'admission étant
-    validée par l'infirmier. Une seule interprétation est conservée par
-    prescription.
+    La décision met à jour le statut du dossier :
+    - CONFIRMEE -> CONFIRME (en attente d'admission)
+    - INFIRMEE  -> NEGATIF / NON_CONFIRME (diagnostic infirmé, statut négatif)
+    Une seule interprétation est conservée par prescription.
     """
     donnees = dict(donnees)
     decision = donnees.get('decision')
     if decision not in (DecisionDiagnostic.CONFIRMEE, DecisionDiagnostic.INFIRMEE):
         raise ValueError("Décision de diagnostic invalide.")
 
-    interpretation, _ = InterpretationResultat.objects.update_or_create(
-        prescription=prescription,
-        defaults={
-            'medecin': medecin,
-            'observations': donnees.get('observations', ''),
-            'interpretation': donnees.get('interpretation', ''),
-            'decision': decision,
-        },
-    )
+    with transaction.atomic():
+        interpretation, _ = InterpretationResultat.objects.update_or_create(
+            prescription=prescription,
+            defaults={
+                'medecin': medecin,
+                'observations': donnees.get('observations', ''),
+                'interpretation': donnees.get('interpretation', ''),
+                'decision': decision,
+            },
+        )
+        patient = prescription.patient
+        nouveau_statut = (
+            StatutDossier.CONFIRME if decision == DecisionDiagnostic.CONFIRMEE
+            else StatutDossier.NON_CONFIRME
+        )
+        if patient.statut != nouveau_statut:
+            patient.statut = nouveau_statut
+            patient.save(update_fields=['statut'])
+        # Notifier les infirmiers
+        for infirmier in CustomUser.objects.filter(is_active=True, role=UserRole.INFIRMIER):
+            msg = (
+                f"Diagnostic {'confirmé' if decision == DecisionDiagnostic.CONFIRMEE else 'infirmé (négatif)'} : "
+                f"{patient.ndp} ({patient.full_name}) — {prescription.numero_demande}"
+            )
+            Notification.objects.create(
+                destinataire=infirmier,
+                message=msg,
+                url=f"/patients/{patient.pk}/",
+            )
     return interpretation
 
 

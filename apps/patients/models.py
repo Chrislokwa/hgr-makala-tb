@@ -12,9 +12,15 @@ class Sexe(models.TextChoices):
 
 class StatutDossier(models.TextChoices):
     PROVISOIRE = 'PROVISOIRE', 'Provisoire'
+    CONFIRME = 'CONFIRME', 'Confirmé'
+    NON_CONFIRME = 'NON_CONFIRME', 'Négatif'
     EN_TRAITEMENT = 'EN_TRAITEMENT', 'En traitement'
     GUERI = 'GUERI', 'Guéri'
     CLOTURE = 'CLOTURE', 'Clôturé'
+
+
+# Alias pour la demande "négatif" (même valeur que NON_CONFIRME, affichage Négatif)
+StatutDossier.NEGATIF = StatutDossier.NON_CONFIRME
 
 
 class Patient(models.Model):

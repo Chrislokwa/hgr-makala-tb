@@ -11,8 +11,10 @@
     </div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <a href="{{ url('patient_list') }}" class="ui basic button"><i class="users icon"></i>Liste</a>
-        {% if is_provisoire %}
-            {# Statut provisoire : seules Finaliser l'admission et Prescrire un examen sont autorisées #}
+        {% if is_negatif %}
+            {# Dossier négatif : diagnostic infirmé, aucune action clinique #}
+        {% elif is_provisoire %}
+            {# Statut provisoire/confirmé : seules Finaliser l'admission et Prescrire un examen sont autorisées #}
             {% if request.user.role == 'INFIRMIER' and peut_finaliser_admission %}
             <a href="{{ url('admission_finaliser', pk=patient.pk) }}" class="ui teal button"><i class="check circle outline icon"></i>Finaliser l'admission</a>
             {% endif %}
@@ -41,6 +43,22 @@
         <p>Le {{ patient.date_admission|date_fr }} par {{ patient.admise_par.titled_name }}.</p>
     </div>
 </div>
+{% elif patient.statut == 'NON_CONFIRME' %}
+<div class="notice" style="background:#fbe9e7; border-color:#e2b7b2; color:#9a4632">
+    <i class="times circle outline icon"></i>
+    <div>
+        <strong>Diagnostic infirmé – dossier négatif</strong>
+        <p>La tuberculose a été infirmée par le médecin. L'admission est annulée, aucun traitement n'est requis.</p>
+    </div>
+</div>
+{% elif patient.statut == 'CONFIRME' %}
+<div class="notice ok" style="background:#e8f1f9; border-color:#b8d0ea; color:#1a4a7a">
+    <i class="check circle icon"></i>
+    <div>
+        <strong>Diagnostic confirmé – admission à finaliser</strong>
+        <p>La tuberculose a été confirmée. L'infirmier peut finaliser l'admission administrative.</p>
+    </div>
+</div>
 {% elif patient.statut == 'PROVISOIRE' %}
 <div class="notice">
     <i class="clock outline icon"></i>
@@ -62,7 +80,7 @@
         {% if traitement and traitement.issue_finale %}
         <span class="badge {% if traitement.issue_finale == 'GUERI' %}ok{% elif traitement.issue_finale == 'TERMINE' %}ok{% elif traitement.issue_finale == 'ECHEC' %}neg{% elif traitement.issue_finale == 'DECEDE' %}neg{% else %}mut{% endif %}">{{ traitement.get_issue_finale_display() }}</span>
         {% else %}
-        <span class="badge {% if patient.statut == 'PROVISOIRE' %}warn{% elif patient.statut == 'EN_TRAITEMENT' %}info{% elif patient.statut == 'GUERI' %}ok{% else %}mut{% endif %}">{{ patient.get_statut_display() }}</span>
+        <span class="badge {% if patient.statut == 'PROVISOIRE' %}warn{% elif patient.statut == 'CONFIRME' %}info{% elif patient.statut == 'NON_CONFIRME' %}neg{% elif patient.statut == 'EN_TRAITEMENT' %}info{% elif patient.statut == 'GUERI' %}ok{% else %}mut{% endif %}">{{ patient.get_statut_display() }}</span>
         {% endif %}
     </div>
     <div class="info-grid">
@@ -126,7 +144,7 @@
 </div>
 {% endif %}
 
-{% if request.user.role == 'MEDECIN' %}
+{% if request.user.role == 'MEDECIN' and not is_negatif %}
 <div class="drow">
     <div class="drow-tx">
         <i class="clipboard check icon"></i>

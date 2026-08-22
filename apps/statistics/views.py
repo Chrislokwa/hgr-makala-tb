@@ -12,6 +12,7 @@ from .services import periode_range, liste_unites, build_dashboard_context
 
 
 class DashboardView(StatisticienRequiredMixin, View):
+    """1. Épidémiologie – Dépistage (page d'accueil statistiques)."""
     template_name = 'statistics/dashboard.html'
 
     def get(self, request, *args, **kwargs):
@@ -20,7 +21,6 @@ class DashboardView(StatisticienRequiredMixin, View):
         mois = request.GET.get('mois') or ''
         unite = request.GET.get('unite') or ''
 
-        # normalise: if mois provided, ignore trimestre
         if mois:
             trimestre = ''
 
@@ -29,7 +29,6 @@ class DashboardView(StatisticienRequiredMixin, View):
         context_ctx = build_dashboard_context(debut, fin, unite if unite else None)
         unites = liste_unites()
 
-        # Pour graphiques
         context = {
             'active_nav': 'statistics',
             'annee': annee,
@@ -40,12 +39,39 @@ class DashboardView(StatisticienRequiredMixin, View):
             'fin': fin,
             'unites': unites,
             'ep': context_ctx['epi'],
+            'annee_choices': list(range(timezone.localdate().year - 5, timezone.localdate().year + 1)),
+        }
+        return render(request, self.template_name, context)
+
+
+class CohorteView(StatisticienRequiredMixin, View):
+    """2. Résultats de traitement – Cohorte trimestrielle (page dédiée)."""
+    template_name = 'statistics/cohorte.html'
+
+    def get(self, request, *args, **kwargs):
+        annee = request.GET.get('annee') or str(timezone.localdate().year)
+        trimestre = request.GET.get('trimestre') or ''
+        mois = request.GET.get('mois') or ''
+        unite = request.GET.get('unite') or ''
+
+        if mois:
+            trimestre = ''
+
+        debut, fin = periode_range(annee, trimestre if trimestre else None, mois if mois else None)
+
+        context_ctx = build_dashboard_context(debut, fin, unite if unite else None)
+        unites = liste_unites()
+
+        context = {
+            'active_nav': 'statistics_cohorte',
+            'annee': annee,
+            'trimestre': trimestre,
+            'mois': mois,
+            'unite': unite,
+            'debut': debut,
+            'fin': fin,
+            'unites': unites,
             'cohorte': context_ctx['cohorte'],
-            'labo': context_ctx['labo'],
-            'commu': context_ctx['commu'],
-            'risque': context_ctx['risque'],
-            'vih': context_ctx['vih'],
-            'pharma': context_ctx['pharma'],
             'annee_choices': list(range(timezone.localdate().year - 5, timezone.localdate().year + 1)),
         }
         return render(request, self.template_name, context)

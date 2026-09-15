@@ -35,7 +35,6 @@
             <div class="su-row">
                 <span class="avatar sm" style="{{ request.user.avatar_style }}">{{ request.user.initials }}</span>
                 <span class="su-tx"><strong>{{ request.user.titled_name }}</strong><span>{{ request.user.email }}</span></span>
-                <i class="chevron right icon" style="color:var(--ink3);font-size:12px"></i>
             </div>
             <a class="pwd-btn" href="{{ url('password_change') }}"><i class="key icon"></i>Modifier le mot de passe</a>
             <form action="{{ url('logout') }}" method="post" id="logoutForm" style="margin:0;">

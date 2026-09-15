@@ -244,8 +244,7 @@ i.icon {
     display: block;
     font-size: 11px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .8px;
+    letter-spacing: .3px;
     color: var(--ink3);
     padding: 16px 24px 6px
 }
@@ -284,17 +283,18 @@ i.icon {
     background: var(--primary-l);
     color: var(--primary);
     font-weight: 500;
-    position: relative
+    position: relative;
+    border-radius: 0 8px 8px 0
 }
 
 .nitem.active::before {
     content: '';
     position: absolute;
-    left: -12px;
+    left: 0;
     top: 8px;
     bottom: 8px;
     width: 3px;
-    border-radius: 0 3px 3px 0;
+    border-radius: 3px;
     background: var(--primary)
 }
 
@@ -315,14 +315,7 @@ i.icon {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 6px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background .12s
-}
-
-.su-row:hover {
-    background: var(--hover)
+    padding: 6px
 }
 
 .su-tx {

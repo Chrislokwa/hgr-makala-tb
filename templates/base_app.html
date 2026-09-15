@@ -11,7 +11,6 @@
             <span class="brand-tx"><strong>Suivi TB</strong><span>HGR Makala</span></span>
         </div>
         <nav class="sidenav" aria-label="Navigation principale">
-            <span class="nav-section">Navigation</span>
             {% if request.user.role == 'ADMIN' %}
             <a class="nitem {% if active_nav == 'users' %}active{% endif %}" href="{{ url('user_list') }}"><i class="users icon"></i>Utilisateurs</a>
             <a class="nitem {% if active_nav == 'audit_logs' %}active{% endif %}" href="{{ url('audit_logs') }}"><i class="history icon"></i>Journaux</a>
@@ -26,7 +25,6 @@
             {% endif %}
             {% endif %}
             {% if request.user.role in ('MEDECIN','INFIRMIER','LABORANTIN') %}
-            <span class="nav-section">Outils</span>
             {% set non_lues = request.user.notifications.filter(lu=False).count() %}
             <a class="nitem {% if active_nav == 'notifications' %}active{% endif %}" href="{{ url('notification') }}"><i class="bell outline icon"></i>Notifications<span class="nav-badge" id="notifBadge" {% if not non_lues %}style="display:none"{% endif %}>{{ non_lues }}</span></a>
             {% endif %}

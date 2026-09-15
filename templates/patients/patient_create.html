@@ -1,13 +1,13 @@
 {% extends 'base_app.html' %}
 
-{% block title %}Nouveau dossier — Suivi TB · HGR Makala{% endblock %}
+{% block title %}Nouvel épisode de maladie — Suivi TB · HGR Makala{% endblock %}
 
 {% block view_content %}
 <div class="vhead">
     <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
     <div style="flex:1">
-        <h1 class="vtitle">Nouveau dossier patient</h1>
-        <p class="vsub">Ouverture d'un dossier provisoire avec prescription du traitement</p>
+        <h1 class="vtitle">Nouvel épisode de maladie</h1>
+        <p class="vsub">Enregistrement d'un patient et ouverture d'un épisode de tuberculose</p>
     </div>
     <a href="{{ url('patient_list') }}" class="ui basic button"><i class="arrow left icon"></i>Retour à la liste</a>
 </div>
@@ -19,25 +19,27 @@
     {% endif %}
 
     <div class="fcard">
-        <div class="fcard-h"><h2><i class="user outline icon"></i>Identité</h2></div>
+        <div class="fcard-h"><h2><i class="user outline icon"></i>Patient</h2></div>
         <div class="grid three">
-            <div class="field {% if form.prenom.errors %}error{% endif %}">
-                <label for="id_prenom">{{ form.prenom.label }} *</label>
-                {{ form.prenom }}
-                {% if form.prenom.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.prenom.errors[0] }}</div>{% endif %}
-            </div>
-            <div class="field {% if form.post_nom.errors %}error{% endif %}">
-                <label for="id_post_nom">{{ form.post_nom.label }}</label>
-                {{ form.post_nom }}
-                {% if form.post_nom.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.post_nom.errors[0] }}</div>{% endif %}
-            </div>
             <div class="field {% if form.nom.errors %}error{% endif %}">
                 <label for="id_nom">{{ form.nom.label }} *</label>
                 {{ form.nom }}
                 {% if form.nom.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.nom.errors[0] }}</div>{% endif %}
             </div>
+            <div class="field {% if form.post_nom.errors %}error{% endif %}">
+                <label for="id_post_nom">{{ form.post_nom.label }} *</label>
+                {{ form.post_nom }}
+                {% if form.post_nom.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.post_nom.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field {% if form.prenom.errors %}error{% endif %}">
+                <label for="id_prenom">{{ form.prenom.label }} *</label>
+                {{ form.prenom }}
+                {% if form.prenom.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.prenom.errors[0] }}</div>{% endif %}
+            </div>
+        </div>
+        <div class="grid three">
             <div class="field {% if form.sexe.errors %}error{% endif %}">
-<label>{{ form.sexe.label }} *</label>
+                <label>{{ form.sexe.label }} *</label>
                 <div class="radio-list">
                     {{ form.sexe }}
                 </div>
@@ -54,115 +56,57 @@
                 {% if form.telephone.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.telephone.errors[0] }}</div>{% endif %}
             </div>
         </div>
-    </div>
-
-    <div class="fcard">
-        <div class="fcard-h"><h2><i class="map marker alternate icon"></i>Adresse</h2></div>
-        <div class="grid four">
-            <div class="field"><label for="id_district">District</label>{{ form.district }}{% if form.district.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.district.errors[0] }}</div>{% endif %}</div>
-            <div class="field"><label for="id_secteur">Secteur</label>{{ form.secteur }}{% if form.secteur.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.secteur.errors[0] }}</div>{% endif %}</div>
-            <div class="field"><label for="id_cellule">Cellule</label>{{ form.cellule }}{% if form.cellule.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.cellule.errors[0] }}</div>{% endif %}</div>
-            <div class="field"><label for="id_village">Village</label>{{ form.village }}{% if form.village.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.village.errors[0] }}</div>{% endif %}</div>
+        <div class="field {% if form.adresse.errors %}error{% endif %}">
+            <label for="id_adresse">{{ form.adresse.label }}</label>
+            {{ form.adresse }}
+            {% if form.adresse.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.adresse.errors[0] }}</div>{% endif %}
         </div>
     </div>
 
     <div class="fcard">
-        <div class="fcard-h"><h2><i class="stethoscope icon"></i>Évaluation clinique initiale</h2></div>
-        <div class="field" style="max-width:240px">
-            <label for="id_poids">{{ form.poids.label }}</label>
-            {{ form.poids }}
-            {% if form.poids.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.poids.errors[0] }}</div>{% endif %}
+        <div class="fcard-h"><h2><i class="notes medical icon"></i>Épisode de maladie</h2></div>
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-bottom:16px;">
+                <div>
+                    <label style="font-size:12px; color:var(--ink-muted);">NDP</label>
+                    <div style="border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--bg2); font-weight:500;">{{ ndp_prochain }}</div>
+                </div>
+                <div>
+                    <label style="font-size:12px; color:var(--ink-muted);">Date d'ouverture</label>
+                    <div style="border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--bg2);">{{ date_ouverture|date_fr }}</div>
+                </div>
+                <div>
+                    <label style="font-size:12px; color:var(--ink-muted);">Statut</label>
+                    <div style="border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--bg2);">{{ statut_defaut }}</div>
+                </div>
         </div>
+
         <div class="grid two">
-            <div class="field">
-                <label class="lbl-sec">Signes et symptômes évocateurs</label>
-                <div class="symptomes">
-                    {% for field in form %}
-                    {% if 'signe_' in field.name %}
-                    <label class="chk">{{ field }} <span>{{ field.label }}</span></label>
-                    {% endif %}
-                    {% endfor %}
+            <div class="field {% if form.type_patient.errors %}error{% endif %}">
+                <label>{{ form.type_patient.label }} *</label>
+                <div class="radio-list">
+                    {{ form.type_patient }}
                 </div>
+                {% if form.type_patient.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.type_patient.errors[0] }}</div>{% endif %}
             </div>
-            <div class="field">
-                <label class="lbl-sec">Comorbidités</label>
-                <div class="symptomes">
-                    {% for field in form %}
-                    {% if 'comorb_' in field.name %}
-                    <label class="chk">{{ field }} <span>{{ field.label }}</span></label>
-                    {% endif %}
-                    {% endfor %}
+            <div class="field {% if form.site_maladie.errors %}error{% endif %}">
+                <label>{{ form.site_maladie.label }} *</label>
+                <div class="radio-list">
+                    {{ form.site_maladie }}
                 </div>
-                <div class="field" id="field_autres_comorbidites" style="margin-top:10px" {% if not form.comorb_autre.value() %}hidden{% endif %}>
-                    <label for="id_autres_comorbidites">{{ form.autres_comorbidites.label }} *</label>
-                    {{ form.autres_comorbidites }}
-                    {% if form.autres_comorbidites.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.autres_comorbidites.errors[0] }}</div>{% endif %}
-                </div>
+                {% if form.site_maladie.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.site_maladie.errors[0] }}</div>{% endif %}
             </div>
         </div>
         <div class="field" style="margin-top:10px">
-            <label for="id_observations_cliniques">{{ form.observations_cliniques.label }}</label>
-            {{ form.observations_cliniques }}
-            {% if form.observations_cliniques.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.observations_cliniques.errors[0] }}</div>{% endif %}
-        </div>
-    </div>
-
-    <div class="fcard">
-        <div class="fcard-h"><h2><i class="pills icon"></i>Traitement antituberculeux</h2></div>
-        <div class="form-note" style="margin-bottom:12px"><i class="info circle icon"></i>Le schéma thérapeutique est prescrit dès la création du dossier ; la posologie (comprimés/jour) est calculée automatiquement selon le poids.</div>
-        <div class="grid three">
-            <div class="field {% if form.type_cas.errors %}error{% endif %}">
-                <label>{{ form.type_cas.label }}</label>
-                <div class="radio-list">
-                    {{ form.type_cas }}
-                </div>
-                {% if form.type_cas.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.type_cas.errors[0] }}</div>{% endif %}
-            </div>
-            <div class="field {% if form.date_debut.errors %}error{% endif %}">
-                <label for="id_date_debut">{{ form.date_debut.label }}</label>
-                {{ form.date_debut }}
-                {% if form.date_debut.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.date_debut.errors[0] }}</div>{% endif %}
-            </div>
-            {{ form.unite_traitement }}
-            <div class="field">
-                <label>Unité de traitement</label>
-                <div style="border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--bg2);">HGR Makala</div>
-            </div>
-        </div>
-        <div class="field">
-            <label for="id_notes_traitement">{{ form.notes_traitement.label }}</label>
-            {{ form.notes_traitement }}
-            {% if form.notes_traitement.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.notes_traitement.errors[0] }}</div>{% endif %}
+            <label for="id_diagnostic">{{ form.diagnostic.label }}</label>
+            {{ form.diagnostic }}
+            {% if form.diagnostic.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.diagnostic.errors[0] }}</div>{% endif %}
         </div>
     </div>
 
     <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; margin-top:18px;">
         <a href="{{ url('patient_list') }}" class="ui basic button">Annuler</a>
-        <button type="submit" class="ui primary button"><i class="save icon"></i>Enregistrer le dossier</button>
-        <button type="submit" name="action" value="prescrire" class="ui teal button"><i class="clipboard list icon"></i>Enregistrer et prescrire l'examen</button>
+        <button type="submit" class="ui primary button"><i class="save icon"></i>Enregistrer l'épisode</button>
+        <button type="submit" name="action" value="prescrire" class="ui teal button"><i class="clipboard list icon"></i>Enregistrer et consulter</button>
     </div>
 </form>
-{% endblock %}
-
-{% block app_js %}
-<script>
-(function() {
-    const cb = document.getElementById('id_comorb_autre');
-    const field = document.getElementById('field_autres_comorbidites');
-    const input = document.getElementById('id_autres_comorbidites');
-    if (!cb || !field || !input) return;
-    function toggle() {
-        if (cb.checked) {
-            field.hidden = false;
-            input.required = true;
-        } else {
-            field.hidden = true;
-            input.required = false;
-            input.value = '';
-        }
-    }
-    cb.addEventListener('change', toggle);
-    toggle();
-})();
-</script>
 {% endblock %}

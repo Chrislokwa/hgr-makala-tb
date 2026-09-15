@@ -5,7 +5,9 @@ from apps.users.forms import NoClientValidationMixin
 
 from .models import (
     ApparenceEchantillon,
+    Consultation,
     DecisionDiagnostic,
+    EpisodeTB,
     ExamenPrescription,
     IssueFinale,
     ModeObservation,
@@ -19,24 +21,36 @@ from .models import (
     ResultatLabo,
     SchemaTraitement,
     Sexe,
+    SiteMaladie,
     TechniqueColoration,
     TypeCasTraitement,
+    TypeConsultation,
     TypeExamen,
     TypeModificationTraitement,
+    TypePatient,
     VisiteSuivi,
 )
 from .services import CONTROLES_SUIVI
 
 
-class DossierProvisoireForm(NoClientValidationMixin, forms.ModelForm):
+class DossierProvisoireForm(NoClientValidationMixin, forms.Form):
+    """Formulaire de création d'un épisode de maladie TB (nouveau dossier).
+
+    Section Patient : nom, post_nom, prenom, sexe, date_naissance,
+    telephone, adresse (district/secteur/cellule/village).
+    Section Épisode : type_patient, site_maladie, diagnostic.
+    Les champs NDP, date_ouverture et statut sont générés automatiquement
+    et affichés en texte brut dans le template.
+    """
+
+    # --- Champs Patient ---
     nom = forms.CharField(
-        label='Nom de famille',
+        label='Nom',
         max_length=100,
         widget=forms.TextInput(attrs={'placeholder': 'ex. Kalombo'}),
     )
     post_nom = forms.CharField(
         label='Post-nom',
-        required=False,
         max_length=100,
         widget=forms.TextInput(attrs={'placeholder': 'ex. Kanyinda'}),
     )
@@ -54,103 +68,38 @@ class DossierProvisoireForm(NoClientValidationMixin, forms.ModelForm):
         label='Date de naissance',
         widget=forms.DateInput(attrs={'type': 'date'}),
     )
-    district = forms.CharField(
-        label='District',
-        required=False,
-        max_length=100,
-        widget=forms.TextInput(attrs={'placeholder': 'ex. Ngaliema'}),
-    )
-    secteur = forms.CharField(
-        label='Secteur',
-        required=False,
-        max_length=100,
-        widget=forms.TextInput(attrs={'placeholder': 'ex. Secteur Météo'}),
-    )
-    cellule = forms.CharField(
-        label='Cellule',
-        required=False,
-        max_length=100,
-        widget=forms.TextInput(attrs={'placeholder': 'ex. Cellule B'}),
-    )
-    village = forms.CharField(
-        label='Village',
-        required=False,
-        max_length=100,
-        widget=forms.TextInput(attrs={'placeholder': 'ex. Village Turc'}),
-    )
     telephone = forms.CharField(
         label='Téléphone',
         required=False,
         max_length=20,
         widget=forms.TextInput(attrs={'placeholder': '+243 8X XXX XXXX'}),
     )
-    poids = forms.DecimalField(
-        label='Poids du patient (kg)',
+    adresse = forms.CharField(
+        label='Adresse',
         required=False,
-        min_value=0,
-        max_value=300,
-        decimal_places=1,
-        widget=forms.NumberInput(attrs={'placeholder': 'ex. 55.5'}),
-    )
-    autres_comorbidites = forms.CharField(
-        label='Précisez (si « Autre » est coché)',
-        required=False,
-        widget=forms.Textarea(attrs={
-            'placeholder': 'ex. Drépanocytose, insuffisance rénale…',
-            'rows': 2,
-        }),
-    )
-    observations_cliniques = forms.CharField(
-        label='Observations cliniques complémentaires',
-        required=False,
-        widget=forms.Textarea(attrs={
-            'placeholder': 'Examen physique, signes cliniques, présence d’une cicatrice BCG…',
-        }),
-    )
-    type_cas = forms.ChoiceField(
-        label='Type de cas *',
-        choices=TypeCasTraitement.choices,
-        widget=forms.RadioSelect(),
-    )
-    date_debut = forms.DateField(
-        label='Date de début du traitement *',
-        initial=timezone.localdate,
-        widget=forms.DateInput(attrs={'type': 'date'}),
-    )
-    unite_traitement = forms.CharField(
-        label='Unité de traitement',
-        max_length=120,
-        initial='HGR Makala',
-        required=False,
-        widget=forms.HiddenInput(),
-    )
-    notes_traitement = forms.CharField(
-        label='Notes sur le traitement',
-        required=False,
-        widget=forms.Textarea(attrs={'rows': 2}),
+        max_length=300,
+        widget=forms.TextInput(attrs={'placeholder': 'ex. Av. Kasavubu 12, Q. Lingwala'}),
     )
 
-    class Meta:
-        model = Patient
-        fields = [
-            'nom', 'post_nom', 'prenom', 'sexe', 'date_naissance',
-            'district', 'secteur', 'cellule', 'village', 'telephone',
-            'poids',
-            'signe_toux_persistante', 'signe_fievre_sueurs',
-            'signe_perte_poids', 'signe_hemoptysie', 'signe_contact_cas_tpm',
-            'comorb_diabete', 'comorb_malnutrition',
-            'comorb_autre', 'autres_comorbidites', 'observations_cliniques',
-        ]
-        labels = {
-            'signe_toux_persistante': 'Toux persistante ≥ 2 semaines',
-            'signe_fievre_sueurs': 'Fièvre et sueurs nocturnes',
-            'signe_perte_poids': 'Perte de poids inexpliquée',
-            'signe_hemoptysie': 'Hémoptysie (crachats striés de sang)',
-            'signe_contact_cas_tpm': 'Contact étroit avec un cas TPM+',
-            'comorb_diabete': 'Diabète',
-            'comorb_malnutrition': 'Malnutrition',
-            'comorb_autre': 'Autre comorbidité',
-        }
+    # --- Champs Épisode TB ---
+    type_patient = forms.ChoiceField(
+        label='Type de patient',
+        choices=TypePatient.choices,
+        widget=forms.RadioSelect(),
+    )
+    site_maladie = forms.ChoiceField(
+        label='Site de la maladie',
+        choices=SiteMaladie.choices,
+        widget=forms.RadioSelect(),
+    )
+    diagnostic = forms.CharField(
+        label='Diagnostic initial',
+        required=False,
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Diagnostic initial du patient…',
+            'rows': 3,
+        }),
+    )
 
     def clean_date_naissance(self):
         date = self.cleaned_data.get('date_naissance')
@@ -158,18 +107,25 @@ class DossierProvisoireForm(NoClientValidationMixin, forms.ModelForm):
             raise forms.ValidationError("La date de naissance ne peut pas être dans le futur.")
         return date
 
-    def clean_date_debut(self):
-        date_val = self.cleaned_data.get('date_debut')
-        if date_val and date_val > timezone.localdate():
-            raise forms.ValidationError("La date de début ne peut pas être dans le futur.")
-        return date_val
-
     def clean(self):
         cleaned = super().clean()
-        if cleaned.get('comorb_autre') and not (cleaned.get('autres_comorbidites') or '').strip():
-            self.add_error('autres_comorbidites', 'Précisez la comorbidité lorsque « Autre » est coché.')
-        if not cleaned.get('comorb_autre'):
-            cleaned['autres_comorbidites'] = ''
+        adresse = (cleaned.get('adresse') or '').strip()
+        if adresse:
+            parts = [p.strip() for p in adresse.split(',') if p.strip()]
+            if len(parts) >= 1:
+                cleaned['district'] = parts[0]
+            if len(parts) >= 2:
+                cleaned['secteur'] = parts[1]
+            if len(parts) >= 3:
+                cleaned['cellule'] = parts[2]
+            if len(parts) >= 4:
+                cleaned['village'] = parts[3]
+        else:
+            cleaned['district'] = ''
+            cleaned['secteur'] = ''
+            cleaned['cellule'] = ''
+            cleaned['village'] = ''
+        cleaned.pop('adresse', None)
         return cleaned
 
 
@@ -629,3 +585,109 @@ class CloturerTraitementForm(NoClientValidationMixin, forms.Form):
         super().__init__(*args, **kwargs)
         if not self.is_bound:
             self.fields['date_issue'].initial = timezone.localdate()
+
+
+class ConsultationForm(NoClientValidationMixin, forms.Form):
+    """Écran 2 — Formulaire de consultation médicale."""
+
+    date_consultation = forms.DateField(
+        label='Date de consultation',
+        initial=timezone.localdate,
+        widget=forms.DateInput(attrs={'type': 'date'}),
+    )
+    type_consultation = forms.ChoiceField(
+        label='Type de consultation',
+        choices=TypeConsultation.choices,
+        widget=forms.RadioSelect(),
+    )
+    motif_consultation = forms.CharField(
+        label='Motif de consultation',
+        required=False,
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Motif de la consultation…',
+            'rows': 3,
+        }),
+    )
+    plaintes = forms.CharField(
+        label='Plaintes',
+        required=False,
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Plaintes du patient…',
+            'rows': 3,
+        }),
+    )
+    symptomes = forms.CharField(
+        label='Symptômes',
+        required=False,
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Symptômes observés…',
+            'rows': 3,
+        }),
+    )
+    antecedents = forms.CharField(
+        label='Antécédents',
+        required=False,
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Antécédents médicaux…',
+            'rows': 3,
+        }),
+    )
+    comorbidites = forms.CharField(
+        label='Comorbidités',
+        required=False,
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Comorbidités identifiées…',
+            'rows': 3,
+        }),
+    )
+    poids = forms.DecimalField(
+        label='Poids (kg)',
+        required=False,
+        min_value=0,
+        max_value=300,
+        decimal_places=1,
+        widget=forms.NumberInput(attrs={'placeholder': 'ex. 55.5'}),
+    )
+    temperature = forms.DecimalField(
+        label='Température (°C)',
+        required=False,
+        min_value=30,
+        max_value=45,
+        decimal_places=1,
+        widget=forms.NumberInput(attrs={'placeholder': 'ex. 37.0'}),
+    )
+    frequence_cardiaque = forms.IntegerField(
+        label='Fréq. cardiaque',
+        required=False,
+        min_value=30,
+        max_value=250,
+        widget=forms.NumberInput(attrs={'placeholder': 'ex. 72'}),
+    )
+    tension_arterielle = forms.CharField(
+        label='Tension',
+        required=False,
+        max_length=10,
+        widget=forms.TextInput(attrs={'placeholder': 'ex. 12/8'}),
+    )
+    diagnostic_initial = forms.CharField(
+        label='Diagnostic initial',
+        required=False,
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Diagnostic initial posé…',
+            'rows': 3,
+        }),
+    )
+    diagnostic_certitude = forms.CharField(
+        label='Diagnostic de certitude',
+        required=False,
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Diagnostic de certitude confirmé…',
+            'rows': 3,
+        }),
+    )
+
+    def clean_date_consultation(self):
+        date = self.cleaned_data.get('date_consultation')
+        if date and date > timezone.localdate():
+            raise forms.ValidationError("La date de consultation ne peut pas être dans le futur.")
+        return date

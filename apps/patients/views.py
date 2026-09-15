@@ -14,6 +14,7 @@ from django.views.generic import DetailView, FormView, ListView, View
 from .forms import (
     BonControleForm,
     CloturerTraitementForm,
+    ConsultationForm,
     DossierProvisoireForm,
     InformationsAdministrativesForm,
     InterpretationForm,
@@ -26,6 +27,7 @@ from .forms import (
 )
 from .models import (
     DecisionDiagnostic,
+    EpisodeTB,
     ExamenPrescription,
     ModificationPatient,
     MotifExamen,
@@ -35,6 +37,7 @@ from .models import (
     ResultatLabo,
     RendezVous,
     StatutDossier,
+    StatutEpisodeTB,
     StatutExamen,
     StatutRendezVous,
     StatutResultat,
@@ -127,11 +130,13 @@ class PatientCreateView(MedecinRequiredMixin, FormView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['active_nav'] = 'patients'
+        context['ndp_prochain'] = EpisodeTB.generer_ndp()
+        context['date_ouverture'] = timezone.localdate()
+        context['statut_defaut'] = StatutEpisodeTB.PROVISOIRE
         return context
 
     def form_valid(self, form):
         donnees = dict(form.cleaned_data)
-        notes_traitement = donnees.pop('notes_traitement', '')
         doublon = Patient.trouver_doublon(
             donnees['nom'], donnees['prenom'], donnees['date_naissance']
         )
@@ -142,18 +147,18 @@ class PatientCreateView(MedecinRequiredMixin, FormView):
 
         patient = creer_dossier_provisoire(
             medecin=self.request.user,
-            donnees={**donnees, 'notes': notes_traitement},
+            donnees=donnees,
         )
         audit_log(self.request.user, AuditLog.Action.CREATE_PATIENT, f"Création dossier {patient.ndp} — {patient.full_name}", request=self.request, target=patient)
         if self.request.POST.get('action') == 'prescrire':
             messages.success(
                 self.request,
-                f"Dossier provisoire créé : {patient.ndp} · {patient.full_name}",
+                f"Épisode TB créé : {patient.ndp} · {patient.full_name}",
             )
-            return redirect('prescription_create', pk=patient.pk)
+            return redirect('consultation_create', pk=patient.pk)
         messages.success(
             self.request,
-            f"Dossier provisoire créé : {patient.ndp} · {patient.full_name}",
+            f"Épisode TB créé : {patient.ndp} · {patient.full_name}",
         )
         return redirect('patient_detail', pk=patient.pk)
 
@@ -1103,6 +1108,58 @@ class TraitementCloturerView(MedecinRequiredMixin, FormView):
             f"{self.traitement.get_issue_finale_display()}.",
         )
         return redirect('traitement_fiche', pk=self.traitement.patient_id)
+
+    def form_invalid(self, form):
+        return self.render_to_response(self.get_context_data(form=form))
+
+
+class ConsultationCreateView(MedecinRequiredMixin, FormView):
+    """Écran 2 — Création d'une consultation médicale."""
+
+    template_name = 'patients/consultation_create.html'
+    form_class = ConsultationForm
+
+    def dispatch(self, request, *args, **kwargs):
+        self.patient = get_object_or_404(Patient, pk=self.kwargs['pk'])
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['active_nav'] = 'patients'
+        context['patient'] = self.patient
+        return context
+
+    def form_valid(self, form):
+        donnees = form.cleaned_data
+        Consultation.objects.create(
+            patient=self.patient,
+            date_consultation=donnees['date_consultation'],
+            type_consultation=donnees['type_consultation'],
+            motif_consultation=donnees['motif_consultation'],
+            plaintes=donnees['plaintes'],
+            symptomes=donnees['symptomes'],
+            antecedents=donnees['antecedents'],
+            comorbidites=donnees['comorbidites'],
+            poids=donnees['poids'],
+            temperature=donnees['temperature'],
+            frequence_cardiaque=donnees['frequence_cardiaque'],
+            tension_arterielle=donnees['tension_arterielle'],
+            diagnostic_initial=donnees['diagnostic_initial'],
+            diagnostic_certitude=donnees['diagnostic_certitude'],
+            cree_par=self.request.user,
+        )
+        audit_log(self.request.user, AuditLog.Action.CONSULTATION, f"Consultation {self.patient.ndp}", request=self.request, target=self.patient)
+        if self.request.POST.get('action') == 'prescrire':
+            messages.success(
+                self.request,
+                f"Consultation enregistrée pour {self.patient.ndp} · {self.patient.full_name}.",
+            )
+            return redirect('prescription_create', pk=self.patient.pk)
+        messages.success(
+            self.request,
+            f"Consultation enregistrée pour {self.patient.ndp} · {self.patient.full_name}.",
+        )
+        return redirect('patient_detail', pk=self.patient.pk)
 
     def form_invalid(self, form):
         return self.render_to_response(self.get_context_data(form=form))

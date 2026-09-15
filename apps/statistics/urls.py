@@ -1,7 +1,8 @@
 from django.urls import path
-from .views import CohorteView, ConsultationsDashboardView, DashboardView, ExportConsultationsExcelView, ExportConsultationsPdfView, ExportExcelView, ExportPdfView
+from .views import CohorteView, ConsultationsDashboardView, DashboardView, ExportConsultationsExcelView, ExportConsultationsPdfView, ExportExcelView, ExportPdfView, TableauBordView
 
 urlpatterns = [
+    path('statistiques/tableau-de-bord/', TableauBordView.as_view(), name='statistics_tableau_bord'),
     path('statistiques/', DashboardView.as_view(), name='statistics_dashboard'),
     path('statistiques/resultats-traitement/', CohorteView.as_view(), name='statistics_cohorte'),
     path('statistiques/consultations/', ConsultationsDashboardView.as_view(), name='statistics_consultations'),

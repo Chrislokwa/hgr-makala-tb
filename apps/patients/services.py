@@ -9,6 +9,7 @@ from apps.users.models import CustomUser, UserRole
 from .models import (
     CategorieSchemaTraitement,
     DecisionDiagnostic,
+    EpisodeTB,
     ExamenPrescription,
     HistoriqueModificationTraitement,
     InterpretationResultat,
@@ -23,7 +24,9 @@ from .models import (
     RendezVous,
     ResultatLabo,
     SchemaTraitement,
+    SiteMaladie,
     StatutDossier,
+    StatutEpisodeTB,
     StatutExamen,
     StatutRendezVous,
     StatutResultat,
@@ -31,6 +34,7 @@ from .models import (
     Traitement,
     TypeCasTraitement,
     TypeModificationTraitement,
+    TypePatient,
     VerrouDossier,
     VisiteSuivi,
 )
@@ -75,42 +79,32 @@ def _schema_pour_type_cas(type_cas):
 
 
 def creer_dossier_provisoire(*, medecin, donnees):
-    """Crée le dossier provisoire du patient et sa fiche de traitement.
+    """Crée le dossier provisoire du patient et l'épisode de maladie TB.
 
-    Le médecin renseigne en une seule étape les données cliniques ET les
-    paramètres du traitement (type de cas, date de début, unité) : le
-    schéma est prescrit automatiquement et la posologie calculée selon le
-    poids. L'infirmier finalisera ensuite l'admission administrative.
+    Le médecin renseigne les données du patient (identité, adresse) et
+    les paramètres de l'épisode (type de patient, site de la maladie,
+    diagnostic initial). Le NDP, la date d'ouverture et le statut sont
+    générés automatiquement.
     """
     donnees = dict(donnees)
-    traitement_donnees = {
-        'type_cas': donnees.pop('type_cas', None) or TypeCasTraitement.NOUVEAU,
-        'date_debut': donnees.pop('date_debut', None) or timezone.localdate(),
-        'unite_traitement': 'HGR Makala',
-        'notes': donnees.pop('notes', ''),
+    # Extraire les données de l'épisode
+    episode_donnees = {
+        'type_patient': donnees.pop('type_patient', None) or TypePatient.NOUVEAU,
+        'site_maladie': donnees.pop('site_maladie', None) or SiteMaladie.TPM_PLUS,
+        'diagnostic': donnees.pop('diagnostic', ''),
     }
-    # Forcer unité mono-site : ignorer toute valeur soumise
-    donnees.pop('unite_traitement', None)
-    donnees['statut'] = StatutDossier.PROVISOIRE
-    schema = _schema_pour_type_cas(traitement_donnees['type_cas'])
-    posologie = calculer_posologie(donnees.get('poids'))
 
     for _ in range(5):
         try:
             with transaction.atomic():
                 patient = Patient(cree_par=medecin, **donnees)
                 patient.save()
-                Traitement.objects.create(
+                EpisodeTB.objects.create(
                     patient=patient,
-                    schema=schema,
-                    type_cas=traitement_donnees['type_cas'],
-                    date_debut=traitement_donnees['date_debut'],
-                    poids_initial=patient.poids,
-                    posologie_jour=posologie,
-                    unite_traitement=(
-                        traitement_donnees['unite_traitement'] or 'HGR Makala'
-                    ),
-                    notes=traitement_donnees['notes'],
+                    statut=StatutEpisodeTB.PROVISOIRE,
+                    type_patient=episode_donnees['type_patient'],
+                    site_maladie=episode_donnees['site_maladie'],
+                    diagnostic=episode_donnees['diagnostic'],
                     cree_par=medecin,
                 )
                 break
@@ -124,7 +118,7 @@ def creer_dossier_provisoire(*, medecin, donnees):
             destinataire=infirmier,
             message=(
                 f"Nouveau dossier provisoire : {patient.ndp} ({patient.full_name}) — "
-                f"schéma {schema.code} prescrit, admission à valider."
+                f"épisode TB créé, admission à valider."
             ),
             url=f"/patients/{patient.pk}/",
         )

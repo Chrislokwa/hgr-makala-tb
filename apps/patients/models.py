@@ -23,6 +23,27 @@ class StatutDossier(models.TextChoices):
 StatutDossier.NEGATIF = StatutDossier.NON_CONFIRME
 
 
+class StatutEpisodeTB(models.TextChoices):
+    PROVISOIRE = 'PROVISOIRE', 'Provisoire'
+    CONFIRME = 'CONFIRME', 'Confirmé'
+    EN_TRAITEMENT = 'EN_TRAITEMENT', 'En traitement'
+    CLOTURE = 'CLOTURE', 'Clôturé'
+
+
+class TypePatient(models.TextChoices):
+    NOUVEAU = 'NOUVEAU', 'Nouveau'
+    RECHUTE = 'RECHUTE', 'Rechute'
+    ECHEC = 'ECHEC', 'Échec'
+    REPRISE_ABANDON = 'REPRISE_ABANDON', 'Reprise après abandon'
+
+
+class SiteMaladie(models.TextChoices):
+    TPM_PLUS = 'TPM+', 'TPM+'
+    TPM_MOINS = 'TPM-', 'TPM-'
+    TPM_ZERO = 'TPM0', 'TPM0'
+    TEP = 'TEP', 'TEP'
+
+
 class Patient(models.Model):
     ndp = models.CharField(
         max_length=20,
@@ -203,6 +224,91 @@ class Patient(models.Model):
 
     def __str__(self):
         return f"{self.ndp} · {self.full_name}"
+
+
+class EpisodeTB(models.Model):
+    """Épisode de maladie tuberculeuse associé à un patient.
+
+    Chaque épisode porte son propre NDP (Numéro de Dossier Patient),
+    sa date d'ouverture, son statut, le type de patient, le site de la
+    maladie et le diagnostic initial.
+    """
+
+    ndp = models.CharField(
+        max_length=20,
+        unique=True,
+        editable=False,
+        db_index=True,
+        help_text="Numéro de dossier patient, généré automatiquement (NDP-AAAA-NNNN).",
+    )
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='episodes',
+    )
+    date_ouverture = models.DateField(
+        default=timezone.localdate,
+        help_text="Date d'ouverture de l'épisode (date du jour par défaut).",
+    )
+    statut = models.CharField(
+        max_length=20,
+        choices=StatutEpisodeTB.choices,
+        default=StatutEpisodeTB.PROVISOIRE,
+    )
+    type_patient = models.CharField(
+        max_length=20,
+        choices=TypePatient.choices,
+    )
+    site_maladie = models.CharField(
+        max_length=10,
+        choices=SiteMaladie.choices,
+    )
+    diagnostic = models.TextField(
+        blank=True,
+        help_text="Diagnostic initial (optionnel).",
+    )
+    resultat_final = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="Résultat final (renseigné à la clôture).",
+    )
+    date_cloture = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date de clôture de l'épisode.",
+    )
+    cree_le = models.DateTimeField(auto_now_add=True)
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='episodes_crees',
+        help_text="Médecin à l'origine de la création de l'épisode.",
+    )
+
+    class Meta:
+        ordering = ['-cree_le']
+
+    @classmethod
+    def generer_ndp(cls):
+        annee = timezone.localdate().year
+        prefix = f'NDP-{annee}-'
+        dernier = (
+            cls.objects
+            .filter(ndp__startswith=prefix)
+            .order_by('-ndp')
+            .values_list('ndp', flat=True)
+            .first()
+        )
+        sequence = (int(dernier.rsplit('-', 1)[1]) if dernier else 0) + 1
+        return f'{prefix}{sequence:04d}'
+
+    def save(self, *args, **kwargs):
+        if not self.ndp:
+            self.ndp = self.generer_ndp()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.ndp} · {self.patient.full_name}"
 
 
 class TypeExamen(models.Model):
@@ -1027,3 +1133,91 @@ class RendezVous(models.Model):
     @property
     def est_planifie(self):
         return self.statut == StatutRendezVous.PLANIFIE
+
+
+class TypeConsultation(models.TextChoices):
+    INITIALE = 'INITIALE', 'Initiale'
+    FINALE = 'FINALE', 'Finale'
+
+
+class Consultation(models.Model):
+    """Écran 2 — Consultation médicale d'un patient."""
+
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='consultations',
+    )
+    date_consultation = models.DateField(
+        default=timezone.localdate,
+        help_text="Date de la consultation.",
+    )
+    type_consultation = models.CharField(
+        max_length=20,
+        choices=TypeConsultation.choices,
+    )
+    motif_consultation = models.TextField(
+        blank=True,
+        help_text="Motif de la consultation.",
+    )
+    plaintes = models.TextField(
+        blank=True,
+        help_text="Plaintes du patient.",
+    )
+    symptomes = models.TextField(
+        blank=True,
+        help_text="Symptômes observés.",
+    )
+    antecedents = models.TextField(
+        blank=True,
+        help_text="Antécédents médicaux du patient.",
+    )
+    comorbidites = models.TextField(
+        blank=True,
+        help_text="Comorbidités identifiées.",
+    )
+    poids = models.DecimalField(
+        max_digits=5,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        help_text="Poids du patient (kg).",
+    )
+    temperature = models.DecimalField(
+        max_digits=4,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        help_text="Température corporelle (°C).",
+    )
+    frequence_cardiaque = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Fréquence cardiaque (battements/min).",
+    )
+    tension_arterielle = models.CharField(
+        max_length=10,
+        blank=True,
+        help_text="Tension artérielle (ex. 12/8).",
+    )
+    diagnostic_initial = models.TextField(
+        blank=True,
+        help_text="Diagnostic initial posé lors de la consultation.",
+    )
+    diagnostic_certitude = models.TextField(
+        blank=True,
+        help_text="Diagnostic de certitude confirmé.",
+    )
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='consultations_crees',
+        help_text="Médecin ayant réalisé la consultation.",
+    )
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date_consultation', '-cree_le']
+
+    def __str__(self):
+        return f"{self.patient.ndp} — consultation du {self.date_consultation:%d/%m/%Y}"

@@ -1,0 +1,117 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Consultation — Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Consultation</h1>
+        <p class="vsub">Patient : {{ patient.full_name }} — {{ patient.ndp }}</p>
+    </div>
+    <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic button"><i class="arrow left icon"></i>Retour à la liste</a>
+</div>
+
+<form class="ui form" method="post" novalidate>
+    {{ csrf_input }}
+    {% if form.non_field_errors() %}
+    <div class="ui negative message">{{ form.non_field_errors() }}</div>
+    {% endif %}
+
+    <div class="fcard">
+        <div class="fcard-h"><h2><i class="stethoscope icon"></i>Consultation</h2></div>
+
+        <div class="grid four">
+            <div class="field {% if form.poids.errors %}error{% endif %}">
+                <label for="id_poids">{{ form.poids.label }}</label>
+                {{ form.poids }}
+                {% if form.poids.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.poids.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field {% if form.temperature.errors %}error{% endif %}">
+                <label for="id_temperature">{{ form.temperature.label }}</label>
+                {{ form.temperature }}
+                {% if form.temperature.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.temperature.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field {% if form.frequence_cardiaque.errors %}error{% endif %}">
+                <label for="id_frequence_cardiaque">{{ form.frequence_cardiaque.label }}</label>
+                {{ form.frequence_cardiaque }}
+                {% if form.frequence_cardiaque.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.frequence_cardiaque.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field {% if form.tension_arterielle.errors %}error{% endif %}">
+                <label for="id_tension_arterielle">{{ form.tension_arterielle.label }}</label>
+                {{ form.tension_arterielle }}
+                {% if form.tension_arterielle.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.tension_arterielle.errors[0] }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="grid two">
+            <div class="field {% if form.date_consultation.errors %}error{% endif %}">
+                <label for="id_date_consultation">{{ form.date_consultation.label }} *</label>
+                {{ form.date_consultation }}
+                {% if form.date_consultation.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.date_consultation.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field {% if form.type_consultation.errors %}error{% endif %}">
+                <label>{{ form.type_consultation.label }} *</label>
+                <div class="radio-list">
+                    {{ form.type_consultation }}
+                </div>
+                {% if form.type_consultation.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.type_consultation.errors[0] }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="grid two" style="margin-top:10px">
+            <div class="field">
+                <label for="id_motif_consultation">{{ form.motif_consultation.label }}</label>
+                {{ form.motif_consultation }}
+                {% if form.motif_consultation.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.motif_consultation.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field">
+                <label for="id_plaintes">{{ form.plaintes.label }}</label>
+                {{ form.plaintes }}
+                {% if form.plaintes.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.plaintes.errors[0] }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="grid two">
+            <div class="field">
+                <label for="id_symptomes">{{ form.symptomes.label }}</label>
+                {{ form.symptomes }}
+                {% if form.symptomes.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.symptomes.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field">
+                <label for="id_antecedents">{{ form.antecedents.label }}</label>
+                {{ form.antecedents }}
+                {% if form.antecedents.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.antecedents.errors[0] }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="grid two">
+            <div class="field">
+                <label for="id_comorbidites">{{ form.comorbidites.label }}</label>
+                {{ form.comorbidites }}
+                {% if form.comorbidites.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.comorbidites.errors[0] }}</div>{% endif %}
+            </div>
+            <div class="field">
+                <label for="id_diagnostic_initial">{{ form.diagnostic_initial.label }}</label>
+                {{ form.diagnostic_initial }}
+                {% if form.diagnostic_initial.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.diagnostic_initial.errors[0] }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="grid two">
+            <div class="field">
+                <label for="id_diagnostic_certitude">{{ form.diagnostic_certitude.label }}</label>
+                {{ form.diagnostic_certitude }}
+                {% if form.diagnostic_certitude.errors %}<div class="ui red message" style="padding:4px 8px; font-size:12px; margin-top:4px;">{{ form.diagnostic_certitude.errors[0] }}</div>{% endif %}
+            </div>
+            <div></div>
+        </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; margin-top:18px;">
+        <a href="{{ url('patient_detail', pk=patient.pk) }}" class="ui basic button">Annuler</a>
+        <button type="submit" class="ui primary button"><i class="save icon"></i>Enregistrer la consultation</button>
+        <button type="submit" name="action" value="prescrire" class="ui teal button"><i class="clipboard list icon"></i>Enregistrer et prescrire un examen</button>
+    </div>
+</form>
+{% endblock %}

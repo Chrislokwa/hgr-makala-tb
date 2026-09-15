@@ -1,12 +1,16 @@
 import io
-from datetime import date
+import json
+from datetime import date, timedelta
+from calendar import month_name
+
 from django.contrib import messages
-from django.http import HttpResponse
+from django.db.models import Count
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.generic import View
 
-from apps.patients.models import IssueFinale
+from apps.patients.models import EpisodeTB, IssueFinale, Patient, StatutEpisodeTB, StatutDossier, TypePatient, SiteMaladie, Sexe
 from .permissions import StatisticienRequiredMixin
 from .services import periode_range, liste_unites, build_dashboard_context
 
@@ -86,13 +90,11 @@ class ConsultationsDashboardView(StatisticienRequiredMixin, View):
         from django.core.paginator import Paginator
         from apps.patients.models import Patient
 
-        # Filtres : jour (YYYY-MM-DD), semaine (YYYY-Www), mois (YYYY-MM), annee (YYYY)
         filtre_jour = request.GET.get('jour') or ''
         filtre_semaine = request.GET.get('semaine') or ''
         filtre_mois = request.GET.get('mois') or ''
         filtre_annee = request.GET.get('annee') or ''
 
-        # Priorité : jour > semaine > mois > annee
         debut = fin = None
         periode_label = "Toutes les consultations"
         qs = Patient.objects.all().order_by('-cree_le')
@@ -104,7 +106,6 @@ class ConsultationsDashboardView(StatisticienRequiredMixin, View):
                 qs = qs.filter(cree_le__date=d)
                 periode_label = f"Jour {d.strftime('%d/%m/%Y')}"
             elif filtre_semaine:
-                # format 2026-W34
                 y, w = filtre_semaine.split('-W')
                 y = int(y); w = int(w)
                 debut = date.fromisocalendar(y, w, 1)
@@ -112,7 +113,6 @@ class ConsultationsDashboardView(StatisticienRequiredMixin, View):
                 qs = qs.filter(cree_le__date__gte=debut, cree_le__date__lte=fin)
                 periode_label = f"Semaine {w} ({debut.strftime('%d/%m')} - {fin.strftime('%d/%m/%Y')})"
             elif filtre_mois:
-                # format 2026-08
                 y, m = map(int, filtre_mois.split('-'))
                 debut = date(y, m, 1)
                 _, last = __import__('calendar').monthrange(y, m)
@@ -126,20 +126,16 @@ class ConsultationsDashboardView(StatisticienRequiredMixin, View):
                 qs = qs.filter(cree_le__date__gte=debut, cree_le__date__lte=fin)
                 periode_label = f"Année {y}"
             else:
-                # par défaut : aujourd'hui
                 debut = fin = None
         except Exception:
             debut = fin = None
             periode_label = "Toutes les consultations"
 
-        # Pagination
         paginator = Paginator(qs.select_related('cree_par'), 10)
         page_number = request.GET.get('page') or 1
         page_obj = paginator.get_page(page_number)
 
-        # Stats
         total_global = Patient.objects.count()
-        # total consultés pour la période filtrée (ou du jour si aucun filtre)
         if filtre_jour or filtre_semaine or filtre_mois or filtre_annee:
             total_periode = qs.count()
         else:
@@ -328,7 +324,6 @@ class ExportConsultationsPdfView(StatisticienRequiredMixin, View):
                 p.date_naissance.strftime('%d/%m/%Y') if p.date_naissance else "",
                 p.cree_le.strftime('%d/%m/%Y') if p.cree_le else "",
             ])
-        # si plus de 200, tronquer
         if qs.count() > 200:
             data.append(["...", "...", "...", "...", "...", "...", f"+ {qs.count()-200} autres"])
 
@@ -359,7 +354,7 @@ class ExportExcelView(StatisticienRequiredMixin, View):
     """Export Excel pour 2 rapports : depistage et cohorte."""
 
     def get(self, request, *args, **kwargs):
-        rapport = self.kwargs.get('rapport')  # 'depistage' ou 'cohorte'
+        rapport = self.kwargs.get('rapport')
         annee = request.GET.get('annee') or str(timezone.localdate().year)
         trimestre = request.GET.get('trimestre') or ''
         mois = request.GET.get('mois') or ''
@@ -379,7 +374,6 @@ class ExportExcelView(StatisticienRequiredMixin, View):
         ws = wb.active
         ws.title = "Rapport"
 
-        # Styles
         title_font = Font(bold=True, size=14, color="1a6fb0")
         header_font = Font(bold=True, color="FFFFFF", size=11)
         header_fill = PatternFill(start_color="1a6fb0", end_color="1a6fb0", fill_type="solid")
@@ -388,7 +382,6 @@ class ExportExcelView(StatisticienRequiredMixin, View):
         center = Alignment(horizontal="center", vertical="center")
         left = Alignment(horizontal="left", vertical="center")
 
-        # En-tête
         ws.merge_cells('A1:D1')
         titre = f"Rapport trimestriel - {'Dépistage' if rapport=='depistage' else 'Résultats de traitement (cohorte)'}"
         ws['A1'] = titre
@@ -403,7 +396,7 @@ class ExportExcelView(StatisticienRequiredMixin, View):
         row = 4
         if rapport == 'depistage':
             headers = ["Indicateur", "Valeur", "Numérateur", "Dénominateur / Note"]
-            ws.append([])  # ensure row
+            ws.append([])
             for col, h in enumerate(headers, 1):
                 c = ws.cell(row=row, column=col, value=h)
                 c.font = header_font
@@ -443,10 +436,9 @@ class ExportExcelView(StatisticienRequiredMixin, View):
                 ws.cell(row=row, column=4, value=denom).alignment = center
                 ws.cell(row=row, column=4).border = border
                 row += 1
-            # placeholders
             row += 1
             ws.cell(row=row, column=1, value="Indicateurs non modélisés (N/A) : VIH/CTX/ARV, Rupture stock, CQ, Prison, Contacts, INH <5 ans").font = Font(italic=True, size=9, color="b06000")
-        else:  # cohorte
+        else:
             headers = ["Issue", "Effectif", "Taux (%)", "Cible OMS"]
             for col, h in enumerate(headers, 1):
                 c = ws.cell(row=row, column=col, value=h)
@@ -482,7 +474,6 @@ class ExportExcelView(StatisticienRequiredMixin, View):
                 ws.cell(row=row, column=4).border = border
                 row += 1
 
-        # ajuster hauteur
         for r in ws.iter_rows(min_row=1, max_row=row):
             for c in r:
                 c.border = c.border or border
@@ -508,7 +499,6 @@ class ExportPdfView(StatisticienRequiredMixin, View):
         debut, fin = periode_range(annee, trimestre if trimestre else None, mois if mois else None)
         ctx = build_dashboard_context(debut, fin, unite if unite else None)
 
-        # Try reportlab, fallback to HTML pdf-like
         try:
             from reportlab.lib.pagesizes import A4
             from reportlab.lib.units import mm
@@ -517,7 +507,6 @@ class ExportPdfView(StatisticienRequiredMixin, View):
             from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
             from reportlab.lib import colors
         except ImportError:
-            # fallback: render HTML and let browser print
             html = f"<h1>Rapport {rapport}</h1><p>{debut} - {fin}</p><pre>{ctx}</pre>"
             return HttpResponse(html)
 
@@ -566,7 +555,7 @@ class ExportPdfView(StatisticienRequiredMixin, View):
             ]))
             story.append(t)
             story.append(Spacer(1,6))
-            story.append(Paragraph("N/A : VIH/CTX/ARV, Rupture stock, CQ, Prison, Contacts, INH &lt;5 ans – modèles non gérés (AGENT.md hors périmètre).", small))
+            story.append(Paragraph("N/A : VIH/CTX/ARV, Rupture stock, CQ, Prison, Contacts, INH &lt;5 ans – modèles non gérés.", small))
         else:
             story.append(Paragraph("Cohorte trimestrielle – résultats de traitement", h2))
             coh = ctx['cohorte']
@@ -607,3 +596,97 @@ class ExportPdfView(StatisticienRequiredMixin, View):
         resp = HttpResponse(pdf, content_type="application/pdf")
         resp['Content-Disposition'] = f'attachment; filename="{filename}"'
         return resp
+
+
+class TableauBordView(StatisticienRequiredMixin, View):
+    """Tableau de bord principal pour l'agent statistique."""
+    template_name = 'statistics/tableau_bord.html'
+
+    def get(self, request, *args, **kwargs):
+        today = timezone.localdate()
+
+        tous = EpisodeTB.objects.all()
+
+        cas_actifs = tous.filter(
+            statut__in=[StatutEpisodeTB.PROVISOIRE, StatutEpisodeTB.CONFIRME, StatutEpisodeTB.EN_TRAITEMENT]
+        ).count()
+
+        guerisons = tous.filter(statut=StatutEpisodeTB.CLOTURE, resultat_final='GUERI').count()
+        echecs = tous.filter(statut=StatutEpisodeTB.CLOTURE, resultat_final='ECHEC').count()
+        abandons = tous.filter(statut=StatutEpisodeTB.CLOTURE, resultat_final='PERDU_DE_VUE').count()
+        nouveaux = tous.filter(type_patient=TypePatient.NOUVEAU).count()
+        rechutes = tous.filter(type_patient=TypePatient.RECHUTE).count()
+        transferes = tous.filter(statut=StatutEpisodeTB.CLOTURE, resultat_final='TRANSFERE').count()
+        deces = tous.filter(statut=StatutEpisodeTB.CLOTURE, resultat_final='DECEDE').count()
+
+        total_episodes = tous.count() or 1
+
+        mois_labels = []
+        mois_nouveaux = []
+        mois_rechutes = []
+        mois_abandons = []
+        mois_deces = []
+        for i in range(11, -1, -1):
+            m = today.month - i
+            y = today.year
+            while m <= 0:
+                m += 12
+                y -= 1
+            debut = date(y, m, 1)
+            if m == 12:
+                fin = date(y + 1, 1, 1) - timedelta(days=1)
+            else:
+                fin = date(y, m + 1, 1) - timedelta(days=1)
+            base = tous.filter(date_ouverture__gte=debut, date_ouverture__lte=fin)
+            mois_labels.append(month_name[m][:3])
+            mois_nouveaux.append(base.filter(type_patient=TypePatient.NOUVEAU).count())
+            mois_rechutes.append(base.filter(type_patient=TypePatient.RECHUTE).count())
+            mois_abandons.append(base.filter(statut=StatutEpisodeTB.CLOTURE, resultat_final='PERDU_DE_VUE').count())
+            mois_deces.append(base.filter(statut=StatutEpisodeTB.CLOTURE, resultat_final='DECEDE').count())
+
+        type_labels = []
+        type_data = []
+        for code, label in TypePatient.choices:
+            count = tous.filter(type_patient=code).count()
+            type_labels.append(label)
+            type_data.append(count)
+
+        sexe_labels = []
+        sexe_data = []
+        sexe_colors = ['#375a83', '#e74c3c']
+        for code, label in Sexe.choices:
+            count = Patient.objects.filter(sexe=code).count()
+            sexe_labels.append(label)
+            sexe_data.append(count)
+
+        derniers = (
+            EpisodeTB.objects
+            .select_related('patient')
+            .order_by('-cree_le')[:5]
+        )
+
+        context = {
+            'active_nav': 'statistics_tableau_bord',
+            'today': today,
+            'cas_actifs': cas_actifs,
+            'guerisons': guerisons,
+            'echecs': echecs,
+            'abandons': abandons,
+            'nouveaux': nouveaux,
+            'rechutes': rechutes,
+            'transferes': transferes,
+            'deces': deces,
+            'total_episodes': total_episodes or 1,
+            'mois_labels': json.dumps(mois_labels),
+            'mois_nouveaux': json.dumps(mois_nouveaux),
+            'mois_rechutes': json.dumps(mois_rechutes),
+            'mois_abandons': json.dumps(mois_abandons),
+            'mois_deces': json.dumps(mois_deces),
+            'type_labels': json.dumps(type_labels),
+            'type_data': json.dumps(type_data),
+            'sexe_labels': json.dumps(sexe_labels),
+            'sexe_data': json.dumps(sexe_data),
+            'sexe_colors': json.dumps(sexe_colors),
+            'derniers': derniers,
+        }
+        return render(request, self.template_name, context)

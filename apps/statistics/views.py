@@ -205,7 +205,7 @@ class ExportPdfView(StatisticienRequiredMixin, View):
         qs = _rapport_queryset(rapport_id, debut, fin)
 
         try:
-            from reportlab.lib.pagesizes import A4, landscape
+            from reportlab.lib.pagesizes import A4
             from reportlab.lib.units import mm
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib.colors import HexColor
@@ -215,7 +215,7 @@ class ExportPdfView(StatisticienRequiredMixin, View):
             return HttpResponse("reportlab non installé", status=500)
 
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=landscape(A4),
+        doc = SimpleDocTemplate(buffer, pagesize=A4,
                                 leftMargin=14*mm, rightMargin=14*mm,
                                 topMargin=20*mm, bottomMargin=20*mm,
                                 title=rapport_info['titre'], author="HGR Makala")
@@ -238,10 +238,10 @@ class ExportPdfView(StatisticienRequiredMixin, View):
         story.append(Spacer(1, 6))
 
         headers = ["NDP", "Patient", "Sexe", "Âge", "Date ouverture", "Type"]
-        col_widths = [30*mm, 45*mm, 14*mm, 14*mm, 30*mm, 30*mm]
+        col_widths = [25*mm, 40*mm, 12*mm, 10*mm, 25*mm, 25*mm]
         if rapport_id in ('cohorte', 'en_cours'):
             headers.extend(["Site", "Statut"])
-            col_widths.extend([22*mm, 25*mm])
+            col_widths.extend([18*mm, 22*mm])
 
         data = [headers]
         for ep in qs[:200]:

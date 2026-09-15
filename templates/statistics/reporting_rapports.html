@@ -1,0 +1,26 @@
+{% for r in rapports %}
+<div class="fcard" style="margin-top:0;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:12px">
+        <div style="flex:1">
+            <div class="fcard-h" style="border:none;padding:0;margin-bottom:4px"><h2><i class="{{ r.icone }} icon"></i>{{ r.titre }}</h2></div>
+            <p class="vsub" style="margin:0">Période : {{ periode_label }}</p>
+        </div>
+        <span style="min-width:80px;text-align:center">
+            <strong style="font-size:22px;color:var(--primary)">{{ r.valeur }}{{ r.suffixe }}</strong>
+        </span>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+        {% set base_q = 'type_filter=' ~ type_filter ~ '&valeur=' ~ valeur ~ '&annee=' ~ annee ~ '&date_debut=' ~ date_debut ~ '&date_fin=' ~ date_fin %}
+        <a class="ui primary button btn-sm"
+           href="{{ url('statistics_rapport_detail', rapport_id=r.id) }}?{{ base_q }}">
+            <i class="eye icon"></i>Voir
+        </a>
+        <a class="ui basic button btn-sm" href="{{ url('statistics_export_pdf', rapport=r.id) }}?{{ base_q }}">
+            <i class="file pdf outline icon"></i>PDF
+        </a>
+        <a class="ui basic button btn-sm" href="{{ url('statistics_export_excel', rapport=r.id) }}?{{ base_q }}">
+            <i class="file excel outline icon"></i>Excel
+        </a>
+    </div>
+</div>
+{% endfor %}

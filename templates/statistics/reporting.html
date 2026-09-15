@@ -1,0 +1,147 @@
+{% extends 'base_app.html' %}
+
+{% block title %}Reporting — Suivi TB · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">Rapports et statistiques</h1>
+        <p class="vsub">Génération et export des rapports officiels du programme TB</p>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="fcard">
+    <div class="fcard-h"><h2><i class="filter icon"></i>Filtres</h2></div>
+    <form class="ui form" id="rapportForm"
+          hx-get="{{ url('statistics_reporting') }}"
+          hx-target="#rapport-list"
+          hx-trigger="change delay:300ms"
+          hx-include="#rapport-filters">
+        <div id="rapport-filters" class="grid three">
+            <div class="field">
+                <label>Périodicité</label>
+                <select name="type_filter" id="selTypeFilter">
+                    <option value="">Année entière</option>
+                    <option value="semestrielle" {% if type_filter == 'semestrielle' %}selected{% endif %}>Semestrielle</option>
+                    <option value="trimestrielle" {% if type_filter == 'trimestrielle' %}selected{% endif %}>Trimestrielle</option>
+                    <option value="mensuel" {% if type_filter == 'mensuel' %}selected{% endif %}>Mensuel</option>
+                    <option value="plage" {% if type_filter == 'plage' %}selected{% endif %}>Plage de dates</option>
+                </select>
+            </div>
+
+            <!-- Champ valeur : semestre / trimestre / mois -->
+            <div class="field" id="fieldValeur">
+                <label id="labelValeur">Valeur</label>
+                <select name="valeur" id="selValeur">
+                    <option value="">—</option>
+                </select>
+            </div>
+            <div class="field" id="fieldAnnee">
+                <label>Année</label>
+                <select name="annee">
+                    {% for y in annee_choices|reverse %}
+                    <option value="{{ y }}" {% if y|string == annee %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Champ plage : date_debut / date_fin -->
+            <div class="field" id="fieldDateDebut" style="display:none">
+                <label>Date début</label>
+                <input type="date" name="date_debut" id="date_debut" value="{{ date_debut }}">
+            </div>
+            <div class="field" id="fieldDateFin" style="display:none">
+                <label>Date fin</label>
+                <input type="date" name="date_fin" id="date_fin" value="{{ date_fin }}">
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Liste des rapports -->
+<div id="rapport-list" style="margin-top:16px">
+    {% include 'statistics/reporting_rapports.html' %}
+</div>
+{% endblock %}
+
+{% block app_js %}
+<script>
+(function() {
+    var selType = document.getElementById('selTypeFilter');
+    var selValeur = document.getElementById('selValeur');
+    var fieldValeur = document.getElementById('fieldValeur');
+    var fieldAnnee = document.getElementById('fieldAnnee');
+    var fieldDateDebut = document.getElementById('fieldDateDebut');
+    var fieldDateFin = document.getElementById('fieldDateFin');
+    var labelValeur = document.getElementById('labelValeur');
+
+    var options = {
+        semestrielle: [
+            { value: '1', text: 'Semestre 1 (Jan–Jun)' },
+            { value: '2', text: 'Semestre 2 (Jul–Déc)' }
+        ],
+        trimestrielle: [
+            { value: '1', text: 'Trimestre 1 (Jan–Mar)' },
+            { value: '2', text: 'Trimestre 2 (Avr–Jun)' },
+            { value: '3', text: 'Trimestre 3 (Jul–Sep)' },
+            { value: '4', text: 'Trimestre 4 (Oct–Déc)' }
+        ],
+        mensuel: [
+            { value: '1', text: 'Janvier' },
+            { value: '2', text: 'Février' },
+            { value: '3', text: 'Mars' },
+            { value: '4', text: 'Avril' },
+            { value: '5', text: 'Mai' },
+            { value: '6', text: 'Juin' },
+            { value: '7', text: 'Juillet' },
+            { value: '8', text: 'Août' },
+            { value: '9', text: 'Septembre' },
+            { value: '10', text: 'Octobre' },
+            { value: '11', text: 'Novembre' },
+            { value: '12', text: 'Décembre' }
+        ]
+    };
+
+    var labels = {
+        semestrielle: 'Semestre',
+        trimestrielle: 'Trimestre',
+        mensuel: 'Mois'
+    };
+
+    function update() {
+        var type = selType.value;
+        var isPlage = (type === 'plage');
+
+        fieldValeur.style.display = isPlage ? 'none' : '';
+        fieldAnnee.style.display = isPlage ? 'none' : '';
+        fieldDateDebut.style.display = isPlage ? '' : 'none';
+        fieldDateFin.style.display = isPlage ? '' : 'none';
+
+        if (!isPlage) {
+            selValeur.innerHTML = '<option value="">—</option>';
+            if (options[type]) {
+                labelValeur.textContent = labels[type] || 'Valeur';
+                options[type].forEach(function(o) {
+                    var opt = document.createElement('option');
+                    opt.value = o.value;
+                    opt.textContent = o.text;
+                    if (o.value === '{{ valeur }}') opt.selected = true;
+                    selValeur.appendChild(opt);
+                });
+            }
+        }
+    }
+
+    selType.addEventListener('change', update);
+
+    var dateDebut = document.getElementById('date_debut');
+    var dateFin = document.getElementById('date_fin');
+    if (dateDebut) dateDebut.addEventListener('input', function() { htmx.trigger('#rapportForm', 'change'); });
+    if (dateFin) dateFin.addEventListener('input', function() { htmx.trigger('#rapportForm', 'change'); });
+
+    update();
+})();
+</script>
+{% endblock %}

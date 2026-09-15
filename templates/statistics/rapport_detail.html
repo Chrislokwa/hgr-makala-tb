@@ -1,0 +1,22 @@
+{% extends 'base_app.html' %}
+
+{% block title %}{{ rapport.titre }} — Reporting · HGR Makala{% endblock %}
+
+{% block view_content %}
+<div class="vhead">
+    <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
+    <div style="flex:1">
+        <h1 class="vtitle">{{ rapport.titre }}</h1>
+        <p class="vsub">Période : {{ periode_label }} · {{ total }} cas</p>
+    </div>
+    <a class="ui basic button" href="{{ url('statistics_reporting') }}?type_filter={{ type_filter }}&valeur={{ valeur_filter }}&annee={{ annee }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}"><i class="arrow left icon"></i>Retour</a>
+    <a class="ui basic button" href="{{ url('statistics_export_pdf', rapport=rapport.id) }}?type_filter={{ type_filter }}&valeur={{ valeur_filter }}&annee={{ annee }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}">
+        <i class="file pdf outline icon"></i>PDF
+    </a>
+    <a class="ui basic button" href="{{ url('statistics_export_excel', rapport=rapport.id) }}?type_filter={{ type_filter }}&valeur={{ valeur_filter }}&annee={{ annee }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}">
+        <i class="file excel outline icon"></i>Excel
+    </a>
+</div>
+
+{% include 'statistics/rapport_detail_body.html' %}
+{% endblock %}

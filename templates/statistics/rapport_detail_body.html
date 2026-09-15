@@ -1,0 +1,79 @@
+{% set base_q = 'type_filter=' ~ type_filter ~ '&valeur=' ~ valeur_filter ~ '&annee=' ~ annee ~ '&date_debut=' ~ date_debut ~ '&date_fin=' ~ date_fin %}
+
+<div class="tbl-wrap" style="margin-top:0">
+    <table class="tbl">
+        <thead>
+            <tr>
+                <th>NDP</th>
+                <th>Patient</th>
+                <th>Sexe</th>
+                <th>Âge</th>
+                <th>Date ouverture</th>
+                <th>Type</th>
+                <th>Site</th>
+                <th>Statut</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ep in items %}
+            <tr>
+                <td style="font-weight:600;color:var(--primary)">{{ ep.ndp }}</td>
+                <td>{{ ep.patient.full_name }}</td>
+                <td>{{ ep.patient.sexe }}</td>
+                <td>{{ ep.patient.age }}</td>
+                <td>{{ ep.date_ouverture|date_fr }}</td>
+                <td>{{ ep.get_type_patient_display() }}</td>
+                <td>{{ ep.get_site_maladie_display() }}</td>
+                <td>
+                    {% if ep.statut in ['EN_TRAITEMENT', 'PROVISOIRE', 'CONFIRME'] %}
+                    <span class="badge ok">En cours</span>
+                    {% elif ep.statut == 'CLOTURE' %}
+                    <span class="badge info">{{ ep.resultat_final or 'Clôturé' }}</span>
+                    {% else %}
+                    <span class="badge mut">{{ ep.get_statut_display() }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not items %}
+            <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--ink3)">Aucun cas pour cette période</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+{% if paginator.num_pages > 1 %}
+<div class="pager" style="margin-top:12px">
+    <span class="pg-info">{{ total }} cas · Page {{ page_obj.number }}/{{ paginator.num_pages }}</span>
+    <div class="pg-btns">
+        {% if page_obj.has_previous %}
+        <a class="pg-btn"
+           href="{{ url('statistics_rapport_detail', rapport_id=rapport_id) }}?{{ base_q }}&page={{ page_obj.previous_page_number }}">
+            <i class="chevron left icon"></i>
+        </a>
+        {% else %}
+        <span class="pg-btn" style="opacity:.4"><i class="chevron left icon"></i></span>
+        {% endif %}
+
+        {% for num in page_range %}
+            {% if num == page_obj.number %}
+            <span class="pg-btn active">{{ num }}</span>
+            {% else %}
+            <a class="pg-btn"
+               href="{{ url('statistics_rapport_detail', rapport_id=rapport_id) }}?{{ base_q }}&page={{ num }}">
+                {{ num }}
+            </a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <a class="pg-btn"
+           href="{{ url('statistics_rapport_detail', rapport_id=rapport_id) }}?{{ base_q }}&page={{ page_obj.next_page_number }}">
+            <i class="chevron right icon"></i>
+        </a>
+        {% else %}
+        <span class="pg-btn" style="opacity:.4"><i class="chevron right icon"></i></span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

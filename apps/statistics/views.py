@@ -1,6 +1,6 @@
 import io
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from calendar import month_name
 
 from django.contrib import messages
@@ -79,275 +79,6 @@ class CohorteView(StatisticienRequiredMixin, View):
             'annee_choices': list(range(timezone.localdate().year - 5, timezone.localdate().year + 1)),
         }
         return render(request, self.template_name, context)
-
-
-class ConsultationsDashboardView(StatisticienRequiredMixin, View):
-    """Dashboard – liste des patients consultés filtrable par jour/semaine/mois/année."""
-    template_name = 'statistics/consultations.html'
-
-    def get(self, request, *args, **kwargs):
-        from datetime import datetime
-        from django.core.paginator import Paginator
-        from apps.patients.models import Patient
-
-        filtre_jour = request.GET.get('jour') or ''
-        filtre_semaine = request.GET.get('semaine') or ''
-        filtre_mois = request.GET.get('mois') or ''
-        filtre_annee = request.GET.get('annee') or ''
-
-        debut = fin = None
-        periode_label = "Toutes les consultations"
-        qs = Patient.objects.all().order_by('-cree_le')
-
-        try:
-            if filtre_jour:
-                d = date.fromisoformat(filtre_jour)
-                debut = fin = d
-                qs = qs.filter(cree_le__date=d)
-                periode_label = f"Jour {d.strftime('%d/%m/%Y')}"
-            elif filtre_semaine:
-                y, w = filtre_semaine.split('-W')
-                y = int(y); w = int(w)
-                debut = date.fromisocalendar(y, w, 1)
-                fin = date.fromisocalendar(y, w, 7)
-                qs = qs.filter(cree_le__date__gte=debut, cree_le__date__lte=fin)
-                periode_label = f"Semaine {w} ({debut.strftime('%d/%m')} - {fin.strftime('%d/%m/%Y')})"
-            elif filtre_mois:
-                y, m = map(int, filtre_mois.split('-'))
-                debut = date(y, m, 1)
-                _, last = __import__('calendar').monthrange(y, m)
-                fin = date(y, m, last)
-                qs = qs.filter(cree_le__date__gte=debut, cree_le__date__lte=fin)
-                periode_label = f"Mois {m:02d}/{y}"
-            elif filtre_annee:
-                y = int(filtre_annee)
-                debut = date(y, 1, 1)
-                fin = date(y, 12, 31)
-                qs = qs.filter(cree_le__date__gte=debut, cree_le__date__lte=fin)
-                periode_label = f"Année {y}"
-            else:
-                debut = fin = None
-        except Exception:
-            debut = fin = None
-            periode_label = "Toutes les consultations"
-
-        paginator = Paginator(qs.select_related('cree_par'), 10)
-        page_number = request.GET.get('page') or 1
-        page_obj = paginator.get_page(page_number)
-
-        total_global = Patient.objects.count()
-        if filtre_jour or filtre_semaine or filtre_mois or filtre_annee:
-            total_periode = qs.count()
-        else:
-            total_periode = Patient.objects.filter(cree_le__date=timezone.localdate()).count()
-            periode_label = f"Aujourd'hui {timezone.localdate().strftime('%d/%m/%Y')} (par défaut)"
-
-        total_jour = Patient.objects.filter(cree_le__date=timezone.localdate()).count()
-
-        context = {
-            'active_nav': 'statistics_consultations',
-            'page_obj': page_obj,
-            'patients': page_obj.object_list,
-            'is_paginated': page_obj.has_other_pages(),
-            'paginator': paginator,
-            'filtre_jour': filtre_jour,
-            'filtre_semaine': filtre_semaine,
-            'filtre_mois': filtre_mois,
-            'filtre_annee': filtre_annee,
-            'periode_label': periode_label,
-            'debut': debut,
-            'fin': fin,
-            'total_periode': total_periode,
-            'total_jour': total_jour,
-            'total_global': total_global,
-        }
-        return render(request, self.template_name, context)
-
-
-class ExportConsultationsExcelView(StatisticienRequiredMixin, View):
-    def get(self, request, *args, **kwargs):
-        from apps.patients.models import Patient
-        filtre_jour = request.GET.get('jour') or ''
-        filtre_semaine = request.GET.get('semaine') or ''
-        filtre_mois = request.GET.get('mois') or ''
-        filtre_annee = request.GET.get('annee') or ''
-        qs = Patient.objects.all().order_by('-cree_le')
-        debut = fin = None
-        try:
-            if filtre_jour:
-                d = date.fromisoformat(filtre_jour)
-                debut = fin = d
-                qs = qs.filter(cree_le__date=d)
-            elif filtre_semaine:
-                y, w = filtre_semaine.split('-W')
-                debut = date.fromisocalendar(int(y), int(w), 1)
-                fin = date.fromisocalendar(int(y), int(w), 7)
-                qs = qs.filter(cree_le__date__gte=debut, cree_le__date__lte=fin)
-            elif filtre_mois:
-                y, m = map(int, filtre_mois.split('-'))
-                debut = date(y, m, 1)
-                _, last = __import__('calendar').monthrange(y, m)
-                fin = date(y, m, last)
-                qs = qs.filter(cree_le__date__gte=debut, cree_le__date__lte=fin)
-            elif filtre_annee:
-                y = int(filtre_annee)
-                debut = date(y, 1, 1)
-                fin = date(y, 12, 31)
-                qs = qs.filter(cree_le__date__gte=debut, cree_le__date__lte=fin)
-        except Exception:
-            pass
-
-        try:
-            import openpyxl
-            from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-        except ImportError:
-            return HttpResponse("openpyxl non installé", status=500)
-
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Consultations"
-        title_font = Font(bold=True, size=14, color="1a6fb0")
-        header_font = Font(bold=True, color="FFFFFF", size=11)
-        header_fill = PatternFill(start_color="1a6fb0", end_color="1a6fb0", fill_type="solid")
-        thin = Side(style="thin", color="dfe3e6")
-        border = Border(left=thin, right=thin, top=thin, bottom=thin)
-        center = Alignment(horizontal="center", vertical="center")
-        left = Alignment(horizontal="left", vertical="center")
-
-        ws.merge_cells('A1:G1')
-        ws['A1'] = "Liste des patients consultés"
-        ws['A1'].font = title_font
-        ws['A1'].alignment = center
-        ws.merge_cells('A2:G2')
-        label = f"Période: {debut} - {fin}" if debut else "Toutes périodes"
-        ws['A2'] = f"{label} | Total: {qs.count()} | Généré le {timezone.localdate().strftime('%d/%m/%Y')}"
-        ws['A2'].alignment = center
-        ws['A2'].font = Font(italic=True, size=9, color="5f6368")
-
-        headers = ["N° Fiche (NDP)", "Nom", "Postnom", "Prénom", "Sexe", "Date naissance", "Date consultation"]
-        row = 4
-        for col, h in enumerate(headers, 1):
-            c = ws.cell(row=row, column=col, value=h)
-            c.font = header_font
-            c.fill = header_fill
-            c.alignment = center
-            c.border = border
-        ws.column_dimensions['A'].width = 18
-        ws.column_dimensions['B'].width = 18
-        ws.column_dimensions['C'].width = 18
-        ws.column_dimensions['D'].width = 18
-        ws.column_dimensions['E'].width = 10
-        ws.column_dimensions['F'].width = 16
-        ws.column_dimensions['G'].width = 18
-        row += 1
-        for p in qs.select_related('cree_par'):
-            ws.cell(row=row, column=1, value=p.ndp).alignment = center; ws.cell(row=row, column=1).border = border
-            ws.cell(row=row, column=2, value=p.nom).alignment = left; ws.cell(row=row, column=2).border = border
-            ws.cell(row=row, column=3, value=p.post_nom).alignment = left; ws.cell(row=row, column=3).border = border
-            ws.cell(row=row, column=4, value=p.prenom).alignment = left; ws.cell(row=row, column=4).border = border
-            ws.cell(row=row, column=5, value=p.get_sexe_display()).alignment = center; ws.cell(row=row, column=5).border = border
-            ws.cell(row=row, column=6, value=p.date_naissance.strftime('%d/%m/%Y') if p.date_naissance else '').alignment = center; ws.cell(row=row, column=6).border = border
-            ws.cell(row=row, column=7, value=p.cree_le.strftime('%d/%m/%Y %H:%M') if p.cree_le else '').alignment = center; ws.cell(row=row, column=7).border = border
-            row += 1
-
-        out = io.BytesIO()
-        wb.save(out)
-        out.seek(0)
-        filename = f"consultations_{debut or 'tout'}_{fin or 'tout'}.xlsx"
-        resp = HttpResponse(out.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        resp['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return resp
-
-
-class ExportConsultationsPdfView(StatisticienRequiredMixin, View):
-    def get(self, request, *args, **kwargs):
-        from apps.patients.models import Patient
-        filtre_jour = request.GET.get('jour') or ''
-        filtre_semaine = request.GET.get('semaine') or ''
-        filtre_mois = request.GET.get('mois') or ''
-        filtre_annee = request.GET.get('annee') or ''
-        qs = Patient.objects.all().order_by('-cree_le')
-        debut = fin = None
-        try:
-            if filtre_jour:
-                d = date.fromisoformat(filtre_jour)
-                debut = fin = d
-                qs = qs.filter(cree_le__date=d)
-            elif filtre_semaine:
-                y, w = filtre_semaine.split('-W')
-                debut = date.fromisocalendar(int(y), int(w), 1)
-                fin = date.fromisocalendar(int(y), int(w), 7)
-                qs = qs.filter(cree_le__date__gte=debut, cree_le__date__lte=fin)
-            elif filtre_mois:
-                y, m = map(int, filtre_mois.split('-'))
-                debut = date(y, m, 1)
-                _, last = __import__('calendar').monthrange(y, m)
-                fin = date(y, m, last)
-                qs = qs.filter(cree_le__date__gte=debut, cree_le__date__lte=fin)
-            elif filtre_annee:
-                y = int(filtre_annee)
-                debut = date(y, 1, 1)
-                fin = date(y, 12, 31)
-                qs = qs.filter(cree_le__date__gte=debut, cree_le__date__lte=fin)
-        except Exception:
-            pass
-
-        try:
-            from reportlab.lib.pagesizes import A4, landscape
-            from reportlab.lib.units import mm
-            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-            from reportlab.lib.colors import HexColor
-            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-            from reportlab.lib import colors
-        except ImportError:
-            return HttpResponse("reportlab non installé", status=500)
-
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm,
-                                title="Consultations", author="HGR Makala")
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle('title', parent=styles['Title'], fontSize=14, leading=18, textColor=HexColor('#1a6fb0'), alignment=1, spaceAfter=6)
-        small = ParagraphStyle('small', parent=styles['Normal'], fontSize=8, leading=10, textColor=colors.grey)
-        story = []
-        story.append(Paragraph("Liste des patients consultés", title_style))
-        label = f"Période: {debut} - {fin}" if debut else "Toutes périodes"
-        story.append(Paragraph(f"{label} | Total: {qs.count()} | Généré le {timezone.localdate().strftime('%d/%m/%Y')} – HGR Makala", small))
-        story.append(Spacer(1, 8))
-        data = [["N° Fiche", "Nom", "Postnom", "Prénom", "Sexe", "Date naissance", "Date consultation"]]
-        for p in qs.select_related('cree_par')[:200]:
-            data.append([
-                p.ndp,
-                p.nom,
-                p.post_nom or "-",
-                p.prenom,
-                p.get_sexe_display(),
-                p.date_naissance.strftime('%d/%m/%Y') if p.date_naissance else "",
-                p.cree_le.strftime('%d/%m/%Y') if p.cree_le else "",
-            ])
-        if qs.count() > 200:
-            data.append(["...", "...", "...", "...", "...", "...", f"+ {qs.count()-200} autres"])
-
-        t = Table(data, colWidths=[32*mm, 35*mm, 35*mm, 35*mm, 18*mm, 28*mm, 32*mm], repeatRows=1)
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), HexColor('#1a6fb0')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,-1), 7.5),
-            ('ALIGN', (4,0), (-1,-1), 'CENTER'),
-            ('GRID', (0,0), (-1,-1), 0.4, colors.HexColor('#dfe3e6')),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f6f8f9')]),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('TOPPADDING', (0,0), (-1,-1), 3),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-        ]))
-        story.append(t)
-        doc.build(story)
-        pdf = buffer.getvalue()
-        buffer.close()
-        filename = f"consultations_{debut or 'tout'}_{fin or 'tout'}.pdf"
-        resp = HttpResponse(pdf, content_type="application/pdf")
-        resp['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return resp
 
 
 class ExportExcelView(StatisticienRequiredMixin, View):
@@ -647,6 +378,8 @@ class TableauBordView(StatisticienRequiredMixin, View):
         type_labels = []
         type_data = []
         for code, label in TypePatient.choices:
+            if code == TypePatient.REPRISE_ABANDON:
+                continue
             count = tous.filter(type_patient=code).count()
             type_labels.append(label)
             type_data.append(count)
@@ -689,4 +422,213 @@ class TableauBordView(StatisticienRequiredMixin, View):
             'sexe_colors': json.dumps(sexe_colors),
             'derniers': derniers,
         }
+        return render(request, self.template_name, context)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Reporting
+# ──────────────────────────────────────────────────────────────────────────────
+
+RAPPORTS = [
+    {
+        'id': 'nouveaux',
+        'titre': 'Liste des nouveaux cas enregistrés',
+        'icone': 'file alternate outline',
+        'indicateur_label': 'cas enregistrés',
+    },
+    {
+        'id': 'en_cours',
+        'titre': 'Liste des cas en cours de traitement',
+        'icone': 'clipboard list',
+        'indicateur_label': 'cas actifs',
+    },
+    {
+        'id': 'cohorte',
+        'titre': 'Rapport des résultats de traitement (cohorte)',
+        'icone': 'chart pie',
+        'indicateur_label': 'de succès thérapeutique',
+        'indicateur_pct': True,
+    },
+    {
+        'id': 'abandons',
+        'titre': "Liste des abandons thérapeutiques",
+        'icone': 'remove circle outline',
+        'indicateur_label': 'abandons',
+    },
+    {
+        'id': 'rechutes',
+        'titre': 'Liste des cas de rechute',
+        'icone': 'redo',
+        'indicateur_label': 'rechutes',
+    },
+]
+
+
+def _get_periode_filters(request):
+    """Parse les filtres de période depuis la requête.
+
+    Retourne (annee, type_filter, valeur, date_debut, date_fin, debut, fin, periode_label)
+    """
+    type_filter = request.GET.get('type_filter') or ''
+    annee = request.GET.get('annee') or str(timezone.localdate().year)
+    valeur = request.GET.get('valeur') or ''
+    date_debut_str = request.GET.get('date_debut') or ''
+    date_fin_str = request.GET.get('date_fin') or ''
+
+    date_debut = None
+    date_fin = None
+    if date_debut_str and date_fin_str:
+        try:
+            date_debut = datetime.strptime(date_debut_str, '%Y-%m-%d').date()
+            date_fin = datetime.strptime(date_fin_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+
+    mois = ''
+    trimestre = ''
+    semestre = ''
+
+    if type_filter == 'mensuel' and valeur:
+        mois = valeur
+    elif type_filter == 'trimestrielle' and valeur:
+        trimestre = valeur
+    elif type_filter == 'semestrielle' and valeur:
+        semestre = valeur
+
+    debut, fin = periode_range(
+        annee,
+        trimestre=trimestre or None,
+        mois=mois or None,
+        semestre=semestre or None,
+        date_debut=date_debut,
+        date_fin=date_fin,
+    )
+
+    periode_label = ''
+    if date_debut and date_fin:
+        periode_label = f"{date_debut.strftime('%d/%m/%Y')} – {date_fin.strftime('%d/%m/%Y')}"
+    elif type_filter == 'semestrielle' and valeur:
+        periode_label = f"Semestre {valeur} {annee}"
+    elif type_filter == 'trimestrielle' and valeur:
+        periode_label = f"Trimestre {valeur} {annee}"
+    elif type_filter == 'mensuel' and valeur:
+        noms_mois = ['', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                     'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+        periode_label = f"{noms_mois[int(valeur)]} {annee}"
+    else:
+        periode_label = f"Année {annee}"
+
+    return annee, type_filter, valeur, date_debut, date_fin, debut, fin, periode_label
+
+
+def _rapport_queryset(rapport_id, debut, fin):
+    qs = EpisodeTB.objects.filter(date_ouverture__gte=debut, date_ouverture__lte=fin)
+    if rapport_id == 'nouveaux':
+        qs = qs.filter(type_patient=TypePatient.NOUVEAU)
+    elif rapport_id == 'en_cours':
+        qs = qs.filter(statut__in=[StatutEpisodeTB.PROVISOIRE, StatutEpisodeTB.CONFIRME, StatutEpisodeTB.EN_TRAITEMENT])
+    elif rapport_id == 'cohorte':
+        qs = qs.filter(statut=StatutEpisodeTB.CLOTURE, resultat_final__in=['GUERI', 'TERMINE', 'ECHEC', 'PERDU_DE_VUE', 'DECEDE', 'TRANSFERE'])
+    elif rapport_id == 'abandons':
+        qs = qs.filter(statut=StatutEpisodeTB.CLOTURE, resultat_final='PERDU_DE_VUE')
+    elif rapport_id == 'rechutes':
+        qs = qs.filter(type_patient=TypePatient.RECHUTE)
+    return qs.select_related('patient')
+
+
+def _build_rapport_indicateur(rapport_id, qs):
+    count = qs.count()
+    if rapport_id == 'cohorte':
+        total = qs.count() or 1
+        succes = qs.filter(resultat_final__in=['GUERI', 'TERMINE']).count()
+        return round(succes / total * 100), '%'
+    return count, ''
+
+
+class ReportingView(StatisticienRequiredMixin, View):
+    template_name = 'statistics/reporting.html'
+
+    def get(self, request, *args, **kwargs):
+        annee, type_filter, valeur, date_debut, date_fin, debut, fin, periode_label = _get_periode_filters(request)
+
+        rapports_data = []
+        for r in RAPPORTS:
+            qs = _rapport_queryset(r['id'], debut, fin)
+            iv, suffixe = _build_rapport_indicateur(r['id'], qs)
+            rapports_data.append({
+                **r,
+                'valeur': iv,
+                'suffixe': suffixe,
+            })
+
+        context = {
+            'active_nav': 'statistics_reporting',
+            'annee': annee,
+            'type_filter': type_filter,
+            'valeur': valeur,
+            'date_debut': date_debut.strftime('%Y-%m-%d') if date_debut else '',
+            'date_fin': date_fin.strftime('%Y-%m-%d') if date_fin else '',
+            'debut': debut,
+            'fin': fin,
+            'rapports': rapports_data,
+            'periode_label': periode_label,
+            'annee_choices': list(range(timezone.localdate().year - 5, timezone.localdate().year + 1)),
+        }
+
+        if request.headers.get('HX-Request'):
+            return render(request, 'statistics/reporting_rapports.html', context)
+
+        return render(request, self.template_name, context)
+
+
+class RapportDetailView(StatisticienRequiredMixin, View):
+    """Page dediee au détail d'un rapport."""
+    template_name = 'statistics/rapport_detail.html'
+    PER_PAGE = 15
+
+    def get(self, request, *args, **kwargs):
+        from django.core.paginator import Paginator, EmptyPage
+
+        rapport_id = kwargs.get('rapport_id')
+        rapport_info = next((r for r in RAPPORTS if r['id'] == rapport_id), None)
+        if not rapport_info:
+            return HttpResponse('Rapport introuvable', status=404)
+
+        annee, type_filter, valeur, date_debut, date_fin, debut, fin, periode_label = _get_periode_filters(request)
+        qs = _rapport_queryset(rapport_id, debut, fin)
+        iv, suffixe = _build_rapport_indicateur(rapport_id, qs)
+        total = qs.count()
+
+        paginator = Paginator(qs, self.PER_PAGE)
+        page_number = int(request.GET.get('page') or 1)
+        try:
+            page_obj = paginator.page(page_number)
+        except EmptyPage:
+            page_obj = paginator.page(paginator.num_pages)
+
+        page_range = []
+        cur = page_obj.number
+        for num in paginator.page_range:
+            if num == cur or (num >= cur - 2 and num <= cur + 2):
+                page_range.append(num)
+
+        context = {
+            'rapport': rapport_info,
+            'items': page_obj,
+            'page_obj': page_obj,
+            'paginator': paginator,
+            'page_range': page_range,
+            'valeur': iv,
+            'suffixe': suffixe,
+            'periode_label': periode_label,
+            'total': total,
+            'rapport_id': rapport_id,
+            'annee': annee,
+            'type_filter': type_filter,
+            'valeur_filter': valeur,
+            'date_debut': date_debut.strftime('%Y-%m-%d') if date_debut else '',
+            'date_fin': date_fin.strftime('%Y-%m-%d') if date_fin else '',
+            'active_nav': 'statistics_reporting',
+        }
+
         return render(request, self.template_name, context)

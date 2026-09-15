@@ -15,8 +15,8 @@
             <a class="nitem {% if active_nav == 'users' %}active{% endif %}" href="{{ url('user_list') }}"><i class="users icon"></i>Utilisateurs</a>
             <a class="nitem {% if active_nav == 'audit_logs' %}active{% endif %}" href="{{ url('audit_logs') }}"><i class="history icon"></i>Journaux</a>
             {% elif request.user.role == 'STATISTICIEN' %}
-            <a class="nitem {% if active_nav == 'statistics_tableau_bord' %}active{% endif %}" href="{{ url('statistics_tableau_bord') }}"><i class="dashboard icon"></i>Tableau de bord</a>
-            <a class="nitem {% if active_nav == 'statistics_reporting' %}active{% endif %}" href="{{ url('statistics_dashboard') }}"><i class="chart bar icon"></i>Reporting</a>
+            <a class="nitem {% if active_nav == 'statistics_tableau_bord' %}active{% endif %}" href="{{ url('statistics_tableau_bord') }}"><i class="chart pie icon"></i>Tableau de bord</a>
+            <a class="nitem {% if active_nav == 'statistics_reporting' %}active{% endif %}" href="{{ url('statistics_reporting') }}"><i class="chart bar icon"></i>Reporting</a>
             {% else %}
             {% if request.user.role in ('MEDECIN', 'INFIRMIER') %}
             <a class="nitem {% if active_nav == 'patients' %}active{% endif %}" href="{{ url('patient_list') }}"><i class="user outline icon"></i>Patients</a>

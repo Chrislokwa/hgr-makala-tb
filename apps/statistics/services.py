@@ -19,21 +19,29 @@ from apps.patients.models import (
 )
 
 
-def periode_range(annee=None, trimestre=None, mois=None):
+def periode_range(annee=None, trimestre=None, mois=None, semestre=None, date_debut=None, date_fin=None):
     """Retourne (debut, fin) datetime.date pour la période filtrée.
 
+    - date_debut/date_fin (plage) priment sur tout
     - mois prime sur trimestre
+    - semestre = 1 ou 2
     - trimestre = 1..4
     - annee défaut = année courante
     """
     today = timezone.localdate()
+
+    if date_debut and date_fin:
+        return date_debut, date_fin
+
     annee = int(annee) if annee else today.year
+
     if mois:
         mois = int(mois)
         debut = date(annee, mois, 1)
         _, last = monthrange(annee, mois)
         fin = date(annee, mois, last)
         return debut, fin
+
     if trimestre:
         trimestre = int(trimestre)
         mois_debut = (trimestre - 1) * 3 + 1
@@ -42,6 +50,16 @@ def periode_range(annee=None, trimestre=None, mois=None):
         _, last = monthrange(annee, mois_fin)
         fin = date(annee, mois_fin, last)
         return debut, fin
+
+    if semestre:
+        semestre = int(semestre)
+        mois_debut = (semestre - 1) * 6 + 1
+        debut = date(annee, mois_debut, 1)
+        mois_fin = mois_debut + 5
+        _, last = monthrange(annee, mois_fin)
+        fin = date(annee, mois_fin, last)
+        return debut, fin
+
     # année entière
     return date(annee, 1, 1), date(annee, 12, 31)
 

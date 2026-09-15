@@ -6,99 +6,114 @@
 <div class="vhead">
     <button class="icon-btn hamb" id="btnMenu" aria-label="Menu"><i class="bars icon"></i></button>
     <div style="flex:1">
-        <h1 class="vtitle">Dashboard</h1>
+        <h1 class="vtitle">Tableau de bord</h1>
         <p class="vsub">Suivi du programme TB · HGR Makala · {{ today|date_fr }}</p>
     </div>
 </div>
 
-<!-- 8 stat cards -->
-<div class="dgrid-four">
-    <div class="dstat" style="--bg:#eef2ff; --fg:#4f46e5">
-        <div class="dstat-ico"><i class="clipboard list icon"></i></div>
-        <div class="dstat-info">
-            <div class="dstat-label">Cas actifs</div>
-            <div class="dstat-val">{{ cas_actifs }}</div>
+<!-- 8 stat cards : 4x2 -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px">
+    <div class="fcard" style="padding:16px 18px;margin-top:0">
+        <div style="display:flex;align-items:center;gap:10px">
+            <i class="clipboard list icon" style="font-size:20px;color:var(--primary)"></i>
+            <div>
+                <div style="font-size:12.5px;color:var(--ink2)">Cas actifs</div>
+                <div style="font-size:22px;font-weight:700;color:var(--ink)">{{ cas_actifs }}</div>
+            </div>
         </div>
     </div>
-    <div class="dstat" style="--bg:#f0fdf4; --fg:#16a34a">
-        <div class="dstat-ico"><i class="check circle outline icon"></i></div>
-        <div class="dstat-info">
-            <div class="dstat-label">Guérisons</div>
-            <div class="dstat-val">{{ guerisons }}</div>
+    <div class="fcard" style="padding:16px 18px;margin-top:0">
+        <div style="display:flex;align-items:center;gap:10px">
+            <i class="check circle outline icon" style="font-size:20px;color:var(--ok)"></i>
+            <div>
+                <div style="font-size:12.5px;color:var(--ink2)">Guérisons</div>
+                <div style="font-size:22px;font-weight:700;color:var(--ink)">{{ guerisons }}</div>
+            </div>
         </div>
     </div>
-    <div class="dstat" style="--bg:#fef9ec; --fg:#d97706">
-        <div class="dstat-ico"><i class="exclamation triangle icon"></i></div>
-        <div class="dstat-info">
-            <div class="dstat-label">Échecs</div>
-            <div class="dstat-val">{{ echecs }}</div>
+    <div class="fcard" style="padding:16px 18px;margin-top:0">
+        <div style="display:flex;align-items:center;gap:10px">
+            <i class="exclamation triangle icon" style="font-size:20px;color:#d97706"></i>
+            <div>
+                <div style="font-size:12.5px;color:var(--ink2)">Échecs</div>
+                <div style="font-size:22px;font-weight:700;color:var(--ink)">{{ echecs }}</div>
+            </div>
         </div>
     </div>
-    <div class="dstat" style="--bg:#f0f9ff; --fg:#0284c7">
-        <div class="dstat-ico"><i class="hospital outline icon"></i></div>
-        <div class="dstat-info">
-            <div class="dstat-label">Transférés</div>
-            <div class="dstat-val">{{ transferes }}</div>
+    <div class="fcard" style="padding:16px 18px;margin-top:0">
+        <div style="display:flex;align-items:center;gap:10px">
+            <i class="remove circle outline icon" style="font-size:20px;color:var(--danger)"></i>
+            <div>
+                <div style="font-size:12.5px;color:var(--ink2)">Abandons</div>
+                <div style="font-size:22px;font-weight:700;color:var(--ink)">{{ abandons }}</div>
+            </div>
         </div>
     </div>
-    <div class="dstat" style="--bg:#ecfdf5; --fg:#059669">
-        <div class="dstat-ico"><i class="add circle outline icon"></i></div>
-        <div class="dstat-info">
-            <div class="dstat-label">Nouveaux cas</div>
-            <div class="dstat-val">{{ nouveaux }}</div>
+    <div class="fcard" style="padding:16px 18px;margin-top:0">
+        <div style="display:flex;align-items:center;gap:10px">
+            <i class="add circle outline icon" style="font-size:20px;color:var(--ok)"></i>
+            <div>
+                <div style="font-size:12.5px;color:var(--ink2)">Nouveaux cas</div>
+                <div style="font-size:22px;font-weight:700;color:var(--ink)">{{ nouveaux }}</div>
+            </div>
         </div>
     </div>
-    <div class="dstat" style="--bg:#faf5ff; --fg:#7c3aed">
-        <div class="dstat-ico"><i class="redo icon"></i></div>
-        <div class="dstat-info">
-            <div class="dstat-label">Rechutes</div>
-            <div class="dstat-val">{{ rechutes }}</div>
+    <div class="fcard" style="padding:16px 18px;margin-top:0">
+        <div style="display:flex;align-items:center;gap:10px">
+            <i class="redo icon" style="font-size:20px;color:#7c3aed"></i>
+            <div>
+                <div style="font-size:12.5px;color:var(--ink2)">Rechutes</div>
+                <div style="font-size:22px;font-weight:700;color:var(--ink)">{{ rechutes }}</div>
+            </div>
         </div>
     </div>
-    <div class="dstat" style="--bg:#fef2f2; --fg:#dc2626">
-        <div class="dstat-ico"><i class="remove circle outline icon"></i></div>
-        <div class="dstat-info">
-            <div class="dstat-label">Abandons</div>
-            <div class="dstat-val">{{ abandons }}</div>
+    <div class="fcard" style="padding:16px 18px;margin-top:0">
+        <div style="display:flex;align-items:center;gap:10px">
+            <i class="hospital outline icon" style="font-size:20px;color:#0284c7"></i>
+            <div>
+                <div style="font-size:12.5px;color:var(--ink2)">Transférés</div>
+                <div style="font-size:22px;font-weight:700;color:var(--ink)">{{ transferes }}</div>
+            </div>
         </div>
     </div>
-    <div class="dstat" style="--bg:#f3f4f6; --fg:#374151">
-        <div class="dstat-ico"><i class="heartbeat icon"></i></div>
-        <div class="dstat-info">
-            <div class="dstat-label">Décès</div>
-            <div class="dstat-val">{{ deces }}</div>
+    <div class="fcard" style="padding:16px 18px;margin-top:0">
+        <div style="display:flex;align-items:center;gap:10px">
+            <i class="heartbeat icon" style="font-size:20px;color:var(--ink2)"></i>
+            <div>
+                <div style="font-size:12.5px;color:var(--ink2)">Décès</div>
+                <div style="font-size:22px;font-weight:700;color:var(--ink)">{{ deces }}</div>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Row 2 : Évolution (50%) + Type (50%) -->
-<div style="display:grid; grid-template-columns:7fr 3fr; gap:16px; margin-top:18px">
-    <div class="fcard" style="padding:22px 24px">
-        <div class="dcard-top">
-            <h2 class="dsection">Évolution mensuelle des cas</h2>
-            <span class="dperiod">12 mois</span>
+<!-- Row 2 : Évolution (65%) + Type (35%) -->
+<div style="display:grid;grid-template-columns:65fr 35fr;gap:16px;margin-top:16px">
+    <div class="fcard">
+        <div class="fcard-h">
+            <h2><i class="chart line icon"></i>Évolution mensuelle des cas</h2>
         </div>
-        <div style="margin-top:14px; position:relative; height:220px">
+        <div style="position:relative;height:220px">
             <canvas id="chartEvolution"></canvas>
         </div>
     </div>
-    <div class="fcard" style="padding:22px 24px">
-        <div class="dcard-top">
-            <h2 class="dsection">Répartition par type de cas</h2>
+    <div class="fcard">
+        <div class="fcard-h">
+            <h2><i class="chart bar icon"></i>Répartition par type</h2>
         </div>
-        <div style="margin-top:14px; position:relative; height:220px">
+        <div style="position:relative;height:220px">
             <canvas id="chartType"></canvas>
         </div>
     </div>
 </div>
 
-<!-- Row 3 : Derniers cas (100%) -->
-<div class="fcard" style="margin-top:18px; padding:22px 24px">
-    <div class="dcard-top">
-        <h2 class="dsection">Derniers cas enregistrés</h2>
+<!-- Row 3 : Derniers cas -->
+<div class="fcard" style="margin-top:16px">
+    <div class="fcard-h">
+        <h2><i class="clipboard list icon"></i>Derniers cas enregistrés</h2>
     </div>
-    <div style="overflow-x:auto; margin-top:12px">
-        <table class="dtbl">
+    <div class="tbl-wrap" style="margin-top:12px">
+        <table class="tbl">
             <thead>
                 <tr>
                     <th>NDP</th>
@@ -111,23 +126,26 @@
             <tbody>
                 {% for ep in derniers %}
                 <tr>
-                    <td class="dt-ndp">{{ ep.ndp }}</td>
+                    <td style="font-weight:600;color:var(--primary)">{{ ep.ndp }}</td>
                     <td>{{ ep.patient.full_name }}</td>
                     <td>{{ ep.get_type_patient_display() }}</td>
                     <td>{{ ep.get_site_maladie_display() }}</td>
                     <td>
-                        {% if ep.statut == 'EN_TRAITEMENT' or ep.statut == 'PROVISOIRE' or ep.statut == 'CONFIRME' %}
-                        <span class="dbadge dbadge-green">En cours</span>
+                        {% if ep.statut in ['EN_TRAITEMENT', 'PROVISOIRE', 'CONFIRME'] %}
+                        <span class="badge ok">En cours</span>
                         {% elif ep.statut == 'CLOTURE' %}
-                        <span class="dbadge dbadge-blue">{{ ep.resultat_final or 'Clôturé' }}</span>
+                        <span class="badge info">{{ ep.resultat_final or 'Clôturé' }}</span>
                         {% else %}
-                        <span class="dbadge dbadge-gray">{{ ep.get_statut_display() }}</span>
+                        <span class="badge mut">{{ ep.get_statut_display() }}</span>
                         {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
                 {% if not derniers %}
-                <tr><td colspan="5" class="dt-empty">Aucun cas enregistré</td></tr>
+                <tr><td colspan="5" class="empty" style="border:none">
+                    <i class="inbox icon"></i>
+                    <div class="e-t">Aucun cas enregistré</div>
+                </td></tr>
                 {% endif %}
             </tbody>
         </table>
@@ -135,133 +153,10 @@
 </div>
 {% endblock %}
 
-{% block extra_css %}
-<style>
-/* ─── Grid ─── */
-.dgrid-four {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-}
-.dgrid-two {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-}
-@media (max-width:1000px) {
-    .dgrid-four { grid-template-columns: repeat(2, 1fr); }
-    .dgrid-two { grid-template-columns: 1fr; }
-}
-@media (max-width:560px) {
-    .dgrid-four { grid-template-columns: 1fr 1fr; }
-}
-
-/* ─── Stat cards ─── */
-.dstat {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    background: var(--bg);
-    border-radius: 14px;
-    padding: 20px 22px;
-    transition: transform .15s, box-shadow .15s;
-}
-.dstat:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
-}
-.dstat-ico {
-    width: 46px;
-    height: 46px;
-    border-radius: 12px;
-    background: rgba(255,255,255,0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    color: var(--fg);
-    flex-shrink: 0;
-}
-.dstat-info { flex: 1; min-width: 0; }
-.dstat-label {
-    font-size: 12.5px;
-    font-weight: 500;
-    color: var(--ink2, #6b7280);
-    margin-bottom: 4px;
-}
-.dstat-val {
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--ink, #111827);
-    line-height: 1.1;
-    letter-spacing: -0.3px;
-}
-
-/* ─── Section / period ─── */
-.dcard-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.dsection {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--ink, #111827);
-    margin: 0;
-}
-.dperiod {
-    font-size: 11.5px;
-    font-weight: 500;
-    color: var(--ink2, #6b7280);
-    background: #f3f4f6;
-    padding: 4px 10px;
-    border-radius: 6px;
-}
-
-/* ─── Table ─── */
-.dtbl {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-}
-.dtbl thead th {
-    text-align: left;
-    padding: 8px 0;
-    font-weight: 600;
-    font-size: 11.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: var(--ink2, #6b7280);
-    border-bottom: 1px solid #f0f0f0;
-}
-.dtbl tbody td {
-    padding: 10px 0;
-    border-bottom: 1px solid #f8f8f8;
-    color: var(--ink, #1f2937);
-}
-.dtbl tbody tr:last-child td { border-bottom: none; }
-.dtbl tbody tr:hover { background: #fafbfc; }
-.dt-ndp { font-weight: 600; color: var(--primary, #375a83); }
-.dt-empty { text-align: center; color: var(--ink-muted, #9ca3af); padding: 24px 0 !important; }
-
-.dbadge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 6px;
-    font-size: 11.5px;
-    font-weight: 500;
-}
-.dbadge-green { background: #ecfdf5; color: #059669; }
-.dbadge-blue  { background: #eff6ff; color: #2563eb; }
-.dbadge-gray  { background: #f3f4f6; color: #6b7280; }
-</style>
-{% endblock %}
-
 {% block app_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
 (function() {
-    /* ─── Courbe évolution (aire) ─── */
     new Chart(document.getElementById('chartEvolution'), {
         type: 'line',
         data: {
@@ -272,44 +167,32 @@
                     data: {{ mois_nouveaux|safe }},
                     borderColor: '#818cf8',
                     backgroundColor: 'rgba(129,140,248,0.10)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 3,
-                    pointBackgroundColor: '#818cf8',
-                    borderWidth: 2
+                    fill: true, tension: 0.4, pointRadius: 3,
+                    pointBackgroundColor: '#818cf8', borderWidth: 2
                 },
                 {
                     label: 'Rechutes',
                     data: {{ mois_rechutes|safe }},
                     borderColor: '#c084fc',
                     backgroundColor: 'rgba(192,132,252,0.08)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 3,
-                    pointBackgroundColor: '#c084fc',
-                    borderWidth: 2
+                    fill: true, tension: 0.4, pointRadius: 3,
+                    pointBackgroundColor: '#c084fc', borderWidth: 2
                 },
                 {
                     label: 'Abandons',
                     data: {{ mois_abandons|safe }},
                     borderColor: '#fb923c',
                     backgroundColor: 'rgba(251,146,60,0.08)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 3,
-                    pointBackgroundColor: '#fb923c',
-                    borderWidth: 2
+                    fill: true, tension: 0.4, pointRadius: 3,
+                    pointBackgroundColor: '#fb923c', borderWidth: 2
                 },
                 {
                     label: 'Décès',
                     data: {{ mois_deces|safe }},
                     borderColor: '#f87171',
                     backgroundColor: 'rgba(248,113,113,0.08)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 3,
-                    pointBackgroundColor: '#f87171',
-                    borderWidth: 2
+                    fill: true, tension: 0.4, pointRadius: 3,
+                    pointBackgroundColor: '#f87171', borderWidth: 2
                 }
             ]
         },
@@ -329,7 +212,6 @@
         }
     });
 
-    /* ─── Barres type ─── */
     new Chart(document.getElementById('chartType'), {
         type: 'bar',
         data: {

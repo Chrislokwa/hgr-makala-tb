@@ -1,5 +1,6 @@
+<div class="rapport-grid">
 {% for r in rapports %}
-<div class="fcard" style="margin-top:0;margin-bottom:12px">
+<div class="fcard rapport-item{% if loop.index > 4 %} rapport-wide{% endif %}" style="margin-top:0;margin-bottom:12px">
     <div style="display:flex;align-items:center;gap:12px">
         <div style="flex:1">
             <div class="fcard-h" style="border:none;padding:0;margin-bottom:4px"><h2><i class="{{ r.icone }} icon"></i>{{ r.titre }}</h2></div>
@@ -24,3 +25,4 @@
     </div>
 </div>
 {% endfor %}
+</div>

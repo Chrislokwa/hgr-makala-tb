@@ -1108,6 +1108,16 @@ tr.off td {
     font-size: 16px
 }
 
+/* ---------- Reporting : grille rapports --------------------------------------- */
+.rapport-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px
+}
+.rapport-item:nth-child(n+5) {
+    grid-column: span 2
+}
+
 .grid.two {
     display: grid;
     grid-template-columns: 1fr 1fr;

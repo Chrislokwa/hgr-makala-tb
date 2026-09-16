@@ -5,7 +5,7 @@
       hx-target="#rapport-detail-body"
       hx-trigger="change delay:300ms"
       hx-include="#rapport-detail-filters">
-    <div id="rapport-detail-filters" class="grid two" style="margin-bottom:16px">
+    <div id="rapport-detail-filters" class="grid {% if rapport_id in ['en_cours', 'cohorte'] %}three{% else %}two{% endif %}" style="margin-bottom:16px">
         <div class="field">
             <label>Sexe</label>
             <select name="sexe">

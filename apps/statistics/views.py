@@ -644,4 +644,7 @@ class RapportDetailView(StatisticienRequiredMixin, View):
             ],
         }
 
+        if request.headers.get('HX-Request'):
+            return render(request, 'statistics/rapport_detail_body.html', context)
+
         return render(request, self.template_name, context)

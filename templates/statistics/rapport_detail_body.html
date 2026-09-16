@@ -25,10 +25,14 @@
                 <td>{{ ep.get_type_patient_display() }}</td>
                 <td>{{ ep.get_site_maladie_display() }}</td>
                 <td>
-                    {% if ep.statut in ['EN_TRAITEMENT', 'PROVISOIRE', 'CONFIRME'] %}
-                    <span class="badge ok">En cours</span>
+                    {% if ep.statut == 'EN_TRAITEMENT' %}
+                    <span class="badge ok">En traitement</span>
+                    {% elif ep.statut == 'CONFIRME' %}
+                    <span class="badge info">Confirmé</span>
+                    {% elif ep.statut == 'PROVISOIRE' %}
+                    <span class="badge mut">Provisoire</span>
                     {% elif ep.statut == 'CLOTURE' %}
-                    <span class="badge info">{{ ep.resultat_final or 'Clôturé' }}</span>
+                    <span class="badge" style="background:#e8f5e9;color:#2e7d32">{{ ep.resultat_final or 'Clôturé' }}</span>
                     {% else %}
                     <span class="badge mut">{{ ep.get_statut_display() }}</span>
                     {% endif %}

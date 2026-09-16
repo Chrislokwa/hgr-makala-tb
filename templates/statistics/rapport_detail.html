@@ -18,5 +18,12 @@
     </a>
 </div>
 
-{% include 'statistics/rapport_detail_body.html' %}
+<div class="fcard" style="margin-top:0">
+    <div class="fcard-h"><h2><i class="filter icon"></i>Filtres du rapport</h2></div>
+    {% include 'statistics/rapport_detail_filters.html' %}
+</div>
+
+<div id="rapport-detail-body">
+    {% include 'statistics/rapport_detail_body.html' %}
+</div>
 {% endblock %}

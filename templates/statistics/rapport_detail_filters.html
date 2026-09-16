@@ -1,0 +1,57 @@
+{% set base_q = 'type_filter=' ~ type_filter ~ '&valeur=' ~ valeur_filter ~ '&annee=' ~ annee ~ '&date_debut=' ~ date_debut ~ '&date_fin=' ~ date_fin %}
+
+<form class="ui form" id="rapportDetailForm"
+      hx-get="{{ url('statistics_rapport_detail', rapport_id=rapport_id) }}"
+      hx-target="#rapport-detail-body"
+      hx-trigger="change delay:300ms"
+      hx-include="#rapport-detail-filters">
+    <div id="rapport-detail-filters" class="grid two" style="margin-bottom:16px">
+        <div class="field">
+            <label>Sexe</label>
+            <select name="sexe">
+                <option value="">Tous</option>
+                {% for code, label in sexe_choices %}
+                <option value="{{ code }}" {% if code == sexe %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="field">
+            <label>Site maladie</label>
+            <select name="site_maladie">
+                <option value="">Tous</option>
+                {% for code, label in site_maladie_choices %}
+                <option value="{{ code }}" {% if code == site_maladie %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {% if rapport_id == 'en_cours' %}
+        <div class="field">
+            <label>Statut</label>
+            <select name="statut">
+                <option value="">Tous</option>
+                {% for code, label in statut_en_cours_choices %}
+                <option value="{{ code }}" {% if code == statut %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        {% if rapport_id == 'cohorte' %}
+        <div class="field">
+            <label>Résultat final</label>
+            <select name="resultat_final">
+                <option value="">Tous</option>
+                {% for code, label in resultat_final_choices %}
+                <option value="{{ code }}" {% if code == resultat_final %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+    </div>
+    <input type="hidden" name="type_filter" value="{{ type_filter }}">
+    <input type="hidden" name="valeur" value="{{ valeur_filter }}">
+    <input type="hidden" name="annee" value="{{ annee }}">
+    <input type="hidden" name="date_debut" value="{{ date_debut }}">
+    <input type="hidden" name="date_fin" value="{{ date_fin }}">
+</form>

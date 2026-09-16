@@ -503,18 +503,26 @@ def _get_periode_filters(request):
     return annee, type_filter, valeur, date_debut, date_fin, debut, fin, periode_label
 
 
-def _rapport_queryset(rapport_id, debut, fin):
+def _rapport_queryset(rapport_id, debut, fin, sexe='', site_maladie='', statut='', resultat_final=''):
     qs = EpisodeTB.objects.filter(date_ouverture__gte=debut, date_ouverture__lte=fin)
     if rapport_id == 'nouveaux':
         qs = qs.filter(type_patient=TypePatient.NOUVEAU)
     elif rapport_id == 'en_cours':
         qs = qs.filter(statut__in=[StatutEpisodeTB.PROVISOIRE, StatutEpisodeTB.CONFIRME, StatutEpisodeTB.EN_TRAITEMENT])
+        if statut:
+            qs = qs.filter(statut=statut)
     elif rapport_id == 'cohorte':
         qs = qs.filter(statut=StatutEpisodeTB.CLOTURE, resultat_final__in=['GUERI', 'TERMINE', 'ECHEC', 'PERDU_DE_VUE', 'DECEDE', 'TRANSFERE'])
+        if resultat_final:
+            qs = qs.filter(resultat_final=resultat_final)
     elif rapport_id == 'abandons':
         qs = qs.filter(statut=StatutEpisodeTB.CLOTURE, resultat_final='PERDU_DE_VUE')
     elif rapport_id == 'rechutes':
         qs = qs.filter(type_patient=TypePatient.RECHUTE)
+    if sexe:
+        qs = qs.filter(patient__sexe=sexe)
+    if site_maladie:
+        qs = qs.filter(site_maladie=site_maladie)
     return qs.select_related('patient')
 
 
@@ -577,7 +585,11 @@ class RapportDetailView(StatisticienRequiredMixin, View):
             return HttpResponse('Rapport introuvable', status=404)
 
         annee, type_filter, valeur, date_debut, date_fin, debut, fin, periode_label = _get_periode_filters(request)
-        qs = _rapport_queryset(rapport_id, debut, fin)
+        sexe = request.GET.get('sexe', '')
+        site_maladie = request.GET.get('site_maladie', '')
+        statut = request.GET.get('statut', '')
+        resultat_final = request.GET.get('resultat_final', '')
+        qs = _rapport_queryset(rapport_id, debut, fin, sexe, site_maladie, statut, resultat_final)
         iv, suffixe = _build_rapport_indicateur(rapport_id, qs)
         total = qs.count()
 
@@ -611,6 +623,25 @@ class RapportDetailView(StatisticienRequiredMixin, View):
             'date_debut': date_debut.strftime('%Y-%m-%d') if date_debut else '',
             'date_fin': date_fin.strftime('%Y-%m-%d') if date_fin else '',
             'active_nav': 'statistics_reporting',
+            'sexe': sexe,
+            'site_maladie': site_maladie,
+            'statut': statut,
+            'resultat_final': resultat_final,
+            'sexe_choices': Sexe.choices,
+            'site_maladie_choices': SiteMaladie.choices,
+            'statut_en_cours_choices': [
+                (StatutEpisodeTB.PROVISOIRE, 'Provisoire'),
+                (StatutEpisodeTB.CONFIRME, 'Confirmé'),
+                (StatutEpisodeTB.EN_TRAITEMENT, 'En traitement'),
+            ],
+            'resultat_final_choices': [
+                ('GUERI', 'Guéri'),
+                ('TERMINE', 'Terminé'),
+                ('ECHEC', 'Échec'),
+                ('PERDU_DE_VUE', 'Perdu de vue'),
+                ('DECEDE', 'Décédé'),
+                ('TRANSFERE', 'Transféré'),
+            ],
         }
 
         return render(request, self.template_name, context)
